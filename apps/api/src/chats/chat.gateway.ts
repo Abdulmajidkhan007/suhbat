@@ -141,6 +141,25 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     });
   }
 
+  /**
+   * Yangi chat ochilganda a'zolar bir-birining onlayn holatini bilmaydi
+   * (ulanish paytida umumiy chat yo'q edi) — har biriga qolganlarini yuboramiz.
+   */
+  async syncPresence(memberIds: string[]) {
+    const lastSeen = await this.chats.lastSeenOf(memberIds);
+    for (const to of memberIds) {
+      for (const about of memberIds) {
+        if (about === to) continue;
+        const online = this.presence.isOnline(about);
+        this.server.to(userRoom(to)).emit(WsEvent.PresenceUpdate, {
+          userId:     about,
+          online,
+          lastSeenAt: online ? null : (lastSeen.get(about) ?? null),
+        });
+      }
+    }
+  }
+
   /** REST orqali yuborilgan xabar ham shu yerdan tarqatiladi. */
   emitMessageNew(message: Message, memberIds: string[], clientId?: string) {
     const others = memberIds.filter((id) => id !== message.senderId);

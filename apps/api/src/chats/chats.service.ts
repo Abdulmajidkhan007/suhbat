@@ -146,6 +146,14 @@ export class ChatsService {
     return rows.map((r) => r.userId);
   }
 
+  async lastSeenOf(userIds: string[]): Promise<Map<string, string>> {
+    const rows = await this.prisma.user.findMany({
+      where:  { id: { in: userIds }, lastSeenAt: { not: null } },
+      select: { id: true, lastSeenAt: true },
+    });
+    return new Map(rows.map((r) => [r.id, r.lastSeenAt!.toISOString()]));
+  }
+
   async touchLastSeen(userId: string, at: Date): Promise<void> {
     await this.prisma.user.updateMany({ where: { id: userId }, data: { lastSeenAt: at } });
   }

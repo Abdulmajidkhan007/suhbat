@@ -76,7 +76,7 @@ describe('Chat (e2e)', () => {
     const gani = mkApi();
     const aliUser = await ali.register({ email: emails.ali, password: '12345678', displayName: `Botir ${stamp}` });
     const valiUser = await vali.register({ email: emails.vali, password: '12345678', displayName: `Vali ${stamp}` });
-    await gani.register({ email: emails.gani, password: '12345678', displayName: 'Gani E2E' });
+    const ganiUser = await gani.register({ email: emails.gani, password: '12345678', displayName: 'Gani E2E' });
 
     // Qidiruv: katta-kichik harf farqsiz, o'zini qaytarmaydi
     const found = await ali.searchUsers(`VALI ${stamp}`);
@@ -158,6 +158,13 @@ describe('Chat (e2e)', () => {
     const list = await vali.listChats();
     expect(list[0]).toMatchObject({ id: chat.id, unreadCount: 4, lastMessage: expect.objectContaining({ content: 'm4' }) });
 
+    // Ikkalasi ulangan holda yangi chat ochilsa — bir-birining onlayn holatini oladi
+    const aliSeesGani = next(aliWs, 'presence:update', (p) => p.userId === ganiUser.id);
+    const ganiSeesAli = next(ganiWs, 'presence:update', (p) => p.userId === aliUser.id);
+    await ali.createDirectChat(ganiUser.id);
+    expect(await aliSeesGani).toEqual({ userId: ganiUser.id, online: true, lastSeenAt: null });
+    expect(await ganiSeesAli).toEqual({ userId: aliUser.id, online: true, lastSeenAt: null });
+
     // Vali uziladi → Ali "offline" + lastSeenAt oladi
     const valiOffline = next(aliWs, 'presence:update', (p) => p.userId === valiUser.id && !p.online);
     valiWs.disconnect();
@@ -220,6 +227,7 @@ describe('Chat (e2e)', () => {
       .set('Authorization', bearer)
       .send({ userId: '00000000-0000-4000-8000-000000000000' })
       .expect(404);
-    await request(server).get('/chats').set('Authorization', bearer).expect(200, []);
+    const chats = await request(server).get('/chats').set('Authorization', bearer).expect(200);
+    expect(chats.body).toHaveLength(1); // Ali bilan (birinchi testda ochilgan)
   });
 });

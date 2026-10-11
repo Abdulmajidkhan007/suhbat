@@ -23,11 +23,13 @@ export class ChatsController {
   /** Idempotent: juftlik uchun chat bor bo'lsa — o'sha qaytadi. */
   @Post('direct')
   @HttpCode(200)
-  createDirect(
+  async createDirect(
     @Req() req: AuthedRequest,
     @Body(new ZodValidationPipe(CreateDirectChatInputSchema)) body: CreateDirectChatInput,
   ) {
-    return this.chats.createDirect(req.user.sub, body.userId);
+    const chat = await this.chats.createDirect(req.user.sub, body.userId);
+    await this.gateway.syncPresence(chat.members.map((m) => m.user.id));
+    return chat;
   }
 
   @Get(':id')
