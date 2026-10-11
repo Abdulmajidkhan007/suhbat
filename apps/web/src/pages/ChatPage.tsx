@@ -12,6 +12,7 @@ import { signOut } from '../features/auth/authSlice';
 import { useChats } from '../hooks/useChats';
 import { useMessages } from '../hooks/useMessages';
 import { usePresence } from '../hooks/usePresence';
+import { useRealtime } from '../hooks/useRealtime';
 import { selectActiveChat, selectSortedChats } from '../features/chats/chatsSelectors';
 
 import AppShell from '../components/layout/AppShell';
@@ -20,9 +21,6 @@ import ChatHeader from '../components/layout/ChatHeader';
 import MessageList from '../components/chat/MessageList';
 import MessageComposer from '../components/chat/MessageComposer';
 import NewChatDialog from '../components/chat/NewChatDialog';
-import CreateGroupDialog from '../components/chat/CreateGroupDialog';
-import CreateChannelDialog from '../components/chat/CreateChannelDialog';
-import AddMemberDialog from '../components/chat/AddMemberDialog';
 import EmptyState from '../components/ui/EmptyState';
 
 import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
@@ -37,30 +35,26 @@ const ChatPage: React.FC = () => {
   const user       = useAppSelector((s) => s.auth.user)!;
   const activeChat = useAppSelector(selectActiveChat);
   const chats      = useAppSelector(selectSortedChats);
-  const chatsState = useAppSelector((s) => s.chats);
 
-  const [newChatOpen, setNewChatOpen]             = useState(false);
-  const [groupDialogOpen, setGroupDialogOpen]     = useState(false);
-  const [channelDialogOpen, setChannelDialogOpen] = useState(false);
-  const [addMemberOpen, setAddMemberOpen]         = useState(false);
+  const [newChatOpen, setNewChatOpen] = useState(false);
 
-  useChats();
+  useRealtime(true);
+  const chatsState = useChats();
+  const { onlineUsers, isOnline } = usePresence();
 
   useEffect(() => {
     if (chatId) {
       dispatch(setActiveChat(chatId));
     } else if (!isMobile && chats.length > 0) {
       navigate(`/${chats[0].id}`, { replace: true });
+    } else {
+      dispatch(setActiveChat(null));
     }
   }, [chatId, chats, dispatch, navigate, isMobile]);
 
-  const { messages, loading: msgLoading, error: msgError, sendMessage, setTyping } = useMessages(
-    activeChat?.id ?? null,
-  );
-
-  const allParticipants    = chats.flatMap((c) => c.participants);
-  const uniqueParticipants = Array.from(new Set(allParticipants));
-  const { isOnline }       = usePresence(uniqueParticipants);
+  const {
+    messages, loading: msgLoading, error: msgError, hasOlder, loadingOlder, loadOlder, sendMessage, setTyping,
+  } = useMessages(activeChat?.id ?? null);
 
   const handleSelectChat = useCallback(
     (id: string) => {
@@ -76,26 +70,11 @@ const ChatPage: React.FC = () => {
       await dispatch(signOut());
       navigate('/login');
     } catch {
-      toast.error('Sign out failed.');
+      toast.error('Chiqishda xato.');
     }
   }, [dispatch, navigate]);
 
   const handleNewChatCreated = useCallback(
-    (id: string) => {
-      handleSelectChat(id);
-      toast.success('Suhbat boshlandi!');
-    },
-    [handleSelectChat],
-  );
-
-  const handleGroupCreated = useCallback(
-    (id: string) => {
-      handleSelectChat(id);
-    },
-    [handleSelectChat],
-  );
-
-  const handleChannelCreated = useCallback(
     (id: string) => {
       handleSelectChat(id);
     },
@@ -103,7 +82,7 @@ const ChatPage: React.FC = () => {
   );
 
   const handleAttach = useCallback(async (_file: File) => {
-    toast('Fayl yuklash Firebase Storage talab qiladi (yoqilmagan).', { icon: '📎' });
+    toast('Fayl yuborish 2-fazada qo\'shiladi.', { icon: '📎' });
   }, []);
 
   const typingUsers = activeChat
@@ -116,11 +95,6 @@ const ChatPage: React.FC = () => {
     ? Object.values(activeChat.participantDetails).find((p) => p.uid !== user.uid)?.uid ?? ''
     : '';
 
-  const isChannelViewer =
-    activeChat?.type === 'channel' &&
-    activeChat.ownerId !== user.uid &&
-    !(activeChat.admins ?? []).includes(user.uid);
-
   const sidebar = (
     <Sidebar
       user={user}
@@ -128,12 +102,11 @@ const ChatPage: React.FC = () => {
       activeChatId={chatsState.activeChatId}
       loading={chatsState.loading}
       error={chatsState.error}
-      onlineUsers={Object.fromEntries(uniqueParticipants.map((uid) => [uid, isOnline(uid)]))}
+      onlineUsers={onlineUsers}
       onSelectChat={handleSelectChat}
       onNewChat={() => setNewChatOpen(true)}
-      onNewGroup={() => setGroupDialogOpen(true)}
-      onNewChannel={() => setChannelDialogOpen(true)}
       onSignOut={handleSignOut}
+      onRetryChats={chatsState.retry}
     />
   );
 
@@ -155,7 +128,6 @@ const ChatPage: React.FC = () => {
               isOnline={isOnline(otherParticipantId)}
               onMenuClick={() => dispatch(setSidebarOpen(true))}
               showMenuButton={isMobile}
-              onAddMember={() => setAddMemberOpen(true)}
             />
             <Box className="flex-1 flex flex-col overflow-hidden">
               <MessageList
@@ -164,13 +136,15 @@ const ChatPage: React.FC = () => {
                 loading={msgLoading}
                 error={msgError}
                 typingNames={typingUsers}
+                hasOlder={hasOlder}
+                loadingOlder={loadingOlder}
+                onLoadOlder={loadOlder}
               />
               <MessageComposer
                 onSend={sendMessage}
                 onTyping={setTyping}
                 onAttach={handleAttach}
-                disabled={isChannelViewer}
-                placeholder={isChannelViewer ? 'Faqat adminlar yozishi mumkin' : 'Xabar yozing…'}
+                placeholder="Xabar yozing…"
               />
             </Box>
           </motion.div>
@@ -201,23 +175,6 @@ const ChatPage: React.FC = () => {
         onClose={() => setNewChatOpen(false)}
         onChatCreated={handleNewChatCreated}
       />
-      <CreateGroupDialog
-        open={groupDialogOpen}
-        onClose={() => setGroupDialogOpen(false)}
-        onGroupCreated={handleGroupCreated}
-      />
-      <CreateChannelDialog
-        open={channelDialogOpen}
-        onClose={() => setChannelDialogOpen(false)}
-        onChannelCreated={handleChannelCreated}
-      />
-      {activeChat && activeChat.type !== 'direct' && (
-        <AddMemberDialog
-          open={addMemberOpen}
-          onClose={() => setAddMemberOpen(false)}
-          chat={activeChat}
-        />
-      )}
     </>
   );
 };

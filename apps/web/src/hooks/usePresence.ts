@@ -1,24 +1,10 @@
 // src/hooks/usePresence.ts
-import { useEffect } from 'react';
-import { useAppDispatch, useAppSelector } from '../app/hooks';
-import { setPresence } from '../features/presence/presenceSlice';
-import { subscribeToPresence } from '../services/presenceService';
+import { useCallback } from 'react';
+import { useAppSelector } from '../app/hooks';
 
-export const usePresence = (userIds: string[]) => {
-  const dispatch    = useAppDispatch();
+/** Onlayn holat WebSocket orqali keladi (`useRealtime`). */
+export const usePresence = () => {
   const onlineUsers = useAppSelector((s) => s.presence.onlineUsers);
-
-  // Stable key from joined IDs — intentional dep expression
-  const idsKey = userIds.join(',');
-
-  useEffect(() => {
-    if (userIds.length === 0) return;
-    const unsub = subscribeToPresence(userIds, (map) => dispatch(setPresence(map)));
-    return unsub;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, dispatch]);
-
-  const isOnline = (uid: string) => onlineUsers[uid] ?? false;
-
+  const isOnline    = useCallback((uid: string) => onlineUsers[uid] ?? false, [onlineUsers]);
   return { onlineUsers, isOnline };
 };

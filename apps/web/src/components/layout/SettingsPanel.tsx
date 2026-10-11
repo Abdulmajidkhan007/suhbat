@@ -1,46 +1,22 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Box, Typography, TextField, Divider, IconButton,
-  Tooltip, Avatar, CircularProgress,
+  Box, Typography, TextField, Divider, IconButton, Avatar,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import CheckIcon from '@mui/icons-material/Check';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import { motion } from 'framer-motion';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { setActivePanel } from '../../features/ui/uiSlice';
-import { setUser } from '../../features/auth/authSlice';
 import { setTheme } from '../../features/theme/themeSlice';
-import { updateUserProfile } from '../../services/userService';
 import { getAvatarColor } from '../../utils/colors';
 import { getInitials } from '../../utils/formatters';
 import { ThemeMode } from '../../types';
-import toast from 'react-hot-toast';
 
 const SettingsPanel: React.FC = () => {
   const dispatch   = useAppDispatch();
   const user       = useAppSelector((s) => s.auth.user)!;
   const mode       = useAppSelector((s) => s.theme.mode);
-  const [name, setName]       = useState(user.displayName);
-  const [saving, setSaving]   = useState(false);
-
-  const hasChanges = name.trim() !== user.displayName && name.trim().length >= 2;
-
-  const handleSave = async () => {
-    if (!hasChanges) return;
-    setSaving(true);
-    try {
-      await updateUserProfile(user.uid, { displayName: name.trim() });
-      dispatch(setUser({ ...user, displayName: name.trim() }));
-      toast.success('Profile updated.');
-    } catch {
-      toast.error('Could not update profile.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const themes: { label: string; value: ThemeMode; icon: React.ReactNode }[] = [
     { label: 'Light', value: 'light', icon: <LightModeIcon fontSize="small" /> },
     { label: 'Dark',  value: 'dark',  icon: <DarkModeIcon  fontSize="small" /> },
@@ -88,38 +64,15 @@ const SettingsPanel: React.FC = () => {
               {!user.photoURL && getInitials(user.displayName)}
             </Avatar>
 
-            <Box className="w-full relative">
-              <TextField
-                label="Display name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                fullWidth
-                size="small"
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-              />
-              {hasChanges && (
-                <Tooltip title="Save name">
-                  <IconButton
-                    size="small"
-                    onClick={handleSave}
-                    disabled={saving}
-                    sx={{
-                      position:  'absolute',
-                      right:     8,
-                      top:       '50%',
-                      transform: 'translateY(-50%)',
-                      bgcolor:   'primary.main',
-                      color:     'white',
-                      '&:hover': { bgcolor: 'primary.dark' },
-                      width:     28,
-                      height:    28,
-                    }}
-                  >
-                    {saving ? <CircularProgress size={14} color="inherit" /> : <CheckIcon sx={{ fontSize: 16 }} />}
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
+            <TextField
+              label="Ism"
+              value={user.displayName}
+              fullWidth
+              size="small"
+              disabled
+              helperText="Profilni tahrirlash — tez orada"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+            />
 
             <Typography variant="caption" color="text.secondary">
               {user.email}
@@ -168,10 +121,10 @@ const SettingsPanel: React.FC = () => {
         {/* App info */}
         <div className="mt-auto">
           <Typography variant="caption" color="text.disabled" align="center" sx={{ display: 'block' }}>
-            ChatApp v1.0.0
+            suhbat
           </Typography>
           <Typography variant="caption" color="text.disabled" align="center" sx={{ display: 'block' }}>
-            Built with React · Firebase · MUI
+            React · NestJS · Socket.IO
           </Typography>
         </div>
       </Box>

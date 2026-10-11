@@ -3,23 +3,48 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { MessagesState, Message } from '../../types';
 
 const initialState: MessagesState = {
-  messagesByChatId: {},
-  loadingByChatId:  {},
-  errorByChatId:    {},
+  messagesByChatId:     {},
+  loadingByChatId:      {},
+  errorByChatId:        {},
+  nextCursorByChatId:   {},
+  loadingOlderByChatId: {},
 };
+
+const byTime = (a: Message, b: Message) => a.createdAt - b.createdAt;
 
 const messagesSlice = createSlice({
   name: 'messages',
   initialState,
   reducers: {
-    setMessages(state, action: PayloadAction<{ chatId: string; messages: Message[] }>) {
-      const { chatId, messages } = action.payload;
-      state.messagesByChatId[chatId] = messages;
-      state.loadingByChatId[chatId]  = false;
-      state.errorByChatId[chatId]    = null;
+    /** Birinchi sahifa. Hali yuborilayotgan optimistik xabarlar saqlanadi. */
+    setMessages(
+      state,
+      action: PayloadAction<{ chatId: string; messages: Message[]; nextCursor: string | null }>,
+    ) {
+      const { chatId, messages, nextCursor } = action.payload;
+      const ids = new Set(messages.map((m) => m.id));
+      const pending = (state.messagesByChatId[chatId] ?? []).filter((m) => m.isOptimistic && !ids.has(m.id));
+      state.messagesByChatId[chatId]   = [...messages, ...pending];
+      state.nextCursorByChatId[chatId] = nextCursor;
+      state.loadingByChatId[chatId]    = false;
+      state.errorByChatId[chatId]      = null;
+    },
+    prependOlder(
+      state,
+      action: PayloadAction<{ chatId: string; messages: Message[]; nextCursor: string | null }>,
+    ) {
+      const { chatId, messages, nextCursor } = action.payload;
+      const current = state.messagesByChatId[chatId] ?? [];
+      const ids = new Set(current.map((m) => m.id));
+      state.messagesByChatId[chatId]     = [...messages.filter((m) => !ids.has(m.id)), ...current];
+      state.nextCursorByChatId[chatId]   = nextCursor;
+      state.loadingOlderByChatId[chatId] = false;
     },
     setMessagesLoading(state, action: PayloadAction<{ chatId: string; loading: boolean }>) {
       state.loadingByChatId[action.payload.chatId] = action.payload.loading;
+    },
+    setLoadingOlder(state, action: PayloadAction<{ chatId: string; loading: boolean }>) {
+      state.loadingOlderByChatId[action.payload.chatId] = action.payload.loading;
     },
     setMessagesError(state, action: PayloadAction<{ chatId: string; error: string }>) {
       state.errorByChatId[action.payload.chatId]   = action.payload.error;
@@ -29,6 +54,30 @@ const messagesSlice = createSlice({
       const { chatId } = action.payload;
       if (!state.messagesByChatId[chatId]) state.messagesByChatId[chatId] = [];
       state.messagesByChatId[chatId].push(action.payload);
+    },
+    /**
+     * Serverdan kelgan xabar (ack yoki `message:new`). `clientId` optimistik
+     * xabarga mos kelsa — o'rniga qo'yiladi; id allaqachon bo'lsa — takrorlanmaydi.
+     */
+    messageReceived(state, action: PayloadAction<{ message: Message; clientId?: string }>) {
+      const { message, clientId } = action.payload;
+      const list = state.messagesByChatId[message.chatId];
+      if (!list) return; // chat hali ochilmagan — tarix ochilganda yuklanadi
+      const withoutTemp = clientId ? list.filter((m) => m.id !== clientId) : list;
+      const existing = withoutTemp.findIndex((m) => m.id === message.id);
+      if (existing >= 0) {
+        withoutTemp[existing] = { ...message, status: withoutTemp[existing].status === 'read' ? 'read' : message.status };
+        state.messagesByChatId[message.chatId] = withoutTemp;
+        return;
+      }
+      const last = withoutTemp[withoutTemp.length - 1];
+      withoutTemp.push(message);
+      if (last && last.createdAt > message.createdAt && !last.isOptimistic) withoutTemp.sort(byTime);
+      state.messagesByChatId[message.chatId] = withoutTemp;
+    },
+    markMessageFailed(state, action: PayloadAction<{ chatId: string; tempId: string }>) {
+      const msg = state.messagesByChatId[action.payload.chatId]?.find((m) => m.id === action.payload.tempId);
+      if (msg) msg.status = 'failed';
     },
     removeOptimisticMessage(
       state,
@@ -45,16 +94,26 @@ const messagesSlice = createSlice({
       delete state.messagesByChatId[action.payload];
       delete state.loadingByChatId[action.payload];
       delete state.errorByChatId[action.payload];
+      delete state.nextCursorByChatId[action.payload];
+      delete state.loadingOlderByChatId[action.payload];
+    },
+    resetMessages() {
+      return initialState;
     },
   },
 });
 
 export const {
   setMessages,
+  prependOlder,
   setMessagesLoading,
+  setLoadingOlder,
   setMessagesError,
   appendOptimisticMessage,
+  messageReceived,
+  markMessageFailed,
   removeOptimisticMessage,
   clearMessages,
+  resetMessages,
 } = messagesSlice.actions;
 export default messagesSlice.reducer;

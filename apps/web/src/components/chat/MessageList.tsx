@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Box } from '@mui/material';
+import { Box, Button, CircularProgress } from '@mui/material';
 import { AnimatePresence } from 'framer-motion';
 import MessageBubble from './MessageBubble';
 import { MessageSkeleton } from '../ui/SkeletonLoader';
@@ -16,6 +16,9 @@ interface Props {
   error:        string | null;
   typingNames:  string[];
   onRetry?:     () => void;
+  hasOlder?:    boolean;
+  loadingOlder?: boolean;
+  onLoadOlder?: () => void;
 }
 
 const MessageList: React.FC<Props> = ({
@@ -25,12 +28,18 @@ const MessageList: React.FC<Props> = ({
   error,
   typingNames,
   onRetry,
+  hasOlder = false,
+  loadingOlder = false,
+  onLoadOlder,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const lastId    = messages[messages.length - 1]?.id;
 
+  // Faqat yangi xabar (oxirgisi o'zgarsa) yoki "yozmoqda"da pastga; eskilar
+  // yuqoridan qo'shilganda joy saqlanadi.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, typingNames.length]);
+  }, [lastId, typingNames.length]);
 
   if (loading) return <MessageSkeleton count={6} />;
   if (error)   return <ErrorState message={error} onRetry={onRetry} />;
@@ -39,8 +48,8 @@ const MessageList: React.FC<Props> = ({
     return (
       <EmptyState
         icon={<ChatBubbleOutlineIcon sx={{ fontSize: 48 }} />}
-        title="No messages yet"
-        description="Be the first to say something!"
+        title="Hali xabar yo'q"
+        description="Birinchi bo'lib yozing!"
       />
     );
   }
@@ -51,6 +60,14 @@ const MessageList: React.FC<Props> = ({
       className="flex flex-col flex-1 overflow-y-auto px-4 py-4 gap-1 scroll-smooth"
       sx={{ scrollbarWidth: 'thin', '&::-webkit-scrollbar': { width: '4px' } }}
     >
+      {hasOlder && onLoadOlder && (
+        <Box className="flex justify-center pb-2">
+          <Button size="small" onClick={onLoadOlder} disabled={loadingOlder} sx={{ textTransform: 'none' }}>
+            {loadingOlder ? <CircularProgress size={16} /> : 'Eskiroq xabarlar'}
+          </Button>
+        </Box>
+      )}
+
       <AnimatePresence initial={false}>
         {messages.map((msg, idx) => {
           const prevMsg = messages[idx - 1];

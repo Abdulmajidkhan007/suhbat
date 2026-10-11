@@ -5,7 +5,7 @@ export const isValidEmail = (email: string): boolean => {
 };
 
 export const isValidPassword = (password: string): boolean => {
-  return password.length >= 6;
+  return password.length >= 8 && password.length <= 128;
 };
 
 export const isValidDisplayName = (name: string): boolean => {
@@ -34,6 +34,6 @@ export const validateSignUp = (
   if (!email.trim())                   return { valid: false, message: 'Email is required.' };
   if (!isValidEmail(email))            return { valid: false, message: 'Enter a valid email address.' };
   if (!password)                       return { valid: false, message: 'Password is required.' };
-  if (!isValidPassword(password))      return { valid: false, message: 'Password must be at least 6 characters.' };
+  if (!isValidPassword(password))      return { valid: false, message: 'Parol kamida 8 ta belgi bo\'lishi kerak.' };
   return { valid: true, message: '' };
 };

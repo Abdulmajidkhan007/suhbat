@@ -1,32 +1,33 @@
 // src/hooks/useAuth.ts
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
-import { setUser } from '../features/auth/authSlice';
-import { onAuthChange } from '../services/authService';
-import { initPresence } from '../services/presenceService';
+import { restoreSession, setUser } from '../features/auth/authSlice';
+import { resetChats } from '../features/chats/chatsSlice';
+import { resetMessages } from '../features/messages/messagesSlice';
+import { resetPresence } from '../features/presence/presenceSlice';
+import { setSessionExpiredHandler, socket } from '../services/api';
 
+/** Sessiyani tiklaydi va WebSocket'ni foydalanuvchi bilan birga ulab/uzadi. */
 export const useAuth = () => {
   const dispatch = useAppDispatch();
   const auth     = useAppSelector((s) => s.auth);
+  const uid      = auth.user?.uid;
 
   useEffect(() => {
-    let cleanupPresence: (() => void) | null = null;
-
-    const unsubAuth = onAuthChange((user) => {
-      dispatch(setUser(user));
-      if (user) {
-        cleanupPresence = initPresence(user.uid);
-      } else {
-        cleanupPresence?.();
-        cleanupPresence = null;
-      }
-    });
-
-    return () => {
-      unsubAuth();
-      cleanupPresence?.();
-    };
+    setSessionExpiredHandler(() => dispatch(setUser(null)));
+    void dispatch(restoreSession());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!uid) return;
+    socket.connect();
+    return () => {
+      socket.disconnect();
+      dispatch(resetChats());
+      dispatch(resetMessages());
+      dispatch(resetPresence());
+    };
+  }, [uid, dispatch]);
 
   return auth;
 };

@@ -24,8 +24,6 @@ interface Props {
   onlineUsers:    Record<string, boolean>;
   onSelectChat:   (chatId: string) => void;
   onNewChat?:     () => void;
-  onNewGroup?:    () => void;
-  onNewChannel?:  () => void;
   onSignOut:      () => void;
   onRetryChats?:  () => void;
 }
@@ -39,8 +37,6 @@ const Sidebar: React.FC<Props> = ({
   onlineUsers,
   onSelectChat,
   onNewChat,
-  onNewGroup,
-  onNewChannel,
   onSignOut,
   onRetryChats,
 }) => {
@@ -51,8 +47,6 @@ const Sidebar: React.FC<Props> = ({
   const handleMenuClose = () => setMenuAnchor(null);
 
   const handleNewChat = () => { handleMenuClose(); onNewChat?.(); };
-  const handleNewGroup = () => { handleMenuClose(); onNewGroup?.(); };
-  const handleNewChannel = () => { handleMenuClose(); onNewChannel?.(); };
 
   return (
     <Box
@@ -87,7 +81,7 @@ const Sidebar: React.FC<Props> = ({
               sx={{ minHeight: 64, flexShrink: 0 }}
             >
               <Typography variant="h6" sx={{ letterSpacing: '-0.3px', fontWeight: 700 }}>
-                Messages
+                Suhbatlar
               </Typography>
               <div className="flex items-center gap-1">
                 <ThemeToggle />
@@ -121,13 +115,14 @@ const Sidebar: React.FC<Props> = ({
                 <ListItemIcon><ChatBubbleOutlineOutlinedIcon fontSize="small" /></ListItemIcon>
                 <ListItemText primary="Yangi suhbat" />
               </MenuItem>
-              <MenuItem onClick={handleNewGroup} sx={{ borderRadius: '8px', mx: 0.5 }}>
+              {/* Guruh va kanal — 2-fazada */}
+              <MenuItem disabled sx={{ borderRadius: '8px', mx: 0.5 }}>
                 <ListItemIcon><GroupAddOutlinedIcon fontSize="small" /></ListItemIcon>
-                <ListItemText primary="Yangi guruh" />
+                <ListItemText primary="Yangi guruh" secondary="tez orada" />
               </MenuItem>
-              <MenuItem onClick={handleNewChannel} sx={{ borderRadius: '8px', mx: 0.5 }}>
+              <MenuItem disabled sx={{ borderRadius: '8px', mx: 0.5 }}>
                 <ListItemIcon><CampaignOutlinedIcon fontSize="small" /></ListItemIcon>
-                <ListItemText primary="Yangi kanal" />
+                <ListItemText primary="Yangi kanal" secondary="tez orada" />
               </MenuItem>
             </Menu>
 
