@@ -97,6 +97,10 @@
   Qidiruv endi emailni terib topishga yo'l qo'ymaydi, lekin ism bo'yicha topilgan
   odamning emaili javobda bor. Tuzatish: `PublicUser` (emailsiz) sxemasi — 3-faza
   boshida tavsiya.
+- **MinIO tarqatilishi:** MinIO rasm va binary nashr qilmaydi; biz manbadan quramiz
+  (`docker/minio`, pin qilingan, qurish sekin). Uzoq muddatda S3-mos muqobilga
+  (SeaweedFS, Garage) yoki boshqariladigan S3 (R2, Backblaze) ga o'tish ko'rib chiqilsin
+  — API faqat S3 protokoliga tayanadi.
 - **Media:** tugatilmagan yuklashlar (URL olindi, xabar yuborilmadi) `attachments`
   da `messageId = null` bilan va saqlashda qoladi — tozalash vazifasi yo'q.
   Media uchun rate limit / foydalanuvchi kvotasi yo'q. Kanal/guruh o'chirilganda
@@ -145,13 +149,18 @@
   guruh yaratish, real vaqtda chat paydo bo'lishi, xabar, tahrirlash/o'chirish,
   rasm/PDF/ovozli xabar (Chromium soxta mikrofon), HTML rad etilishi, admin
   tayinlash, kanal yaratish/obuna/yozish cheklovi; mobil (390 px) va qorong'i rejim.
-- **Tekshirilmagan / farq:** lokal muhitda Docker Hub/quay'dan rasm olib bo'lmadi
-  (429/403), shuning uchun **haqiqiy MinIO lokal sinalmadi**: lokal e2e va brauzer
-  tekshiruvi imzoni tekshirmaydigan soxta S3 bilan (`test/helpers.ts`). Haqiqiy
-  MinIO bilan e2e faqat GitHub CI'da (compose'dagi `minio` xizmati ham lokal
-  ko'tarilmagan). Lokal Postgres 16 (CI/compose'da 17). Brauzerdan MinIO'ga
-  `PUT` (CORS), Safari/Firefox'da ovoz yozish, bir nechta API nusxasi, Netlify
-  deploy sinalmagan.
+- **Haqiqiy MinIO bilan lokal:** MinIO rasmi Docker Hub/quay'da ham, binary
+  `dl.min.io` da ham yo'q (410), shuning uchun manbadan qurildi (`go install`,
+  Go proxy orqali, pin: `v0.0.0-20260212201848-7aac2a2c5b7c`) va **12 e2e testning
+  hammasi haqiqiy MinIO bilan o'tdi** (imzolangan PUT, imzodagi hajmga mos kelmagan
+  yuklashni MinIO o'zi rad etishi, GET, o'chirish; brauzer CORS preflight javobi
+  ham to'g'ri). `docker/minio/Dockerfile` (compose va CI shuni quradi) lokal
+  **qurilmadi** — Docker Hub'dan `golang`/`alpine` rasmini tortib bo'lmaydi;
+  faqat CI tekshiradi.
+- **Tekshirilmagan / farq:** brauzerdan MinIO'ga haqiqiy `PUT` (brauzer tekshiruvi
+  soxta S3 bilan o'tgan; preflight faqat curl bilan), Safari/Firefox'da ovoz
+  yozish, bir nechta API nusxasi, Netlify deploy. Lokal Postgres 16
+  (CI/compose'da 17).
 
 ## Maqsad
 Telegram'dek mustaqil messenjer: 1:1 va guruh chatlar, kanallar, media,
