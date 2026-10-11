@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box } from '@mui/material';
+import { Box, IconButton } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme, useMediaQuery } from '@mui/material';
 import toast from 'react-hot-toast';
@@ -212,14 +213,23 @@ const ChatPage: React.FC = () => {
             key="no-chat"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex-1 flex items-center justify-center"
+            className="flex-1 flex flex-col h-full"
           >
-            <EmptyState
-              icon={<ForumOutlinedIcon sx={{ fontSize: 56, opacity: 0.3 }} />}
-              title="Suhbat tanlang"
-              description="Mavjud suhbatlardan birini tanlang yoki yangi suhbat boshlang."
-              action={{ label: 'Yangi suhbat', onClick: () => setNewChatOpen(true) }}
-            />
+            {isMobile && (
+              <Box className="p-2">
+                <IconButton onClick={() => dispatch(setSidebarOpen(true))} aria-label="Open sidebar">
+                  <MenuIcon />
+                </IconButton>
+              </Box>
+            )}
+            <Box className="flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={<ForumOutlinedIcon sx={{ fontSize: 56, opacity: 0.3 }} />}
+                title="Suhbat tanlang"
+                description="Mavjud suhbatlardan birini tanlang yoki yangi suhbat boshlang."
+                action={{ label: 'Yangi suhbat', onClick: () => setNewChatOpen(true) }}
+              />
+            </Box>
           </motion.div>
         )}
       </AnimatePresence>

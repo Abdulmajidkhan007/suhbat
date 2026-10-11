@@ -1,5 +1,5 @@
 import React, { memo, useState } from 'react';
-import { Button, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, Typography, Tooltip } from '@mui/material';
+import { Button, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, Typography } from '@mui/material';
 import DoneIcon from '@mui/icons-material/Done';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -118,80 +118,74 @@ const MessageBubble: React.FC<Props> = memo(({
           </Typography>
         )}
 
-        <Tooltip
-          title={formatMessageTime(message.createdAt)}
-          placement={isSelf ? 'left' : 'right'}
-          arrow
+        <div
+          className={`relative px-3 py-2 rounded-2xl max-w-full break-words ${
+            isSelf
+              ? 'rounded-br-sm bg-blue-600 text-white'
+              : 'rounded-bl-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-soft'
+          } ${message.isOptimistic ? 'opacity-70' : ''}`}
+          style={{ minWidth: 60 }}
         >
-          <div
-            className={`relative px-3 py-2 rounded-2xl max-w-full break-words ${
-              isSelf
-                ? 'rounded-br-sm bg-blue-600 text-white'
-                : 'rounded-bl-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-soft'
-            } ${message.isOptimistic ? 'opacity-70' : ''}`}
-            style={{ minWidth: 60 }}
-          >
-            {editing ? (
-              <div className="flex flex-col gap-1 min-w-[200px]">
-                <textarea
-                  autoFocus
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void saveEdit(); }
-                    if (e.key === 'Escape') setEditing(false);
-                  }}
-                  rows={Math.min(6, Math.max(2, draft.split('\n').length))}
-                  maxLength={4096}
-                  aria-label="Xabarni tahrirlash"
-                  className="w-full resize-none rounded-lg px-2 py-1 text-sm text-gray-900 bg-white focus:outline-none"
-                />
-                <div className="flex justify-end gap-1">
-                  <Button size="small" onClick={() => setEditing(false)} sx={{ color: 'inherit', textTransform: 'none' }}>
-                    Bekor
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="inherit"
-                    disabled={saving || !draft.trim()}
-                    onClick={() => void saveEdit()}
-                    sx={{ textTransform: 'none', color: 'primary.main' }}
-                  >
-                    Saqlash
-                  </Button>
-                </div>
+          {editing ? (
+            <div className="flex flex-col gap-1 min-w-[200px]">
+              <textarea
+                autoFocus
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void saveEdit(); }
+                  if (e.key === 'Escape') setEditing(false);
+                }}
+                rows={Math.min(6, Math.max(2, draft.split('\n').length))}
+                maxLength={4096}
+                aria-label="Xabarni tahrirlash"
+                className="w-full resize-none rounded-lg px-2 py-1 text-sm text-gray-900 bg-white focus:outline-none"
+              />
+              <div className="flex justify-end gap-1">
+                <Button size="small" onClick={() => setEditing(false)} sx={{ color: 'inherit', textTransform: 'none' }}>
+                  Bekor
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="inherit"
+                  disabled={saving || !draft.trim()}
+                  onClick={() => void saveEdit()}
+                  sx={{ textTransform: 'none', color: 'primary.main' }}
+                >
+                  Saqlash
+                </Button>
               </div>
-            ) : (
-              <>
-                {message.attachment && <Attachment message={message} />}
-                {message.content && (
-                  <Typography variant="body2" sx={{ lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap', mt: message.attachment ? 0.5 : 0 }}>
-                    {message.content}
-                  </Typography>
-                )}
-              </>
-            )}
-
-            {isSelf && (
-              <div className="flex items-center justify-end gap-0.5 mt-0.5">
-                {message.editedAt !== null && (
-                  <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.7 }}>tahrirlangan</Typography>
-                )}
-                <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.7 }}>
-                  {formatMessageTime(message.createdAt)}
+            </div>
+          ) : (
+            <>
+              {message.attachment && <Attachment message={message} />}
+              {message.content && (
+                <Typography variant="body2" sx={{ lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap', mt: message.attachment ? 0.5 : 0 }}>
+                  {message.content}
                 </Typography>
-                <StatusIcon status={message.status} />
-              </div>
-            )}
-            {!isSelf && (
-              <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', fontSize: '0.65rem', opacity: 0.5, mt: 0.25 }}>
-                {message.editedAt !== null && 'tahrirlangan · '}
+              )}
+            </>
+          )}
+
+          {isSelf && (
+            <div className="flex items-center justify-end gap-0.5 mt-0.5">
+              {message.editedAt !== null && (
+                <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.7 }}>tahrirlangan</Typography>
+              )}
+              <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.7 }}>
                 {formatMessageTime(message.createdAt)}
               </Typography>
-            )}
-          </div>
-        </Tooltip>
+              <StatusIcon status={message.status} />
+            </div>
+          )}
+          {!isSelf && (
+            <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', fontSize: '0.65rem', opacity: 0.5, mt: 0.25 }}>
+              {message.editedAt !== null && 'tahrirlangan · '}
+              {formatMessageTime(message.createdAt)}
+            </Typography>
+          )}
+        </div>
       </div>
 
       {hasMenu && !editing && (

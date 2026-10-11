@@ -151,14 +151,17 @@ const ChatInfoDialog: React.FC<Props> = ({ chat, open, onClose, onLeft }) => {
           <List disablePadding>
             {members.map((m) => {
               const role = m.role ?? 'member';
+              const canToggleAdmin = isOwner && role !== 'owner';
+              const canKick = m.uid !== me.uid && canRemove(chat.myRole, role);
               return (
                 <ListItem
                   key={m.uid}
                   disableGutters
                   className="gap-3"
-                  secondaryAction={
+                  sx={{ pr: (canToggleAdmin ? 4.5 : 0) + (canKick ? 4.5 : 0) }}
+                  secondaryAction={!canToggleAdmin && !canKick ? undefined : (
                     <Box className="flex items-center">
-                      {isOwner && role !== 'owner' && (
+                      {canToggleAdmin && (
                         <Tooltip title={role === 'admin' ? 'Adminlikni olib tashlash' : 'Admin qilish'}>
                           <span>
                             <IconButton size="small" disabled={busy} onClick={() => void toggleAdmin(m.uid, role)} aria-label={role === 'admin' ? 'Adminlikni olib tashlash' : 'Admin qilish'}>
@@ -167,7 +170,7 @@ const ChatInfoDialog: React.FC<Props> = ({ chat, open, onClose, onLeft }) => {
                           </span>
                         </Tooltip>
                       )}
-                      {m.uid !== me.uid && canRemove(chat.myRole, role) && (
+                      {canKick && (
                         <Tooltip title="Chiqarish">
                           <span>
                             <IconButton size="small" disabled={busy} onClick={() => void remove(m.uid)} aria-label={`${m.displayName} ni chiqarish`}>
@@ -177,14 +180,14 @@ const ChatInfoDialog: React.FC<Props> = ({ chat, open, onClose, onLeft }) => {
                         </Tooltip>
                       )}
                     </Box>
-                  }
+                  )}
                 >
                   <AvatarWithStatus uid={m.uid} displayName={m.displayName} photoURL={m.photoURL} showStatus={false} size={34} />
                   <ListItemText
                     primary={<>{m.displayName}{m.uid === me.uid ? ' (siz)' : ''}</>}
                     slotProps={{ primary: { variant: 'body2', noWrap: true, sx: { fontWeight: 600 } } }}
                   />
-                  {role !== 'member' && <Chip label={ROLE_LABEL[role]} size="small" color={role === 'owner' ? 'primary' : 'default'} sx={{ mr: 7 }} />}
+                  {role !== 'member' && <Chip label={ROLE_LABEL[role]} size="small" color={role === 'owner' ? 'primary' : 'default'} />}
                 </ListItem>
               );
             })}
