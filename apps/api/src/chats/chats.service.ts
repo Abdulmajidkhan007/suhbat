@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MAX_GROUP_MEMBERS } from '@suhbat/core';
+import { MAX_GROUP_MEMBERS, canManage, canModerateMessages, canRemove, canWrite } from '@suhbat/core';
 import type {
   AddMembersInput,
   ChatRole,
@@ -27,7 +27,6 @@ import type { Attachment as AttachmentRow, Message as MessageRow } from '../gene
 import { MediaService } from '../media/media.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { decodeCursor, encodeCursor, toChatMember, toMessage, toSummary } from './chat.mappers';
-import { canManage, canModerateMessages, canRemove, canWrite } from './chat.permissions';
 
 const summaryInclude = (me: string) =>
   ({

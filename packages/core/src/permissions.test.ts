@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canManage, canModerateMessages, canRemove, canWrite } from './chat.permissions';
+import { canManage, canModerateMessages, canRemove, canWrite } from './permissions.js';
 
 describe('chat huquqlari', () => {
   it('canWrite: kanalda faqat owner/admin', () => {

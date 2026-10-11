@@ -1,6 +1,7 @@
-import type { ChatRole, ChatType } from '@suhbat/core';
+import type { ChatRole, ChatType } from './schemas.js';
 
-// A'zolik huquqlari — sof funksiyalar, service va testlar ulardan foydalanadi.
+// A'zolik huquqlari — sof funksiyalar. API majburlaydi, veb UI shu bilan tugmalarni
+// ko'rsatadi/yashiradi (server baribir tekshiradi).
 
 /** Kanalda faqat owner/admin yozadi; direct va guruhda hamma a'zo. */
 export const canWrite = (type: ChatType, role: ChatRole): boolean => type !== 'channel' || role !== 'member';
