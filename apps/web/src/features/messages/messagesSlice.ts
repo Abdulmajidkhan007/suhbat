@@ -75,6 +75,19 @@ const messagesSlice = createSlice({
       if (last && last.createdAt > message.createdAt && !last.isOptimistic) withoutTemp.sort(byTime);
       state.messagesByChatId[message.chatId] = withoutTemp;
     },
+    /** Tahrirlangan xabar (`message:updated` yoki REST/ack javobi). */
+    messageUpdated(state, action: PayloadAction<Message>) {
+      const list = state.messagesByChatId[action.payload.chatId];
+      const idx = list?.findIndex((m) => m.id === action.payload.id) ?? -1;
+      if (!list || idx < 0) return;
+      list[idx] = { ...list[idx], content: action.payload.content, editedAt: action.payload.editedAt, updatedAt: action.payload.updatedAt };
+    },
+    /** O'chirilgan xabar (soft-delete serverda) ro'yxatdan olib tashlanadi. */
+    messageDeleted(state, action: PayloadAction<{ chatId: string; messageId: string }>) {
+      const { chatId, messageId } = action.payload;
+      const list = state.messagesByChatId[chatId];
+      if (list) state.messagesByChatId[chatId] = list.filter((m) => m.id !== messageId);
+    },
     markMessageFailed(state, action: PayloadAction<{ chatId: string; tempId: string }>) {
       const msg = state.messagesByChatId[action.payload.chatId]?.find((m) => m.id === action.payload.tempId);
       if (msg) msg.status = 'failed';
@@ -111,6 +124,8 @@ export const {
   setMessagesError,
   appendOptimisticMessage,
   messageReceived,
+  messageUpdated,
+  messageDeleted,
   markMessageFailed,
   removeOptimisticMessage,
   clearMessages,

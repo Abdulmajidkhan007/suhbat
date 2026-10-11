@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatChatTime, formatMessageTime } from './formatters';
+import { formatChatTime, formatDuration, formatMessageTime, messagePreview } from './formatters';
 
 // Firestore `Timestamp` ning o'qishda keladigan shakli (SDK'siz).
 const fakeTimestamp = (date: Date) => ({
@@ -35,5 +35,21 @@ describe('formatMessageTime', () => {
 
   it('pending serverTimestamp (null) da yiqilmaydi', () => {
     expect(formatMessageTime(null)).toBe('');
+  });
+});
+
+describe('messagePreview / formatDuration', () => {
+  it('biriktirmada izoh bo\'lmasa turini ko\'rsatadi', () => {
+    expect(messagePreview('salom', 'text')).toBe('salom');
+    expect(messagePreview('', 'image')).toBe('Rasm');
+    expect(messagePreview('', 'voice')).toBe('Ovozli xabar');
+    expect(messagePreview('', 'file')).toBe('Fayl');
+    expect(messagePreview('izoh', 'image')).toBe('izoh');
+  });
+
+  it('davomiylik m:ss', () => {
+    expect(formatDuration(4200)).toBe('0:04');
+    expect(formatDuration(65_000)).toBe('1:05');
+    expect(formatDuration(-5)).toBe('0:00');
   });
 });

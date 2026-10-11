@@ -1,6 +1,7 @@
 // src/features/chats/chatsSlice.ts
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { ChatsState, Chat, Message } from '../../types';
+import { ChatsState, Chat, ChatParticipant, Message, UserRole } from '../../types';
+import { messagePreview } from '../../utils/formatters';
 
 const initialState: ChatsState = {
   chats:        [],
@@ -48,7 +49,11 @@ const chatsSlice = createSlice({
       const chat = state.chats.find((c) => c.id === message.chatId);
       if (!chat) return;
       if (chat.lastMessage && chat.lastMessage.createdAt > message.createdAt) return;
-      chat.lastMessage = { content: message.content, senderId: message.senderId, createdAt: message.createdAt };
+      chat.lastMessage = {
+        content:   messagePreview(message.content, message.type),
+        senderId:  message.senderId,
+        createdAt: message.createdAt,
+      };
       chat.updatedAt   = message.createdAt;
       delete chat.typingUsers[message.senderId];
       if (message.senderId !== currentUid && countUnread) chat.unreadCount += 1;
@@ -70,6 +75,60 @@ const chatsSlice = createSlice({
       if (member.lastReadAt == null || member.lastReadAt < lastReadAt) member.lastReadAt = lastReadAt;
       if (userId === currentUid) chat.unreadCount = 0;
     },
+    /** Oxirgi xabar tahrirlangan bo'lsa ro'yxatdagi matni ham yangilanadi. */
+    lastMessageEdited(state, action: PayloadAction<{ chatId: string; senderId: string; createdAt: number; content: string }>) {
+      const { chatId, senderId, createdAt, content } = action.payload;
+      const last = state.chats.find((c) => c.id === chatId)?.lastMessage;
+      if (last && last.senderId === senderId && last.createdAt === createdAt) last.content = content;
+    },
+    /** `chat:updated` — nom, tavsif, ochiqlik. */
+    chatUpdated(
+      state,
+      action: PayloadAction<{ chatId: string; title: string | null; description: string | null; isPublic: boolean; updatedAt: number }>,
+    ) {
+      const { chatId, title, description, isPublic, updatedAt } = action.payload;
+      const chat = state.chats.find((c) => c.id === chatId);
+      if (!chat) return;
+      if (title) chat.name = title;
+      chat.description = description ?? undefined;
+      chat.isPublic    = isPublic;
+      chat.updatedAt   = updatedAt;
+    },
+    /** `chat:member` — a'zo qo'shildi / chiqdi / roli o'zgardi. */
+    chatMemberChanged(
+      state,
+      action: PayloadAction<{
+        chatId: string; userId: string; action: 'added' | 'removed' | 'role';
+        participant: ChatParticipant | null; memberCount: number; currentUid: string;
+      }>,
+    ) {
+      const { chatId, userId, action: kind, participant, memberCount, currentUid } = action.payload;
+      const chat = state.chats.find((c) => c.id === chatId);
+      if (!chat) return;
+      if (kind === 'removed' && userId === currentUid) {
+        state.chats = state.chats.filter((c) => c.id !== chatId);
+        if (state.activeChatId === chatId) state.activeChatId = null;
+        return;
+      }
+      chat.memberCount = memberCount;
+      if (kind === 'removed') {
+        delete chat.participantDetails[userId];
+      } else if (participant) {
+        chat.participantDetails[userId] = { ...chat.participantDetails[userId], ...participant };
+      }
+      if (kind === 'removed') chat.participants = chat.participants.filter((id) => id !== userId);
+      else if (!chat.participants.includes(userId)) chat.participants.push(userId);
+      const role: UserRole | undefined = chat.participantDetails[userId]?.role;
+      chat.admins = Object.values(chat.participantDetails).filter((p) => p.role === 'admin').map((p) => p.uid);
+      if (kind === 'role' && role) {
+        if (userId === currentUid) chat.myRole = role;
+        if (role === 'owner') chat.ownerId = userId;
+      }
+    },
+    removeChat(state, action: PayloadAction<string>) {
+      state.chats = state.chats.filter((c) => c.id !== action.payload);
+      if (state.activeChatId === action.payload) state.activeChatId = null;
+    },
     bumpSyncEpoch(state) {
       state.syncEpoch += 1;
     },
@@ -88,6 +147,10 @@ export const {
   chatMessageReceived,
   setTyping,
   memberRead,
+  lastMessageEdited,
+  chatUpdated,
+  chatMemberChanged,
+  removeChat,
   bumpSyncEpoch,
   resetChats,
 } = chatsSlice.actions;

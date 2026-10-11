@@ -1,11 +1,32 @@
 // WebSocket voqealari va REST yuklashlarini store'ga ulaydigan thunk'lar.
-import type { WsMessageNew, WsPresenceState, WsPresenceUpdate, WsReadEvent } from '@suhbat/core';
+import type {
+  WsChatDeleted,
+  WsChatMember,
+  WsChatUpdated,
+  WsMessageDeleted,
+  WsMessageNew,
+  WsMessageUpdated,
+  WsPresenceState,
+  WsPresenceUpdate,
+  WsReadEvent,
+} from '@suhbat/core';
 import { toMillis } from '@suhbat/core';
 import type { AppDispatch, RootState } from '../../app/store';
 import { api, socket } from '../../services/api';
-import { toChat, toMessage } from '../../services/apiMappers';
-import { chatMessageReceived, memberRead, setChats, setChatsError, setChatsLoading, upsertChat } from '../chats/chatsSlice';
-import { messageReceived } from '../messages/messagesSlice';
+import { toChat, toMessage, toParticipant } from '../../services/apiMappers';
+import {
+  chatMemberChanged,
+  chatMessageReceived,
+  chatUpdated,
+  lastMessageEdited,
+  memberRead,
+  removeChat,
+  setChats,
+  setChatsError,
+  setChatsLoading,
+  upsertChat,
+} from '../chats/chatsSlice';
+import { clearMessages, messageDeleted, messageReceived, messageUpdated } from '../messages/messagesSlice';
 import { setPresence, updateUserPresence } from '../presence/presenceSlice';
 
 type Thunk<R = void> = (dispatch: AppDispatch, getState: () => RootState) => R;
@@ -82,4 +103,47 @@ export const onPresenceState = (e: WsPresenceState): Thunk => (dispatch) => {
 
 export const onPresenceUpdate = (e: WsPresenceUpdate): Thunk => (dispatch) => {
   dispatch(updateUserPresence({ uid: e.userId, isOnline: e.online }));
+};
+
+export const onMessageUpdated = (e: WsMessageUpdated): Thunk => (dispatch, getState) => {
+  const chat = getState().chats.chats.find((c) => c.id === e.message.chatId);
+  if (!chat) return;
+  const message = toMessage(e.message, chat);
+  dispatch(messageUpdated(message));
+  dispatch(lastMessageEdited({
+    chatId: chat.id, senderId: message.senderId, createdAt: message.createdAt, content: message.content,
+  }));
+};
+
+/** Oxirgi xabar yoki o'qilmagan son o'zgargan bo'lishi mumkin — chat qayta yuklanadi. */
+export const onMessageDeleted = (e: WsMessageDeleted): Thunk => (dispatch) => {
+  dispatch(messageDeleted({ chatId: e.chatId, messageId: e.messageId }));
+  void dispatch(fetchChat(e.chatId));
+};
+
+export const onChatUpdated = (e: WsChatUpdated): Thunk => (dispatch) => {
+  dispatch(chatUpdated({
+    chatId: e.chatId, title: e.title, description: e.description, isPublic: e.isPublic,
+    updatedAt: toMillis(e.updatedAt) ?? Date.now(),
+  }));
+};
+
+export const onChatMember = (e: WsChatMember): Thunk => (dispatch, getState) => {
+  const me = getState().auth.user?.uid;
+  if (!me) return;
+  const known = getState().chats.chats.some((c) => c.id === e.chatId);
+  // Meni qo'shishdi (yoki obuna bo'ldim) — chatni to'liq yuklab olamiz.
+  if (e.action !== 'removed' && e.userId === me && !known) {
+    void dispatch(fetchChat(e.chatId));
+    return;
+  }
+  dispatch(chatMemberChanged({
+    chatId: e.chatId, userId: e.userId, action: e.action,
+    participant: e.member ? toParticipant(e.member) : null, memberCount: e.memberCount, currentUid: me,
+  }));
+};
+
+export const onChatDeleted = (e: WsChatDeleted): Thunk => (dispatch) => {
+  dispatch(removeChat(e.chatId));
+  dispatch(clearMessages(e.chatId));
 };

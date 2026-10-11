@@ -9,11 +9,11 @@ const user = (id: string, displayName: string) => ({
 });
 const apiMsg = (overrides = {}) => ({
   id: '00000000-0000-4000-8000-0000000000m1', chatId: '00000000-0000-4000-8000-0000000000c1',
-  senderId: me, type: 'text' as const, content: 'salom', createdAt: '2026-10-11T10:00:05.000Z', editedAt: null,
+  senderId: me, type: 'text' as const, content: 'salom', attachment: null, createdAt: '2026-10-11T10:00:05.000Z', editedAt: null,
   ...overrides,
 });
 const summary: ChatSummary = {
-  id: '00000000-0000-4000-8000-0000000000c1', type: 'direct', title: null,
+  id: '00000000-0000-4000-8000-0000000000c1', type: 'direct', title: null, description: null, isPublic: false, memberCount: 2,
   createdAt: '2026-10-11T10:00:00.000Z', updatedAt: '2026-10-11T10:00:05.000Z',
   members: [
     { user: user(me, 'Ali'), role: 'member', lastReadAt: '2026-10-11T10:00:05.000Z', lastSeenAt: null },
@@ -43,6 +43,30 @@ describe('apiMappers', () => {
     const chat = toChat(summary, me);
     expect(toMessage(apiMsg({ senderId: other }), chat)).toMatchObject({ senderName: 'Vali', status: 'sent', content: 'salom' });
     expect(toMessage(apiMsg(), null).senderName).toBe('');
+  });
+
+  it('toMessage: biriktirma va tahrirlangan vaqt', () => {
+    const m = toMessage(apiMsg({
+      type: 'voice', content: '', editedAt: '2026-10-11T10:01:00.000Z',
+      attachment: { id: 'a1', kind: 'voice', name: 'ovoz.webm', mime: 'audio/webm', size: 10, durationMs: 4200, url: 'http://s3/x' },
+    }), null);
+    expect(m.attachment).toEqual({ id: 'a1', kind: 'voice', name: 'ovoz.webm', url: 'http://s3/x', type: 'audio/webm', size: 10, durationMs: 4200 });
+    expect(m.editedAt).toBe(Date.parse('2026-10-11T10:01:00.000Z'));
+    expect(toMessage(apiMsg(), null).editedAt).toBeNull();
+  });
+
+  it('toChat: guruh/kanal — rol, egasi, adminlar, a\'zolar soni, oxirgi xabar turi', () => {
+    const group: ChatSummary = {
+      ...summary, type: 'group', title: 'Do\'stlar', description: 'tavsif', isPublic: false, memberCount: 40,
+      members: [
+        { user: user(me, 'Ali'), role: 'admin', lastReadAt: null, lastSeenAt: null },
+        { user: user(other, 'Vali'), role: 'owner', lastReadAt: null, lastSeenAt: null },
+      ],
+      lastMessage: apiMsg({ type: 'image', content: '' }),
+    };
+    const c = toChat(group, me);
+    expect(c).toMatchObject({ name: 'Do\'stlar', description: 'tavsif', myRole: 'admin', ownerId: other, admins: [me], memberCount: 40 });
+    expect(c.lastMessage?.content).toBe('Rasm');
   });
 
   it('withStatus: suhbatdosh o\'qigan bo\'lsa — read', () => {

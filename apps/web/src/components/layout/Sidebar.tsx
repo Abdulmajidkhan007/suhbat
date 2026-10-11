@@ -8,6 +8,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import ChatBubbleOutlineOutlinedIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
 import GroupAddOutlinedIcon from '@mui/icons-material/GroupAddOutlined';
 import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
+import TravelExploreOutlinedIcon from '@mui/icons-material/TravelExploreOutlined';
 import { AnimatePresence, motion } from 'framer-motion';
 import ChatList from '../chat/ChatList';
 import ThemeToggle from '../common/ThemeToggle';
@@ -24,6 +25,9 @@ interface Props {
   onlineUsers:    Record<string, boolean>;
   onSelectChat:   (chatId: string) => void;
   onNewChat?:     () => void;
+  onNewGroup?:    () => void;
+  onNewChannel?:  () => void;
+  onFindChannel?: () => void;
   onSignOut:      () => void;
   onRetryChats?:  () => void;
 }
@@ -37,6 +41,9 @@ const Sidebar: React.FC<Props> = ({
   onlineUsers,
   onSelectChat,
   onNewChat,
+  onNewGroup,
+  onNewChannel,
+  onFindChannel,
   onSignOut,
   onRetryChats,
 }) => {
@@ -46,7 +53,7 @@ const Sidebar: React.FC<Props> = ({
   const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => setMenuAnchor(e.currentTarget);
   const handleMenuClose = () => setMenuAnchor(null);
 
-  const handleNewChat = () => { handleMenuClose(); onNewChat?.(); };
+  const pick = (fn?: () => void) => () => { handleMenuClose(); fn?.(); };
 
   return (
     <Box
@@ -111,18 +118,21 @@ const Sidebar: React.FC<Props> = ({
               transformOrigin={{ horizontal: 'right', vertical: 'top' }}
               anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             >
-              <MenuItem onClick={handleNewChat} sx={{ borderRadius: '8px', mx: 0.5 }}>
+              <MenuItem onClick={pick(onNewChat)} sx={{ borderRadius: '8px', mx: 0.5 }}>
                 <ListItemIcon><ChatBubbleOutlineOutlinedIcon fontSize="small" /></ListItemIcon>
                 <ListItemText primary="Yangi suhbat" />
               </MenuItem>
-              {/* Guruh va kanal — 2-fazada */}
-              <MenuItem disabled sx={{ borderRadius: '8px', mx: 0.5 }}>
+              <MenuItem onClick={pick(onNewGroup)} sx={{ borderRadius: '8px', mx: 0.5 }}>
                 <ListItemIcon><GroupAddOutlinedIcon fontSize="small" /></ListItemIcon>
-                <ListItemText primary="Yangi guruh" secondary="tez orada" />
+                <ListItemText primary="Yangi guruh" />
               </MenuItem>
-              <MenuItem disabled sx={{ borderRadius: '8px', mx: 0.5 }}>
+              <MenuItem onClick={pick(onNewChannel)} sx={{ borderRadius: '8px', mx: 0.5 }}>
                 <ListItemIcon><CampaignOutlinedIcon fontSize="small" /></ListItemIcon>
-                <ListItemText primary="Yangi kanal" secondary="tez orada" />
+                <ListItemText primary="Yangi kanal" />
+              </MenuItem>
+              <MenuItem onClick={pick(onFindChannel)} sx={{ borderRadius: '8px', mx: 0.5 }}>
+                <ListItemIcon><TravelExploreOutlinedIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Ochiq kanallarni qidirish" />
               </MenuItem>
             </Menu>
 
