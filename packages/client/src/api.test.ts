@@ -103,4 +103,56 @@ describe('createApiClient', () => {
     await expect(api.listChats()).rejects.toMatchObject({ status: 401 });
     expect(fetch).not.toHaveBeenCalled();
   });
+
+  it('uploadAttachment: imzolangan URL olib, faylni PUT qiladi (Bearer yo\'q)', async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    const { api } = setup((url, init) => {
+      calls.push({ url, init });
+      if (url.endsWith('/media/upload-url')) {
+        return json(200, {
+          attachmentId: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e50',
+          uploadUrl:    'http://s3/put?sig=1',
+          headers:      { 'Content-Type': 'image/png' },
+          expiresAt:    '2026-10-11T10:10:00.000Z',
+        });
+      }
+      return new Response(null, { status: 200 });
+    });
+    const body = new Blob(['x']);
+    const res = await api.uploadAttachment(
+      { chatId: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e51', kind: 'image', name: 'a.png', mime: 'image/png', size: 1 },
+      body,
+    );
+    expect(res.attachmentId).toBe('6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e50');
+    expect(calls[1].url).toBe('http://s3/put?sig=1');
+    expect(calls[1].init).toMatchObject({ method: 'PUT', headers: { 'Content-Type': 'image/png' }, body });
+    expect((calls[1].init.headers as Record<string, string>).Authorization).toBeUndefined();
+  });
+
+  it('uploadAttachment: saqlash rad etsa — ApiError', async () => {
+    const { api } = setup((url) =>
+      url.endsWith('/media/upload-url')
+        ? json(200, {
+            attachmentId: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e50', uploadUrl: 'http://s3/put',
+            headers: {}, expiresAt: '2026-10-11T10:10:00.000Z',
+          })
+        : new Response('denied', { status: 403 }),
+    );
+    await expect(
+      api.uploadAttachment({ chatId: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e51', kind: 'file', name: 'a', mime: 'text/plain', size: 1 }, new Blob(['x'])),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('guruh/kanal metodlari to\'g\'ri yo\'l va usulni ishlatadi', async () => {
+    const { api, fetch } = setup(() => new Response(null, { status: 204 }));
+    await api.leaveChat('c1');
+    await api.removeMember('c1', 'u1');
+    await api.deleteChat('c1');
+    const calls = fetch.mock.calls.map(([u, i]) => `${i?.method} ${u}`);
+    expect(calls).toEqual([
+      'POST http://api/chats/c1/leave',
+      'DELETE http://api/chats/c1/members/u1',
+      'DELETE http://api/chats/c1',
+    ]);
+  });
 });
