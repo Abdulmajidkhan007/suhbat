@@ -1,0 +1,12 @@
+# Netlify'da "Base directory" = apps/web qilib qo'yiladi.
+[build]
+  command   = "npm run build --workspace=@suhbat/core && npm run build"
+  publish   = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200

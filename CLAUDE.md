@@ -15,5 +15,15 @@
 - Til: o'zbekcha; texnik atamalar inglizcha.
 - Hech qanday kalit, token, `.env`, parol repoga tushmaydi. Namuna — `.env.example`.
 - Holatni bo'rttirmaslik: ishlamaydigan narsa "tayyor" deb yozilmaydi.
-- Har bosqich: test/typecheck/lint → commit → push `main`. PR faqat so'ralsa.
+- Har bosqich: test/typecheck/lint → commit → o'z branch'iga push → `main`ga PR
+  → CI yashil va tekshiruvdan o'tgach merge. `main`ga to'g'ridan-to'g'ri push
+  qilinmaydi; eng oxirgi ish doim `main`da bo'ladi.
+
+## Sessiyalar tartibi (2026-10-11 dan)
+- **Asosiy sessiya — tekshiruvchi.** Kod yozmaydi. Har faza uchun yangi ishchi
+  sessiya ochadi (vazifaga qarab Opus yoki Sonnet), unga prompt beradi, ishchi
+  ochgan PR'ni ko'rib chiqadi (diff, CI, `docs/REJA.md` ga mosligi) va merge
+  qiladi yoki tuzatish so'raydi.
+- **Ishchi sessiya.** Faqat o'ziga berilgan fazani bajaradi, branch'da ishlaydi,
+  PR ochadi va `docs/REJA.md` holatini yangilaydi. PR'ni o'zi merge qilmaydi.
 - Umumiy kod `packages/` da; ilovalar bir-birini import qilmaydi.
