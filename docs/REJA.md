@@ -59,7 +59,7 @@
   (inline) va o'chirish, kanalda oddiy a'zo uchun yopiq composer.
   Mobilda chat tanlanmaganda menyu tugmasi qo'shildi.
 - Docker Compose: Postgres + MinIO. CI: `npm ci`, lint, typecheck, test, build,
-  MinIO (docker run) va Postgres bilan API e2e.
+  MinIO (compose, `docker/minio`) va Postgres bilan API e2e.
 
 ### Auth qarori: refresh token — body'da (cookie emas)
 - `login/register` → `{ accessToken, refreshToken, user }`; `/auth/refresh`

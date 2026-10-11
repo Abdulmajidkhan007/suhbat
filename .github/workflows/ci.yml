@@ -30,16 +30,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx turbo run lint typecheck test build
-      - name: MinIO (S3-mos saqlash)
+      - name: MinIO (S3-mos saqlash, docker compose)
         run: |
-          docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER=suhbat -e MINIO_ROOT_PASSWORD=suhbat-minio-secret \
-            quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
-          for i in $(seq 1 30); do
+          docker compose up -d --build minio
+          for i in $(seq 1 40); do
             curl -sf http://localhost:9000/minio/health/ready && exit 0
             sleep 1
           done
-          docker logs minio
+          docker compose logs minio
           exit 1
       - name: API e2e (Postgres + MinIO)
         env:
