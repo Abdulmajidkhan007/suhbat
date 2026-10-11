@@ -1,17 +1,36 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-11
+> Oxirgi yangilanish: 2026-10-11 (0-faza)
 
 ## Hozirgi holat (koddan)
-- Faqat veb: Create React App + MUI + Redux Toolkit + Firebase (Auth,
-  Firestore, Realtime Database — "online" holati uchun).
-- Ishlaydi: ro'yxatdan o'tish/kirish (email, Google, telefon), 1:1 chat,
-  guruh va kanal dialoglari, real-time xabarlar.
-- **Ma'lum xatolar** (2026-10-11 emulyatorda sinalganda topildi):
-  - Birinchi xabardan keyin sahifa yiqiladi ("Invalid time value"):
-    `formatChatTime` raqam kutadi, Firestore `Timestamp` qaytaradi.
-  - `package-lock.json` `package.json` bilan mos emas — `npm ci` o'tmaydi.
-- CRA eskirgan (rasmiy qo'llab-quvvatlanmaydi).
+- **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `packages/core`.
+- `apps/web`: CRA'dan **Vite 7**'ga ko'chirildi (React 19 + MUI + Redux Toolkit).
+  Hali **Firebase**'da (Auth, Firestore, RTDB) — 1-fazada o'z API'mizga o'tadi.
+  Env: `VITE_FIREBASE_*` (avval `REACT_APP_*`).
+- `apps/api`: NestJS 11 + Prisma 7 (`@prisma/adapter-pg`) + PostgreSQL 17.
+  Bor: `GET /health`, `POST /auth/register`, `POST /auth/login`, `GET /auth/me`
+  (JWT access token, argon2). **Yo'q:** refresh token, chat/xabar modellari,
+  WebSocket — bular 1-fazada.
+- `packages/core`: zod sxemalar (User, Chat, Message, auth input/javob) va
+  `toMillis` (vaqtni ms ga keltirish). API body'ni shu sxemalar bilan tekshiradi.
+- Docker Compose: faqat Postgres. CI (`.github/workflows/ci.yml`): `npm ci`,
+  lint, typecheck, test, build va Postgres bilan API e2e.
+- **Tuzatilgan xatolar** (0-faza):
+  - "Invalid time value": Firestore hujjatlari endi `services/firestoreMappers.ts`
+    da ms ga keltiriladi (`serverTimestamps: 'estimate'`), formatterlar noto'g'ri
+    qiymatda yiqilmaydi. Unit testlar bor; Firebase emulyatorida qayta
+    sinalmagan.
+  - `package-lock.json` qayta yaratildi — `npm ci` o'tadi.
+  - Qo'shimcha: Firebase kalitlarisiz oq ekran o'rniga "config topilmadi" ekrani.
+- Ma'lum cheklovlar:
+  - `vitest` 4.0.x da qoldi: 4.1.x npm 10 bilan o'rnatilmaydi (arborist
+    `edgesOut` xatosi). `npm audit` 4.0 ni (dev-only) critical deydi — npm
+    yangilanganda 4.1.11+ ga o'tkazish kerak.
+  - `npm audit`dagi qolgan high'lar asosan `firebase` (1-fazada olib
+    tashlanadi) va `prisma` CLI tranzitiv bog'liqliklarida.
+  - Veb bundle ~1.3 MB (code-splitting yo'q).
+  - Netlify konfiguratsiyasi (`apps/web/netlify.toml`, Base directory =
+    `apps/web`) yangilandi, lekin deploy sinalmagan.
 
 ## Maqsad
 Telegram'dek mustaqil messenjer: 1:1 va guruh chatlar, kanallar, media,
@@ -42,7 +61,7 @@ packages/
 - Joylash: Docker Compose + Caddy (VPS). Qaysi server — egasi bilan hal qilinadi.
 
 ## Fazalar
-**0. Monorepo poydevori**
+**0. Monorepo poydevori** — ✅ bajarildi (2026-10-11), cheklovlar yuqorida
 - Turborepo, `packages/core`, `apps/api` (NestJS: health, auth), Docker
   Compose (Postgres), CI (lint, typecheck, test).
 - Hozirgi CRA ilova `apps/web` ga ko'chadi va Vite'ga o'tadi; yuqoridagi
@@ -62,7 +81,7 @@ packages/
 - Push (FCM/APNs), keyin WebRTC qo'ng'iroqlar.
 
 ## Keyingi sessiya uchun
-Repo: `suhbat`. "CLAUDE.md va docs/REJA.md ni o'qi, 0-fazani boshla:
-Turborepo monorepo, packages/core, apps/api (NestJS + Prisma + Postgres,
-Docker Compose), hozirgi veb ilovani apps/web ga ko'chirib Vite'ga o'tkaz,
-ikki ma'lum xatoni tuzat."
+Repo: `suhbat`. "CLAUDE.md va docs/REJA.md ni o'qi, 1-fazani boshla:
+Prisma'da Chat/ChatMember/Message modellari, refresh token, Socket.IO gateway
+(xabar, yozmoqda, online), `packages/client`; veb ilovani Firebase'dan
+o'z API'mizga o'tkaz."

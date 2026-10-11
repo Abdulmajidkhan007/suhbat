@@ -1,46 +1,48 @@
-# Getting Started with Create React App
+# suhbat
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+O'zbek messenjeri — veb, desktop, Android, iOS. Reja va holat: [`docs/REJA.md`](docs/REJA.md).
 
-## Available Scripts
+## Tuzilish
 
-In the project directory, you can run:
+```
+apps/
+  api/    NestJS 11 + Prisma 7 + PostgreSQL (health, auth)
+  web/    React 19 + Vite (hozircha Firebase'da ishlaydi)
+packages/
+  core/   zod sxemalar, tiplar, umumiy yordamchilar
+```
 
-### `npm start`
+## Ishga tushirish
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+Talab: Node 22+, Docker.
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+```bash
+npm install                          # apps/api uchun Prisma client ham yaratiladi
+npm run db:up                        # Postgres (docker compose)
 
-### `npm test`
+cp apps/api/.env.example apps/api/.env
+npm run db:migrate -w @suhbat/api    # migratsiyalar
+npm run dev -w @suhbat/api           # http://localhost:4000/health
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+cp apps/web/.env.example apps/web/.env   # Firebase qiymatlarini kiriting
+npm run dev -w @suhbat/web               # http://localhost:3000
+```
 
-### `npm run build`
+`@suhbat/core` avval build qilinishi kerak (`npm run build -w @suhbat/core`);
+`npx turbo run dev` buni o'zi qiladi.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Tekshiruvlar
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+npm run lint && npm run typecheck && npm run test   # turbo orqali hamma paketda
+npm run test:e2e -w @suhbat/api                     # Postgres ishlab turishi kerak
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## API (hozircha)
 
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+| Metod | Yo'l             | Izoh                                   |
+|-------|------------------|----------------------------------------|
+| GET   | `/health`        | API va DB holati                       |
+| POST  | `/auth/register` | `{ email, password, displayName }`     |
+| POST  | `/auth/login`    | `{ email, password }` → `accessToken`  |
+| GET   | `/auth/me`       | `Authorization: Bearer <accessToken>`  |
