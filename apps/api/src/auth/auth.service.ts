@@ -1,7 +1,9 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import type { AuthResponse, LoginInput, RegisterInput, User } from '@suhbat/core';
+import type { AuthResponse, LoginInput, RegisterInput, TokenPair, User } from '@suhbat/core';
 import * as argon2 from 'argon2';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client';
 import type { User as UserRow } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,12 +20,22 @@ export const toPublicUser = (u: UserRow): User => ({
   createdAt:   u.createdAt.toISOString(),
 });
 
+const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class AuthService {
+  private readonly refreshTtlMs: number;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
-  ) {}
+    config?: ConfigService,
+  ) {
+    const days = Number(config?.get('REFRESH_TOKEN_TTL_DAYS') ?? 30);
+    if (!Number.isFinite(days) || days <= 0) throw new Error('REFRESH_TOKEN_TTL_DAYS musbat son bo\'lishi kerak');
+    this.refreshTtlMs = days * DAY_MS;
+  }
 
   async register(input: RegisterInput): Promise<AuthResponse> {
     const passwordHash = await argon2.hash(input.password);
@@ -54,8 +66,65 @@ export class AuthService {
     return toPublicUser(user);
   }
 
-  private async issue(user: UserRow): Promise<AuthResponse> {
+  /**
+   * Refresh token rotatsiyasi: eski token bekor qilinadi, o'sha oiladan yangi
+   * juftlik beriladi. Bekor qilingan token qayta kelsa (o'g'irlangan bo'lishi
+   * mumkin) — butun oila bekor qilinadi va 401.
+   */
+  async refresh(refreshToken: string): Promise<TokenPair> {
+    const now = new Date();
+    const row = await this.prisma.refreshToken.findUnique({
+      where:   { tokenHash: hashToken(refreshToken) },
+      include: { user: true },
+    });
+    if (!row) throw new UnauthorizedException();
+    if (row.revokedAt) {
+      await this.revokeFamily(row.familyId, now);
+      throw new UnauthorizedException();
+    }
+    if (row.expiresAt <= now) throw new UnauthorizedException();
+
+    // Shartli yangilash: parallel so'rovlardan faqat bittasi tokenni "oladi".
+    const { count } = await this.prisma.refreshToken.updateMany({
+      where: { id: row.id, revokedAt: null },
+      data:  { revokedAt: now },
+    });
+    if (count === 0) {
+      await this.revokeFamily(row.familyId, now);
+      throw new UnauthorizedException();
+    }
+    const { accessToken, refreshToken: next } = await this.issue(row.user, row.familyId);
+    return { accessToken, refreshToken: next };
+  }
+
+  /** Shu qurilma sessiyasini (token oilasini) yopadi. Noma'lum token — jim o'tadi. */
+  async logout(refreshToken: string): Promise<void> {
+    const row = await this.prisma.refreshToken.findUnique({ where: { tokenHash: hashToken(refreshToken) } });
+    if (row) await this.revokeFamily(row.familyId, new Date());
+  }
+
+  private async revokeFamily(familyId: string, now: Date) {
+    await this.prisma.refreshToken.updateMany({
+      where: { familyId, revokedAt: null },
+      data:  { revokedAt: now },
+    });
+  }
+
+  private async issue(user: UserRow, familyId: string = randomUUID()): Promise<AuthResponse> {
     const payload: JwtPayload = { sub: user.id };
-    return { accessToken: await this.jwt.signAsync(payload), user: toPublicUser(user) };
+    const refreshToken = randomBytes(48).toString('base64url');
+    await this.prisma.refreshToken.create({
+      data: {
+        userId:    user.id,
+        familyId,
+        tokenHash: hashToken(refreshToken),
+        expiresAt: new Date(Date.now() + this.refreshTtlMs),
+      },
+    });
+    return {
+      accessToken: await this.jwt.signAsync(payload),
+      refreshToken,
+      user:        toPublicUser(user),
+    };
   }
 }

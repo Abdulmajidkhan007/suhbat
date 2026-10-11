@@ -17,6 +17,107 @@ model User {
   photoUrl     String?  @map("photo_url")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  // Oxirgi marta onlayn bo'lgan vaqt (oxirgi WebSocket ulanishi uzilganda yoziladi)
+  lastSeenAt   DateTime? @map("last_seen_at") @db.Timestamptz(3)
+
+  memberships   ChatMember[]
+  messages      Message[]
+  refreshTokens RefreshToken[]
 
   @@map("users")
+}
+
+/// Refresh token: bazada faqat sha256 hash saqlanadi. Har `refresh` da eski
+/// token bekor qilinib, o'sha `familyId` bilan yangisi beriladi (rotatsiya).
+/// Bekor qilingan token qayta ishlatilsa — butun oila bekor qilinadi.
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  familyId  String    @map("family_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+enum ChatType {
+  direct
+  group
+  channel
+
+  @@map("chat_type")
+}
+
+enum ChatRole {
+  owner
+  admin
+  member
+
+  @@map("chat_role")
+}
+
+enum MessageType {
+  text
+  image
+  file
+  voice
+  system
+
+  @@map("message_type")
+}
+
+model Chat {
+  id            String    @id @default(uuid()) @db.Uuid
+  type          ChatType
+  title         String?
+  /// Faqat `direct` uchun: ikki user id'si tartiblangan holda "a:b" —
+  /// bir juftlik uchun ikkinchi 1:1 chat yaratilmasligini baza kafolatlaydi.
+  directKey     String?   @unique @map("direct_key")
+  lastMessageAt DateTime? @map("last_message_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  members  ChatMember[]
+  messages Message[]
+
+  @@map("chats")
+}
+
+model ChatMember {
+  chatId     String    @map("chat_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  role       ChatRole  @default(member)
+  /// Shu vaqtgacha (shu vaqt ham) yuborilgan xabarlar o'qilgan.
+  lastReadAt DateTime? @map("last_read_at") @db.Timestamptz(3)
+  joinedAt   DateTime  @default(now()) @map("joined_at") @db.Timestamptz(3)
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([chatId, userId])
+  @@index([userId])
+  @@map("chat_members")
+}
+
+model Message {
+  id        String      @id @default(uuid()) @db.Uuid
+  chatId    String      @map("chat_id") @db.Uuid
+  senderId  String      @map("sender_id") @db.Uuid
+  type      MessageType @default(text)
+  content   String
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  editedAt  DateTime?   @map("edited_at") @db.Timestamptz(3)
+
+  chat   Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  // Tarix: keyset pagination — (created_at, id) bo'yicha kamayish tartibida.
+  @@index([chatId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("messages")
 }
