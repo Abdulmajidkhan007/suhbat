@@ -5,40 +5,16 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { createApiClient, createSocketClient, memoryTokenStorage } from '@suhbat/client';
 import type { ApiClient, SocketClient } from '@suhbat/client';
-import type { ServerToClientEvents } from '@suhbat/core';
 import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { SocketIoAdapter } from '../src/common/socket-io.adapter';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ensureStorage, next, waitConnected } from './helpers';
 
 const stamp = Date.now();
 const emails = { ali: `ali-${stamp}@e2e.uz`, vali: `vali-${stamp}@e2e.uz`, gani: `gani-${stamp}@e2e.uz` };
-
-/** Bitta voqeani kutadi (shart bajarilguncha), vaqt o'tsa — xato. */
-const next = <E extends keyof ServerToClientEvents>(
-  client: SocketClient,
-  event: E,
-  match: (p: Parameters<ServerToClientEvents[E]>[0]) => boolean = () => true,
-  ms = 3000,
-) =>
-  new Promise<Parameters<ServerToClientEvents[E]>[0]>((resolve, reject) => {
-    const timer = setTimeout(() => { off(); reject(new Error(`${event} kelmadi`)); }, ms);
-    const off = client.on(event, ((p: Parameters<ServerToClientEvents[E]>[0]) => {
-      if (!match(p)) return;
-      clearTimeout(timer);
-      off();
-      resolve(p);
-    }) as ServerToClientEvents[E]);
-  });
-
-const waitConnected = (c: SocketClient) =>
-  new Promise<void>((resolve, reject) => {
-    if (c.isConnected()) return resolve();
-    const timer = setTimeout(() => reject(new Error('ulanmadi')), 3000);
-    const off = c.onConnectionChange((up) => { if (up) { clearTimeout(timer); off(); resolve(); } });
-  });
 
 describe('Chat (e2e)', () => {
   let app: INestApplication;
@@ -52,7 +28,10 @@ describe('Chat (e2e)', () => {
     return s;
   };
 
+  let storage: Awaited<ReturnType<typeof ensureStorage>>;
+
   beforeAll(async () => {
+    storage = await ensureStorage();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
     app.useWebSocketAdapter(new SocketIoAdapter(app, true));
@@ -68,6 +47,7 @@ describe('Chat (e2e)', () => {
     await prisma.chat.deleteMany({ where: { members: { some: { userId: { in: ids } } } } });
     await prisma.user.deleteMany({ where: { id: { in: ids } } });
     await app.close();
+    await storage.close();
   });
 
   it('to\'liq oqim: qidiruv → 1:1 chat → real vaqt → o\'qildi → tarix', async () => {

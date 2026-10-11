@@ -10,6 +10,8 @@ import { PrismaService } from '../prisma/prisma.service';
 
 export interface JwtPayload {
   sub: string;
+  /** UNIX soniya (jsonwebtoken qo'shadi). */
+  exp?: number;
 }
 
 export const toPublicUser = (u: UserRow): User => ({

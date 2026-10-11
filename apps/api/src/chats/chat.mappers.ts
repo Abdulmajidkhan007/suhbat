@@ -1,4 +1,4 @@
-import type { ChatSummary, Message } from '@suhbat/core';
+import type { ChatMember, ChatSummary, Message } from '@suhbat/core';
 import type {
   Chat as ChatRow,
   ChatMember as MemberRow,
@@ -7,34 +7,41 @@ import type {
 } from '../generated/prisma/client';
 import { toPublicUser } from '../auth/auth.service';
 
-export const toMessage = (m: MessageRow): Message => ({
-  id:        m.id,
-  chatId:    m.chatId,
-  senderId:  m.senderId,
-  type:      m.type,
-  content:   m.content,
-  createdAt: m.createdAt.toISOString(),
-  editedAt:  m.editedAt?.toISOString() ?? null,
+export const toChatMember = (m: MemberRow & { user: UserRow }): ChatMember => ({
+  user:       toPublicUser(m.user),
+  role:       m.role,
+  lastReadAt: m.lastReadAt?.toISOString() ?? null,
+  lastSeenAt: m.user.lastSeenAt?.toISOString() ?? null,
+});
+
+/** Biriktirma imzolangan URL talab qiladi (async) — `ChatsService.present` qo'shadi. */
+export const toMessage = (m: MessageRow, attachment: Message['attachment']): Message => ({
+  id:         m.id,
+  chatId:     m.chatId,
+  senderId:   m.senderId,
+  type:       m.type,
+  content:    m.content,
+  attachment,
+  createdAt:  m.createdAt.toISOString(),
+  editedAt:   m.editedAt?.toISOString() ?? null,
 });
 
 export type ChatWithRelations = ChatRow & {
-  members:  (MemberRow & { user: UserRow })[];
-  messages: MessageRow[];
+  members: (MemberRow & { user: UserRow })[];
+  _count:  { members: number };
 };
 
-export const toSummary = (c: ChatWithRelations, unreadCount: number): ChatSummary => ({
-  id:        c.id,
-  type:      c.type,
-  title:     c.title,
-  createdAt: c.createdAt.toISOString(),
-  updatedAt: c.updatedAt.toISOString(),
-  members:   c.members.map((m) => ({
-    user:       toPublicUser(m.user),
-    role:       m.role,
-    lastReadAt: m.lastReadAt?.toISOString() ?? null,
-    lastSeenAt: m.user.lastSeenAt?.toISOString() ?? null,
-  })),
-  lastMessage: c.messages[0] ? toMessage(c.messages[0]) : null,
+export const toSummary = (c: ChatWithRelations, unreadCount: number, lastMessage: Message | null): ChatSummary => ({
+  id:          c.id,
+  type:        c.type,
+  title:       c.title,
+  description: c.description,
+  isPublic:    c.isPublic,
+  createdAt:   c.createdAt.toISOString(),
+  updatedAt:   c.updatedAt.toISOString(),
+  members:     c.members.map(toChatMember),
+  memberCount: c._count.members,
+  lastMessage,
   unreadCount,
 });
 

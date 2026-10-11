@@ -22,6 +22,7 @@ model User {
 
   memberships   ChatMember[]
   messages      Message[]
+  attachments   Attachment[]
   refreshTokens RefreshToken[]
 
   @@map("users")
@@ -76,6 +77,9 @@ model Chat {
   id            String    @id @default(uuid()) @db.Uuid
   type          ChatType
   title         String?
+  description   String?
+  /// Faqat kanal: ochiq kanalni hamma qidirib, obuna bo'la oladi.
+  isPublic      Boolean   @default(false) @map("is_public")
   /// Faqat `direct` uchun: ikki user id'si tartiblangan holda "a:b" —
   /// bir juftlik uchun ikkinchi 1:1 chat yaratilmasligini baza kafolatlaydi.
   directKey     String?   @unique @map("direct_key")
@@ -83,9 +87,11 @@ model Chat {
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  members  ChatMember[]
-  messages Message[]
+  members     ChatMember[]
+  messages    Message[]
+  attachments Attachment[]
 
+  @@index([type, isPublic])
   @@map("chats")
 }
 
@@ -113,11 +119,47 @@ model Message {
   content   String
   createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   editedAt  DateTime?   @map("edited_at") @db.Timestamptz(3)
+  /// Soft-delete: qator qoladi, tarix/oxirgi xabar/o'qilmagan sonidan chiqariladi.
+  deletedAt DateTime?   @map("deleted_at") @db.Timestamptz(3)
 
-  chat   Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  chat       Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender     User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  attachment Attachment?
 
   // Tarix: keyset pagination — (created_at, id) bo'yicha kamayish tartibida.
   @@index([chatId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("messages")
+}
+
+enum AttachmentKind {
+  image
+  file
+  voice
+
+  @@map("attachment_kind")
+}
+
+/// Biriktirma: obyekt S3-mos saqlashda (`key`), bu yerda metadata.
+/// `messageId` null — imzolangan yuklash havolasi berilgan, lekin hali xabarga
+/// biriktirilmagan (tugatilmagan yuklashlar — cheklov, REJA.md ga qarang).
+model Attachment {
+  id         String         @id @default(uuid()) @db.Uuid
+  uploaderId String         @map("uploader_id") @db.Uuid
+  chatId     String         @map("chat_id") @db.Uuid
+  kind       AttachmentKind
+  key        String         @unique
+  name       String
+  mime       String
+  size       Int
+  durationMs Int?           @map("duration_ms")
+  messageId  String?        @unique @map("message_id") @db.Uuid
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  uploader User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  chat     Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  message  Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([uploaderId])
+  @@index([chatId])
+  @@map("attachments")
 }

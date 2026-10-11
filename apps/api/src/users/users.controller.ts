@@ -12,7 +12,11 @@ import { PrismaService } from '../prisma/prisma.service';
 export class UsersController {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Ism yoki email bo'yicha (katta-kichik harf farqsiz), o'zini qaytarmaydi. */
+  /**
+   * Ism bo'yicha — qism (katta-kichik harf farqsiz); email bo'yicha — faqat
+   * to'liq mos kelganda (aks holda `a@` bilan boshqalarning emailini terib
+   * chiqarish mumkin bo'lardi). O'zini qaytarmaydi.
+   */
   @Get('search')
   async search(
     @Req() req: AuthedRequest,
@@ -23,7 +27,7 @@ export class UsersController {
         id: { not: req.user.sub },
         OR: [
           { displayName: { contains: query.q, mode: 'insensitive' } },
-          { email:       { contains: query.q, mode: 'insensitive' } },
+          { email: query.q.toLowerCase() }, // emaillar ro'yxatdan o'tishda kichik harfga o'tkaziladi
         ],
       },
       orderBy: [{ displayName: 'asc' }, { id: 'asc' }],

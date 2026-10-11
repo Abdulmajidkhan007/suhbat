@@ -30,7 +30,22 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx turbo run lint typecheck test build
-      - name: API e2e (Postgres)
+      - name: MinIO (S3-mos saqlash)
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=suhbat -e MINIO_ROOT_PASSWORD=suhbat-minio-secret \
+            minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/ready && exit 0
+            sleep 1
+          done
+          docker logs minio
+          exit 1
+      - name: API e2e (Postgres + MinIO)
+        env:
+          S3_ENDPOINT: http://localhost:9000
+          S3_ACCESS_KEY: suhbat
+          S3_SECRET_KEY: suhbat-minio-secret
         run: |
           npm run db:deploy -w @suhbat/api
           npm run test:e2e -w @suhbat/api
