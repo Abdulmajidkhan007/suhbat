@@ -133,7 +133,7 @@
   ishga tushirib sinaldi).
 
 ### 2-fazada nima tekshirildi
-- `npx turbo run lint typecheck test build` — yashil (core 27, client 20, api 45,
+- `npx turbo run lint typecheck test build` — yashil (core 27, client 20, api 34,
   web 32 unit test).
 - `npm run test:e2e -w @suhbat/api` (lokal Postgres 16) — 12 test yashil: guruh/kanal
   hayot sikli va rollar, kanalda yozish cheklovi, ochiq kanal qidiruvi/obuna,
