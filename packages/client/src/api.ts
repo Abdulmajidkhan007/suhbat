@@ -1,0 +1,191 @@
+import {
+  AuthResponseSchema,
+  ChatSummarySchema,
+  MessagePageSchema,
+  MessageSchema,
+  TokenPairSchema,
+  UserSchema,
+} from '@suhbat/core';
+import type {
+  ChatSummary,
+  LoginInput,
+  Message,
+  MessagePage,
+  RegisterInput,
+  SendMessageInput,
+  TokenPair,
+  User,
+} from '@suhbat/core';
+import { z } from 'zod';
+import type { ZodType } from 'zod';
+import type { TokenStorage } from './tokens.js';
+
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+    readonly body?: unknown,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export interface ApiClientOptions {
+  /** Masalan `http://localhost:4000` (oxirida `/` bo'lmasin). */
+  baseUrl:  string;
+  storage:  TokenStorage;
+  fetch?:   typeof fetch;
+  /** Refresh token ham yaroqsiz bo'lib, sessiya tugaganda chaqiriladi. */
+  onSessionExpired?: () => void;
+}
+
+type Query = Record<string, string | number | undefined>;
+interface RequestInit_ {
+  body?:  unknown;
+  query?: Query;
+  token?: string;
+}
+
+// URLSearchParams React Native'da to'liq emas — qo'lda yig'amiz.
+const toQueryString = (query?: Query) => {
+  if (!query) return '';
+  const parts = Object.entries(query)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  return parts.length ? `?${parts.join('&')}` : '';
+};
+
+const errorMessage = (body: unknown, status: number): string => {
+  if (body && typeof body === 'object' && 'message' in body) {
+    const m = (body as { message: unknown }).message;
+    if (typeof m === 'string') return m;
+    if (Array.isArray(m)) return m.join(', ');
+  }
+  return `HTTP ${status}`;
+};
+
+export type ApiClient = ReturnType<typeof createApiClient>;
+
+export const createApiClient = (opts: ApiClientOptions) => {
+  const doFetch = opts.fetch ?? globalThis.fetch.bind(globalThis);
+  const { storage } = opts;
+  let refreshing: Promise<TokenPair | null> | null = null;
+
+  async function request<T>(method: string, path: string, schema: ZodType<T> | null, init: RequestInit_ = {}): Promise<T> {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (init.body !== undefined) headers['Content-Type'] = 'application/json';
+    if (init.token) headers.Authorization = `Bearer ${init.token}`;
+
+    let res: Response;
+    try {
+      res = await doFetch(`${opts.baseUrl}${path}${toQueryString(init.query)}`, {
+        method,
+        headers,
+        body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      });
+    } catch (e) {
+      throw new ApiError(0, 'Tarmoq xatosi. Internetni tekshiring.', e);
+    }
+    const text = await res.text();
+    let body: unknown = undefined;
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = text;
+      }
+    }
+    if (!res.ok) throw new ApiError(res.status, errorMessage(body, res.status), body);
+    return schema ? schema.parse(body) : (undefined as T);
+  }
+
+  /**
+   * Bir vaqtda bitta refresh (single-flight). Agar xotiradagi access token
+   * so'rovda ishlatilganidan farq qilsa — boshqa tab allaqachon yangilagan,
+   * qayta refresh qilinmaydi (aks holda server token qayta ishlatildi deb
+   * butun sessiyani yopadi).
+   */
+  function refreshTokens(usedAccessToken?: string): Promise<TokenPair | null> {
+    refreshing ??= (async () => {
+      const current = await storage.get();
+      if (!current) return null;
+      if (usedAccessToken && current.accessToken !== usedAccessToken) return current;
+      try {
+        const pair = await request('POST', '/auth/refresh', TokenPairSchema, {
+          body: { refreshToken: current.refreshToken },
+        });
+        await storage.set(pair);
+        return pair;
+      } catch (e) {
+        if (e instanceof ApiError && (e.status === 401 || e.status === 400)) {
+          await storage.clear();
+          opts.onSessionExpired?.();
+          return null;
+        }
+        throw e;
+      }
+    })().finally(() => {
+      refreshing = null;
+    });
+    return refreshing;
+  }
+
+  async function authed<T>(method: string, path: string, schema: ZodType<T> | null, init: RequestInit_ = {}): Promise<T> {
+    const tokens = await storage.get();
+    if (!tokens) throw new ApiError(401, 'Tizimga kirilmagan');
+    try {
+      return await request(method, path, schema, { ...init, token: tokens.accessToken });
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.status !== 401) throw e;
+      const next = await refreshTokens(tokens.accessToken);
+      if (!next) throw e;
+      return request(method, path, schema, { ...init, token: next.accessToken });
+    }
+  }
+
+  async function signIn(path: string, body: unknown): Promise<User> {
+    const res = await request('POST', path, AuthResponseSchema, { body });
+    await storage.set({ accessToken: res.accessToken, refreshToken: res.refreshToken });
+    return res.user;
+  }
+
+  return {
+    register: (input: RegisterInput) => signIn('/auth/register', input),
+    login:    (input: LoginInput) => signIn('/auth/login', input),
+
+    /** Tokenlar darhol o'chiriladi; serverga xabar berish xatosi e'tiborsiz. */
+    async logout(): Promise<void> {
+      const tokens = await storage.get();
+      await storage.clear();
+      if (!tokens) return;
+      await request('POST', '/auth/logout', null, { body: { refreshToken: tokens.refreshToken } }).catch(() => undefined);
+    },
+
+    me: () => authed('GET', '/auth/me', UserSchema),
+
+    searchUsers: (q: string, limit?: number): Promise<User[]> =>
+      authed('GET', '/users/search', z.array(UserSchema), { query: { q, limit } }),
+
+    listChats: (): Promise<ChatSummary[]> => authed('GET', '/chats', z.array(ChatSummarySchema)),
+
+    getChat: (chatId: string): Promise<ChatSummary> =>
+      authed('GET', `/chats/${encodeURIComponent(chatId)}`, ChatSummarySchema),
+
+    createDirectChat: (userId: string): Promise<ChatSummary> =>
+      authed('POST', '/chats/direct', ChatSummarySchema, { body: { userId } }),
+
+    listMessages: (chatId: string, params: { before?: string; limit?: number } = {}): Promise<MessagePage> =>
+      authed('GET', `/chats/${encodeURIComponent(chatId)}/messages`, MessagePageSchema, { query: params }),
+
+    sendMessage: (chatId: string, input: SendMessageInput): Promise<Message> =>
+      authed('POST', `/chats/${encodeURIComponent(chatId)}/messages`, MessageSchema, { body: input }),
+
+    getAccessToken: async (): Promise<string | null> => (await storage.get())?.accessToken ?? null,
+
+    /** WebSocket uchun: access tokenni yangilaydi; sessiya tugagan bo'lsa null. */
+    refreshAccessToken: async (): Promise<string | null> => (await refreshTokens())?.accessToken ?? null,
+
+    hasSession: async (): Promise<boolean> => (await storage.get()) !== null,
+  };
+};

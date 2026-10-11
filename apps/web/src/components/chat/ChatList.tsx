@@ -52,7 +52,7 @@ const ChatList: React.FC<Props> = ({
   return (
     <Box className="flex flex-col h-full">
       <div className="px-3 py-2">
-        <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search conversations…" />
+        <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Suhbatlarni qidirish…" />
       </div>
 
       <Box className="flex-1 overflow-y-auto px-2 pb-2" sx={{ scrollbarWidth: 'thin' }}>
@@ -63,8 +63,8 @@ const ChatList: React.FC<Props> = ({
         {!loading && !error && filtered.length === 0 && (
           <EmptyState
             icon={<InboxIcon sx={{ fontSize: 40 }} />}
-            title={searchQuery ? 'No results' : 'No conversations'}
-            description={searchQuery ? 'Try a different search.' : 'Start a new conversation.'}
+            title={searchQuery ? 'Topilmadi' : 'Suhbatlar yo\'q'}
+            description={searchQuery ? 'Boshqacha qidirib ko\'ring.' : 'Yangi suhbat boshlang.'}
           />
         )}
 

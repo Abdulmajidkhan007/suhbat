@@ -6,7 +6,6 @@ import EmojiEmotionsOutlinedIcon from '@mui/icons-material/EmojiEmotionsOutlined
 import { motion, AnimatePresence } from 'framer-motion';
 import VoiceButton from './VoiceButton';
 import AttachmentPreview from './AttachmentPreview';
-import { useDebounce } from '../../hooks/useDebounce';
 import { UploadProgress } from '../../types';
 
 interface Props {
@@ -31,16 +30,12 @@ const MessageComposer: React.FC<Props> = ({
   const [text, setText]         = useState('');
   const fileInputRef            = useRef<HTMLInputElement>(null);
   const textAreaRef             = useRef<HTMLTextAreaElement>(null);
-  const debouncedText           = useDebounce(text, 800);
-  const prevTypingRef           = useRef(false);
 
-  useEffect(() => {
-    const isTyping = debouncedText.length > 0;
-    if (isTyping !== prevTypingRef.current) {
-      prevTypingRef.current = isTyping;
-      onTyping(isTyping);
-    }
-  }, [debouncedText, onTyping]);
+  // Har o'zgarishda xabar beramiz; tez-tez yubormaslik `useMessages` da.
+  const handleChange = (value: string) => {
+    setText(value);
+    onTyping(value.trim().length > 0);
+  };
 
   useEffect(() => {
     if (textAreaRef.current) {
@@ -55,7 +50,6 @@ const MessageComposer: React.FC<Props> = ({
     onSend(trimmed);
     setText('');
     onTyping(false);
-    prevTypingRef.current = false;
   }, [text, disabled, onSend, onTyping]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -111,7 +105,7 @@ const MessageComposer: React.FC<Props> = ({
           <textarea
             ref={textAreaRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => handleChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={disabled ? 'Select a conversation' : placeholder}
             disabled={disabled}

@@ -19,10 +19,10 @@ const TypingIndicator: React.FC<Props> = ({ typingNames }) => {
 
   const label =
     typingNames.length === 1
-      ? `${typingNames[0]} is typing`
+      ? `${typingNames[0]} yozmoqda`
       : typingNames.length === 2
-      ? `${typingNames[0]} and ${typingNames[1]} are typing`
-      : 'Several people are typing';
+      ? `${typingNames[0]} va ${typingNames[1]} yozmoqda`
+      : 'Bir necha kishi yozmoqda';
 
   return (
     <AnimatePresence>

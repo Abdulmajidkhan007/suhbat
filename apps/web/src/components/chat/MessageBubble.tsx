@@ -16,11 +16,12 @@ interface Props {
 }
 
 const StatusIcon: React.FC<{ status: Message['status'] }> = ({ status }) => {
-  if (status === 'sending')   return <DoneIcon sx={{ fontSize: 12, opacity: 0.5 }} />;
-  if (status === 'sent')      return <DoneIcon sx={{ fontSize: 12, color: 'text.secondary' }} />;
-  if (status === 'delivered') return <DoneAllIcon sx={{ fontSize: 12, color: 'text.secondary' }} />;
-  if (status === 'read')      return <DoneAllIcon sx={{ fontSize: 12, color: '#60a5fa' }} />;
-  if (status === 'failed')    return <span className="text-red-400 text-xs">!</span>;
+  // O'z xabarimiz ko'k fonda: bitta belgi — yuborildi, ikkita — o'qildi.
+  if (status === 'sending')   return <DoneIcon sx={{ fontSize: 12, opacity: 0.4 }} aria-label="yuborilmoqda" />;
+  if (status === 'sent')      return <DoneIcon sx={{ fontSize: 13, opacity: 0.8 }} aria-label="yuborildi" />;
+  if (status === 'delivered') return <DoneAllIcon sx={{ fontSize: 13, opacity: 0.8 }} aria-label="yetkazildi" />;
+  if (status === 'read')      return <DoneAllIcon sx={{ fontSize: 13, color: '#bbf7d0' }} aria-label="o'qildi" />;
+  if (status === 'failed')    return <span className="text-red-200 text-xs font-bold" title="Yuborilmadi">!</span>;
   return null;
 };
 

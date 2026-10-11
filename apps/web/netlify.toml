@@ -1,6 +1,7 @@
 # Netlify'da "Base directory" = apps/web qilib qo'yiladi.
+# Env: VITE_API_URL — API manzili (masalan https://api.suhbat.uz).
 [build]
-  command   = "npm run build --workspace=@suhbat/core && npm run build"
+  command   = "npm run build --workspace=@suhbat/core && npm run build --workspace=@suhbat/client && npm run build"
   publish   = "dist"
 
 [build.environment]

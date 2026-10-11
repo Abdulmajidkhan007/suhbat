@@ -44,6 +44,8 @@ export interface ChatParticipant {
   photoURL:    string | null;
   isOnline:    boolean;
   lastSeen:    number;
+  /** Shu vaqtgacha (ms) yuborilgan xabarlarni o'qigan. */
+  lastReadAt?: number | null;
   role?:       UserRole;
 }
 
@@ -84,12 +86,17 @@ export interface ChatsState {
   activeChatId: string | null;
   loading:      boolean;
   error:        string | null;
+  /** WebSocket qayta ulanganda oshadi — ochiq chat tarixini qayta yuklash uchun. */
+  syncEpoch:    number;
 }
 
 export interface MessagesState {
-  messagesByChatId: Record<string, Message[]>;
-  loadingByChatId:  Record<string, boolean>;
-  errorByChatId:    Record<string, string | null>;
+  messagesByChatId:     Record<string, Message[]>;
+  loadingByChatId:      Record<string, boolean>;
+  errorByChatId:        Record<string, string | null>;
+  /** Eskiroq xabarlar uchun kursor; null — boshqa yo'q. */
+  nextCursorByChatId:   Record<string, string | null>;
+  loadingOlderByChatId: Record<string, boolean>;
 }
 
 export type ThemeMode = 'light' | 'dark';
@@ -114,14 +121,4 @@ export interface UploadProgress {
   progress: number;
   status:   'uploading' | 'complete' | 'error';
   url?:     string;
-}
-
-export interface FirebaseConfig {
-  apiKey:            string;
-  authDomain:        string;
-  projectId:         string;
-  storageBucket:     string;
-  messagingSenderId: string;
-  appId:             string;
-  databaseURL:       string;
 }

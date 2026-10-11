@@ -20,12 +20,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SearchInput from '../common/SearchInput';
 import AvatarWithStatus from '../common/AvatarWithStatus';
 import EmptyState from '../ui/EmptyState';
-import { searchUsers } from '../../services/userService';
-import { createDirectChat } from '../../services/chatService';
+import { api } from '../../services/api';
+import { toAppUser, toChat } from '../../services/apiMappers';
+import { upsertChat } from '../../features/chats/chatsSlice';
 import { AppUser } from '../../types';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useEffect } from 'react';
-import { useAppSelector } from '../../app/hooks';
+import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -35,6 +36,7 @@ interface Props {
 }
 
 const NewChatDialog: React.FC<Props> = ({ open, onClose, onChatCreated }) => {
+  const dispatch      = useAppDispatch();
   const currentUser   = useAppSelector((s) => s.auth.user)!;
   const [query, setQuery]     = useState('');
   const [results, setResults] = useState<AppUser[]>([]);
@@ -46,29 +48,27 @@ const NewChatDialog: React.FC<Props> = ({ open, onClose, onChatCreated }) => {
     if (!debouncedQuery.trim()) { setResults([]); return; }
     let cancelled = false;
     setLoading(true);
-    searchUsers(debouncedQuery, currentUser.uid)
-      .then((users) => { if (!cancelled) { setResults(users); setLoading(false); } })
-      .catch(() => { if (!cancelled) setLoading(false); });
+    api.searchUsers(debouncedQuery.trim())
+      .then((users) => { if (!cancelled) { setResults(users.map(toAppUser)); setLoading(false); } })
+      .catch(() => { if (!cancelled) { setResults([]); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [debouncedQuery, currentUser.uid]);
+  }, [debouncedQuery]);
 
   const handleSelect = useCallback(async (user: AppUser) => {
     setCreating(user.uid);
     try {
-      const chatId = await createDirectChat(
-        { uid: currentUser.uid, displayName: currentUser.displayName, photoURL: currentUser.photoURL },
-        { uid: user.uid,        displayName: user.displayName,        photoURL: user.photoURL },
-      );
-      onChatCreated(chatId);
+      const chat = await api.createDirectChat(user.uid);
+      dispatch(upsertChat(toChat(chat, currentUser.uid)));
+      onChatCreated(chat.id);
       onClose();
       setQuery('');
       setResults([]);
     } catch {
-      toast.error('Could not start conversation. Try again.');
+      toast.error('Suhbatni boshlab bo\'lmadi. Qayta urinib ko\'ring.');
     } finally {
       setCreating(null);
     }
-  }, [currentUser, onChatCreated, onClose]);
+  }, [currentUser.uid, dispatch, onChatCreated, onClose]);
 
   const handleClose = () => {
     onClose();
@@ -93,8 +93,8 @@ const NewChatDialog: React.FC<Props> = ({ open, onClose, onChatCreated }) => {
       }}
     >
       <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-          New conversation
+        <Typography component="span" variant="subtitle1" sx={{ fontWeight: 700 }}>
+          Yangi suhbat
         </Typography>
         <IconButton size="small" onClick={handleClose} aria-label="Close">
           <CloseIcon fontSize="small" />
@@ -107,7 +107,7 @@ const NewChatDialog: React.FC<Props> = ({ open, onClose, onChatCreated }) => {
         <SearchInput
           value={query}
           onChange={setQuery}
-          placeholder="Search by name or email…"
+          placeholder="Ism yoki email bo'yicha qidiring…"
         />
       </Box>
 
@@ -121,8 +121,8 @@ const NewChatDialog: React.FC<Props> = ({ open, onClose, onChatCreated }) => {
         {!loading && query.trim().length > 0 && results.length === 0 && (
           <EmptyState
             icon={<PersonAddOutlinedIcon sx={{ fontSize: 36 }} />}
-            title="No users found"
-            description="Try a different name or email."
+            title="Hech kim topilmadi"
+            description="Boshqa ism yoki email bilan urinib ko'ring."
           />
         )}
 
@@ -130,7 +130,7 @@ const NewChatDialog: React.FC<Props> = ({ open, onClose, onChatCreated }) => {
           <Box className="flex flex-col items-center justify-center py-8 gap-2 text-center px-4">
             <PersonAddOutlinedIcon sx={{ fontSize: 40, opacity: 0.3 }} />
             <Typography variant="body2" color="text.secondary">
-              Search for a person to start a conversation
+              Suhbat boshlash uchun odamni qidiring
             </Typography>
           </Box>
         )}

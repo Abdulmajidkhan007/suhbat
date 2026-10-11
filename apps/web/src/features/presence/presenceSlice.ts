@@ -19,8 +19,11 @@ const presenceSlice = createSlice({
     ) {
       state.onlineUsers[action.payload.uid] = action.payload.isOnline;
     },
+    resetPresence() {
+      return initialState;
+    },
   },
 });
 
-export const { setPresence, updateUserPresence } = presenceSlice.actions;
+export const { setPresence, updateUserPresence, resetPresence } = presenceSlice.actions;
 export default presenceSlice.reducer;

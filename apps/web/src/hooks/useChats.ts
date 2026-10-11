@@ -1,31 +1,17 @@
 // src/hooks/useChats.ts
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
-import { setChats, setChatsError, setChatsLoading } from '../features/chats/chatsSlice';
-import { subscribeToChats } from '../services/chatService';
+import { fetchChats } from '../features/realtime/realtimeThunks';
 
 export const useChats = () => {
-  const dispatch = useAppDispatch();
-  const user     = useAppSelector((s) => s.auth.user);
-  const chats    = useAppSelector((s) => s.chats);
-  const unsubRef = useRef<(() => void) | null>(null);
+  const dispatch  = useAppDispatch();
+  const uid       = useAppSelector((s) => s.auth.user?.uid);
+  const syncEpoch = useAppSelector((s) => s.chats.syncEpoch);
+  const chats     = useAppSelector((s) => s.chats);
 
   useEffect(() => {
-    if (!user) return;
+    if (uid) void dispatch(fetchChats());
+  }, [uid, syncEpoch, dispatch]);
 
-    dispatch(setChatsLoading(true));
-
-    unsubRef.current = subscribeToChats(
-      user.uid,
-      (chats) => dispatch(setChats(chats)),
-      (err)   => dispatch(setChatsError(err.message)),
-    );
-
-    return () => {
-      unsubRef.current?.();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, dispatch]);
-
-  return chats;
+  return { ...chats, retry: () => dispatch(fetchChats()) };
 };
