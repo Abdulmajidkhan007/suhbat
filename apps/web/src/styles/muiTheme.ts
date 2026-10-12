@@ -1,4 +1,5 @@
 import { createTheme, ThemeOptions } from '@mui/material';
+import { palettes, type Palette } from '@suhbat/ui-tokens';
 
 const baseOptions: ThemeOptions = {
   typography: {
@@ -44,19 +45,20 @@ const baseOptions: ThemeOptions = {
   },
 };
 
+// Ranglar `@suhbat/ui-tokens` dan — mobil ilova bilan bir xil.
+const paletteOptions = (p: Palette) => ({
+  primary:    { main: p.primary, dark: p.primaryDark, light: p.primaryLight },
+  secondary:  { main: p.secondary },
+  background: { default: p.background, paper: p.surface },
+  divider:    p.divider,
+  text:       { primary: p.textPrimary, secondary: p.textSecondary, disabled: p.textDisabled },
+});
+
 export const lightTheme = createTheme({
   ...baseOptions,
   palette: {
     mode: 'light',
-    primary: { main: '#3b82f6', dark: '#2563eb', light: '#60a5fa' },
-    secondary: { main: '#8b5cf6' },
-    background: { default: '#f1f5f9', paper: '#ffffff' },
-    divider: 'rgba(0,0,0,0.08)',
-    text: {
-      primary:   'rgba(0,0,0,0.87)',
-      secondary: 'rgba(0,0,0,0.55)',
-      disabled:  'rgba(0,0,0,0.35)',
-    },
+    ...paletteOptions(palettes.light),
   },
 });
 
@@ -64,14 +66,6 @@ export const darkTheme = createTheme({
   ...baseOptions,
   palette: {
     mode: 'dark',
-    primary: { main: '#60a5fa', dark: '#3b82f6', light: '#93c5fd' },
-    secondary: { main: '#a78bfa' },
-    background: { default: '#0f1117', paper: '#161b22' },
-    divider: 'rgba(255,255,255,0.08)',
-    text: {
-      primary:   'rgba(255,255,255,0.92)',
-      secondary: 'rgba(255,255,255,0.55)',
-      disabled:  'rgba(255,255,255,0.30)',
-    },
+    ...paletteOptions(palettes.dark),
   },
 });
