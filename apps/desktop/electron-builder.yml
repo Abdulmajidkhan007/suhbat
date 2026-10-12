@@ -1,0 +1,34 @@
+appId: uz.suhbat.desktop
+productName: suhbat
+copyright: suhbat
+directories:
+  output: release
+files:
+  - dist/main/**
+  - dist/preload/**
+  - package.json
+# Veb build'i (apps/web/dist) ilova resurslariga nusxalanadi; `suhbat://app` shundan xizmat qiladi.
+extraResources:
+  - from: ../web/dist
+    to: web
+mac:
+  category: public.app-category.social-networking
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  # Imzo/notarizatsiya sertifikatlari yo'q — imzosiz (REJA.md ga qarang).
+  identity: null
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+linux:
+  # Faqat CI'da qadoqlashni tekshirish uchun (`--dir`); tarqatilmaydi.
+  target: dir
+  executableName: suhbat
+  category: Network
+publish: null
+artifactName: suhbat-${version}-${os}-${arch}.${ext}

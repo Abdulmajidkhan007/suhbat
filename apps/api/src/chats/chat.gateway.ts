@@ -1,4 +1,5 @@
 import { HttpException, Logger, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import {
   ConnectedSocket,
@@ -29,6 +30,7 @@ import type {
 import type { Server, Socket } from 'socket.io';
 import type { ZodType } from 'zod';
 import type { JwtPayload } from '../auth/auth.service';
+import { RateLimiter } from '../common/rate-limiter';
 import { ChatsService } from './chats.service';
 import type { MemberChange } from './chats.service';
 import { PresenceService } from './presence.service';
@@ -47,6 +49,9 @@ const rooms = (ids: string[]) => ids.map(userRoom);
 /** `setTimeout` chegarasi (~24.8 kun); undan uzoq tokenlar uchun taymer qayta quriladi. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
+/** `message:send` ack xatosi: juda tez-tez yuborilmoqda. */
+export const RATE_LIMITED = 'Juda tez-tez yuboryapsiz, biroz kuting';
+
 const errorText = (e: unknown): string => {
   if (e instanceof HttpException) return e.message;
   return 'Kutilmagan xato';
@@ -62,13 +67,23 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   private readonly logger = new Logger(ChatGateway.name);
   private readonly expiryTimers = new Map<string, NodeJS.Timeout>();
 
+  /** `message:send` uchun foydalanuvchi bo'yicha cheklov (WS_SEND_LIMIT / WS_SEND_WINDOW_MS). */
+  private readonly sendLimiter: RateLimiter;
+
   @WebSocketServer() server!: ChatServer;
 
   constructor(
     private readonly jwt: JwtService,
     private readonly chats: ChatsService,
     private readonly presence: PresenceService,
-  ) {}
+    config: ConfigService,
+  ) {
+    const positive = (key: string, fallback: number) => {
+      const n = Number(config.get<string>(key));
+      return Number.isFinite(n) && n > 0 ? n : fallback;
+    };
+    this.sendLimiter = new RateLimiter(positive('WS_SEND_LIMIT', 30), positive('WS_SEND_WINDOW_MS', 10_000));
+  }
 
   afterInit(server: ChatServer) {
     server.use((socket, next) => {
@@ -129,6 +144,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   @SubscribeMessage(WsEvent.MessageSend)
   async onSend(@ConnectedSocket() socket: ChatSocket, @MessageBody() body: unknown): Promise<WsAck<Message>> {
+    if (!this.sendLimiter.take(socket.data.userId)) return { ok: false, error: RATE_LIMITED };
     return this.handle(WsSendMessageSchema, body, async (p) => {
       const { message, memberIds } = await this.chats.sendMessage(
         p.chatId,

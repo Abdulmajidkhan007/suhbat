@@ -8,6 +8,7 @@ O'zbek messenjeri — veb, desktop, Android, iOS. Reja va holat: [`docs/REJA.md`
 apps/
   api/      NestJS 11 + Prisma 7 + PostgreSQL — REST + Socket.IO
   web/      React 19 + Vite — o'z API'mizga ulangan (Firebase yo'q)
+  desktop/  Electron — veb build'ini o'raydi (macOS dmg, Windows nsis)
 packages/
   core/     zod sxemalar, WebSocket event tiplari, umumiy yordamchilar
   client/   API + WebSocket mijozi (web, desktop, mobile umumiy)
@@ -100,3 +101,21 @@ Ulanish: `io(API_URL, { auth: { token: accessToken } })`. Tiplar — `@suhbat/co
 
 Access token tugaganda (`exp`) server socketni uzadi; `@suhbat/client` tokenni
 yangilab qayta ulanadi.
+
+## Desktop (Electron)
+
+`apps/desktop` veb kodini import qilmaydi: `apps/web/dist` ni `suhbat://app`
+maxsus sxemasi orqali yuklaydi. API manzili **veb build vaqtida** (`VITE_API_URL`)
+qotiriladi; API'da `CORS_ORIGIN` ga `suhbat://app` qo'shilishi kerak.
+
+```bash
+VITE_API_URL=http://localhost:4000 npx turbo run build --filter=@suhbat/desktop
+npm run dev -w @suhbat/desktop            # build + Electron oynasi
+npm run package:dir -w @suhbat/desktop    # qadoqlangan (unpacked) ilova, joriy OS uchun
+npm run package -w @suhbat/desktop -- --mac   # dmg (faqat macOS'da)
+npm run package -w @suhbat/desktop -- --win   # nsis (Windows'da)
+```
+
+Dev: `SUHBAT_DEV_URL=http://localhost:3000 npm run dev -w @suhbat/desktop` (Vite serveriga ulanadi).
+Release: `v*` tegi push qilinsa `release-desktop.yml` macOS/Windows build'ini
+GitHub Release'ga yuklaydi (repo o'zgaruvchisi `SUHBAT_API_URL` kerak). Artefaktlar **imzosiz**.

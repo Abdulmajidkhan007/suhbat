@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-11 (2-faza)
+> Oxirgi yangilanish: 2026-10-12 (3a-faza)
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`,
@@ -88,7 +88,13 @@
   buni token qayta ishlatilishi deb ko'rib sessiyani yopishi mumkin. Mijoz
   boshqa tab yangilagan tokenni ko'rsa qayta refresh qilmaydi, lekin to'liq
   tablar-aro qulf (Web Locks) yo'q.
-- Rate limit yo'q (login, xabar yuborish, typing).
+- **Rate limit (3a):** REST — `@nestjs/throttler`, IP **va endpoint** bo'yicha alohida
+  hisob (standart 300/daqiqa; `login/register/refresh` — 10/daqiqa; `/health` cheklanmaydi);
+  WS `message:send` — foydalanuvchi bo'yicha 30 / 10 soniya (`RateLimiter`, ack xatosi).
+  Hisoblar **bitta API nusxasi xotirasida** (ko'p nusxa uchun Redis kerak). `typing`,
+  `message:edit/delete` va media `upload-url` (umumiy REST limitidan tashqari) uchun alohida limit yo'q.
+  Proksi ortida `TRUST_PROXY=<soni>` o'rnatilmasa hamma mijoz bir IP bo'lib ko'rinadi.
+  Sozlash: `apps/api/.env.example`.
 - "Yozmoqda" qabul qiluvchida 6 soniyada o'chadi; yuboruvchi har 3 soniyada
   yangilaydi.
 - Profil tahrirlash API'si yo'q.
@@ -101,9 +107,9 @@
   birinchi qurish sekin). Uzoq muddatda S3-mos muqobilga
   (SeaweedFS, Garage) yoki boshqariladigan S3 (R2, Backblaze) ga o'tish ko'rib chiqilsin
   — API faqat S3 protokoliga tayanadi.
-- **Media:** tugatilmagan yuklashlar (URL olindi, xabar yuborilmadi) `attachments`
-  da `messageId = null` bilan va saqlashda qoladi — tozalash vazifasi yo'q.
-  Media uchun rate limit / foydalanuvchi kvotasi yo'q. Kanal/guruh o'chirilganda
+- **Media:** tugatilmagan yuklashlar (`messageId = null`, 24 soatdan eski) har soat
+  tozalanadi (qator + obyekt, `MediaCleanupService`; o'chirish xatosi bo'lsa obyekt
+  yetim qolishi mumkin — log). Foydalanuvchi kvotasi yo'q. Kanal/guruh o'chirilganda
   fayllar o'chadi (best-effort). Rasmdan thumbnail/o'lcham yo'q, virus tekshiruvi yo'q.
 - Kanalda minglab obunachi: `members` faqat owner/admin + o'zi qaytaradi, lekin
   xabar yuborishda a'zolar ro'yxati to'liq o'qiladi va `message:new` hammasiga
@@ -162,6 +168,35 @@
   yozish, bir nechta API nusxasi, Netlify deploy. Lokal Postgres 16
   (CI/compose'da 17).
 
+### 3a-fazada nima qilindi
+- **Desktop (`apps/desktop`, Electron 44):** veb kodini import qilmaydi — `apps/web/dist`
+  `suhbat://app` maxsus sxemasi orqali yuklanadi (standard+secure; SPA marshrutlari
+  `index.html` ga, `..` bilan chiqish rad etiladi, CSP sarlavhasi). API manzili veb
+  build vaqtida (`VITE_API_URL`) qotadi; API'da `CORS_ORIGIN` ga `suhbat://app` kerak.
+  `contextIsolation`, `sandbox`, `nodeIntegration: false`; preload faqat
+  `window.suhbatDesktop = { platform, tokens }` beradi (`DesktopBridge`, `@suhbat/client`).
+  Veb `window.suhbatDesktop?.tokens` bo'lsa `localStorage` o'rniga shuni ishlatadi.
+- **Tokenlar:** Electron `safeStorage` bilan shifrlanib `userData/tokens.bin` ga (0600).
+  Shifrlash mavjud bo'lmasa (Linux'da kalit ombori yo'q / `basic_text`) **ochiq matn yozilmaydi** —
+  tokenlar saqlanmaydi, har ishga tushirishda qayta kirish kerak. IPC sender URL'i va token shakli tekshiriladi.
+  Boshqa: tashqi havolalar tizim brauzerida, ilova ichida navigatsiya yo'q, ruxsatlardan faqat mikrofon.
+- **Build:** `electron-builder` — macOS `dmg` (x64+arm64), Windows `nsis` (x64). CI: `check` job
+  desktop lint/typecheck/test/build'ni ham qamraydi; `desktop-package` job Linux'da
+  `--dir` qadoqlashni tekshiradi. `v*` tegi → `release-desktop.yml` macOS/Windows build qilib
+  GitHub Release'ga yuklaydi (repo o'zgaruvchisi `SUHBAT_API_URL` shart).
+- **Artefaktlar IMZOSIZ** (Apple Developer ID / notarizatsiya va Windows kod imzolash
+  sertifikatlari yo'q): macOS'da Gatekeeper, Windows'da SmartScreen ogohlantiradi. Avto-yangilanish yo'q.
+- **Tekshirildi:** `turbo run lint typecheck test build` (desktop 8 unit test: token ombori,
+  `suhbat://` yo'l tahlili); API e2e 17 test (lokal Postgres 16, soxta S3) — jumladan 429 (auth va umumiy REST),
+  WS `message:send` cheklovi, yetim yuklashni tozalash; Linux'da `electron-builder --dir` va
+  qadoqlangan ilova Xvfb ostida Playwright bilan: oyna ochiladi, login ekrani chiqadi,
+  `window.suhbatDesktop` bor, sahifada `require/process` yo'q, noto'g'ri token IPC rad etiladi.
+- **Tekshirilmadi:** macOS dmg va Windows nsis build'lari (Linux konteynerda yo'q — faqat
+  tag'da CI), haqiqiy `safeStorage` shifrlash aylanishi (konteynerda kalit ombori yo'q:
+  Linux'da `set` jim o'tkazib yuboriladi), release workflow (tag bilan ishga tushirilmagan),
+  desktop ↔ jonli API (CORS `suhbat://app`), ikonkalar (standart Electron ikonkasi), MinIO bilan
+  tozalash e2e (soxta S3 bilan o'tgan).
+
 ## Maqsad
 Telegram'dek mustaqil messenjer: 1:1 va guruh chatlar, kanallar, media,
 ovozli xabar, qidiruv, bildirishnomalar; keyin qo'ng'iroqlar. Platformalar:
@@ -205,22 +240,24 @@ packages/
 - Guruh/kanal, rasm/fayl/ovozli xabar, xabarni tahrirlash/o'chirish.
 
 **3. Desktop va mobil**
-- Electron build (GitHub Release'ga), RN CLI ilova (CI'da APK, crash ekrani).
+- **3a ✅ (2026-10-12):** API cheklovlari (rate limit, yetim yuklashlarni tozalash) va
+  `apps/desktop` (Electron). Quyida "3a-fazada nima qilindi".
+- **3b ⏳:** RN CLI ilova (CI'da APK, crash ekrani) — "Keyingi sessiya uchun".
 
 **4. Bildirishnomalar va qo'ng'iroqlar**
 - Push (FCM/APNs), keyin WebRTC qo'ng'iroqlar.
 
 ## Keyingi sessiya uchun
-Repo: `suhbat`. "CLAUDE.md va docs/REJA.md ni o'qi, 3-fazani boshla
-(desktop va mobil):
-1. Avval ma'lum cheklovlardan: media uchun tugatilmagan yuklashlarni tozalash,
-   rate limit (`@nestjs/throttler`).
-2. `apps/desktop` — Electron: `apps/web` build'ini o'raydi (macOS, Windows),
-   GitHub Release'ga build; tokenlar `TokenStorage` orqali (xavfsiz saqlash).
-3. `apps/mobile` — bare React Native CLI (Android, iOS): `@suhbat/core` va
-   `@suhbat/client` dan foydalanadi (`TokenStorage` — Keychain/Keystore,
-   `UploadBody` — RN fayl tanasi); CI'da APK, crash ekrani.
-4. Ilovalar bir-birini import qilmaydi; umumiy kod `packages/` da (kerak bo'lsa
-   `packages/ui-tokens`)."
+Repo: `suhbat`. "CLAUDE.md va docs/REJA.md ni o'qi, 3b-fazani bajar (mobil):
+1. `apps/mobile` — **bare React Native CLI** (Expo emas), Android va iOS. `@suhbat/core`
+   va `@suhbat/client` dan foydalanadi (monorepo + Metro sozlamasi: workspaces, symlink).
+   `TokenStorage` — Keychain/Keystore (masalan `react-native-keychain`); `UploadBody` —
+   RN fayl tanasi (`createUpload` + `PUT`).
+2. Minimal ishlaydigan oqim: kirish/ro'yxatdan o'tish, chatlar ro'yxati, xabarlar, real vaqt
+   (Socket.IO), "yozmoqda", o'qildi. Dizayn tokenlari umumiy bo'lsa `packages/ui-tokens`.
+3. CI: Android APK (debug) build; iOS build macOS runner'da (imzosiz simulyator) — iloji bo'lsa.
+   Crash ekrani (error boundary). Release APK imzolash — keyin.
+4. Ilovalar bir-birini import qilmaydi; umumiy kod `packages/` da. `apps/mobile` Turborepo
+   `lint/typecheck/test` ga kirsin (build — alohida job).
 Ixtiyoriy: profilni tahrirlash (`PATCH /users/me`), veb bundle code-splitting,
-egalikni o'tkazish, kanal ban ro'yxati.
+egalikni o'tkazish, kanal ban ro'yxati, desktop ikonkalari va imzolash, avto-yangilanish."
