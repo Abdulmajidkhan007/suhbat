@@ -1,0 +1,16 @@
+// Monorepo: RN paketlari npm workspaces tomonidan root `node_modules` ga hoist
+// qilinadi. Yo'llar qattiq yozilmaydi — Node resolution bilan topiladi
+// (qaror `docs/REJA.md` da).
+pluginManagement {
+    def rnGradlePlugin = ["node", "--print", "require('path').dirname(require.resolve('@react-native/gradle-plugin/package.json'))"]
+        .execute(null, settingsDir).text.trim()
+    includeBuild(rnGradlePlugin)
+}
+plugins { id("com.facebook.react.settings") }
+extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
+rootProject.name = 'Suhbat'
+include ':app'
+
+// Root build.gradle'dagi `react-native-gradle-plugin` classpath'i uchun.
+includeBuild(["node", "--print", "require('path').dirname(require.resolve('@react-native/gradle-plugin/package.json'))"]
+    .execute(null, settingsDir).text.trim())

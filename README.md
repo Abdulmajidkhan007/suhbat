@@ -9,9 +9,11 @@ apps/
   api/      NestJS 11 + Prisma 7 + PostgreSQL — REST + Socket.IO
   web/      React 19 + Vite — o'z API'mizga ulangan (Firebase yo'q)
   desktop/  Electron — veb build'ini o'raydi (macOS dmg, Windows nsis)
+  mobile/   bare React Native CLI 0.87 (Android, iOS)
 packages/
   core/     zod sxemalar, WebSocket event tiplari, umumiy yordamchilar
   client/   API + WebSocket mijozi (web, desktop, mobile umumiy)
+  ui-tokens/ ranglar, o'lchamlar (veb MUI va mobil uchun umumiy)
 ```
 
 ## Ishga tushirish
@@ -119,3 +121,26 @@ npm run package -w @suhbat/desktop -- --win   # nsis (Windows'da)
 Dev: `SUHBAT_DEV_URL=http://localhost:3000 npm run dev -w @suhbat/desktop` (Vite serveriga ulanadi).
 Release: `v*` tegi push qilinsa `release-desktop.yml` macOS/Windows build'ini
 GitHub Release'ga yuklaydi (repo o'zgaruvchisi `SUHBAT_API_URL` kerak). Artefaktlar **imzosiz**.
+
+## Mobil (React Native CLI)
+
+`apps/mobile` — bare React Native CLI (Expo emas). Talablar: Android Studio + JDK 17
+(Android), Xcode + CocoaPods (iOS, faqat macOS).
+
+```bash
+npx turbo run build --filter=@suhbat/mobile^...   # core, client, ui-tokens dist
+npm run start -w @suhbat/mobile                    # Metro
+npm run android -w @suhbat/mobile                  # emulyator/qurilma
+cd apps/mobile/ios && bundle install && bundle exec pod install && cd - && npm run ios -w @suhbat/mobile
+```
+
+API manzili build (bundle) vaqtida qotadi: `SUHBAT_API_URL=https://api.example.uz`.
+O'rnatilmasa — Android emulyatorda `http://10.0.2.2:4000`, iOS simulyatorda
+`http://localhost:4000`. Qiymat o'zgarsa Metro keshi o'zi yangilanadi (`cacheVersion`).
+Haqiqiy qurilmada kompyuterning LAN IP'sini bering (`http://192.168.x.x:4000`).
+Android: HTTP faqat debug build'da (release'da cleartext o'chiq). iOS: shablon ATS sozlamasi
+(`NSAllowsLocalNetworking`), ishlab chiqarishda faqat HTTPS.
+
+Native'siz tekshiruv: `npm run lint|typecheck|test -w @suhbat/mobile`,
+`npm run bundle:android -w @suhbat/mobile`. Native build — `.github/workflows/mobile.yml`
+(Android debug + imzosiz release APK, iOS simulyator).

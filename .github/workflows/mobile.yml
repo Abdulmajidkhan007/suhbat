@@ -1,0 +1,83 @@
+name: Mobile
+
+# Native build'lar (Android APK, iOS simulyator) — og'ir, shuning uchun faqat mobil
+# ilova yoki umumiy paketlar o'zgarganda. JS tekshiruvlari (lint, typecheck, jest)
+# asosiy CI'dagi `turbo run` ichida.
+on:
+  push:
+    branches: [main]
+    paths: [apps/mobile/**, packages/**, package-lock.json, .github/workflows/mobile.yml]
+  pull_request:
+    paths: [apps/mobile/**, packages/**, package-lock.json, .github/workflows/mobile.yml]
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci
+      # @suhbat/core, client, ui-tokens — dist (Metro shuni bundle qiladi).
+      - run: npx turbo run build --filter=@suhbat/mobile^...
+      - name: Debug APK + imzosiz release APK (JS bundle Hermes bilan ichida)
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleDebug assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,x86_64
+      - name: APK'lar bor, release'da JS bundle bor
+        run: |
+          ls -la apps/mobile/android/app/build/outputs/apk/*/
+          test -f apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -l apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk | grep assets/index.android.bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: suhbat-android-debug
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/mobile
+      - run: npm ci
+      - run: npx turbo run build --filter=@suhbat/mobile^...
+      - name: CocoaPods
+        working-directory: apps/mobile/ios
+        run: bundle exec pod install
+      - name: Simulyator uchun build (imzosiz, Debug)
+        working-directory: apps/mobile/ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace Suhbat.xcworkspace \
+            -scheme Suhbat \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tail -n 200

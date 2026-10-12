@@ -1,10 +1,10 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-12 (3a-faza)
+> Oxirgi yangilanish: 2026-10-12 (3b-faza)
 
 ## Hozirgi holat (koddan)
-- **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`,
-  `packages/core`, `packages/client`.
+- **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
+  `apps/mobile`, `packages/core`, `packages/client`, `packages/ui-tokens`.
 - `apps/api` (NestJS 11 + Prisma 7 + PostgreSQL 17):
   - Modellar: `User` (+`last_seen_at`), `RefreshToken`, `Chat`
     (`direct|group|channel`, `direct_key` unique — juftlik uchun bitta 1:1),
@@ -197,6 +197,59 @@
   desktop ↔ jonli API (CORS `suhbat://app`), ikonkalar (standart Electron ikonkasi), MinIO bilan
   tozalash e2e (soxta S3 bilan o'tgan).
 
+### 3b-fazada nima qilindi (mobil)
+- **`apps/mobile` — bare React Native CLI 0.87.1** (Expo emas; `@react-native-community/cli init`
+  shabloni, yangi arxitektura + Hermes). Android `uz.suhbat.app`, iOS `Suhbat` (min iOS 15.1).
+  `react` aynan **19.2.3** (RN renderer versiyasi; veb 19.3).
+- **Oqim:** kirish/ro'yxatdan o'tish (zod tekshiruv), sessiyani tiklash (`/auth/me`), chatlar ro'yxati
+  (oxirgi xabar, o'qilmaganlar, onlayn nuqta, "yozmoqda", tortib yangilash), foydalanuvchi qidirib
+  1:1 chat ochish, chat ekrani (sahifalab eski xabarlar, optimistik yuborish → ack, xato bo'lsa
+  bosib qayta yuborish, "yozmoqda" yuborish/ko'rsatish, o'qildi belgisi va ✓/✓✓, guruhda yuboruvchi
+  ismi, kanalda oddiy a'zoga yopiq composer), qayta ulanganda chatlar va ochiq chat qayta yuklanadi.
+  Holat — `useReducer` + sof reducer (`src/state/chatState.ts`), socket voqealari `ChatStoreProvider`da.
+- **Yo'q (ataylab):** media yuborish (fayl/rasm tanlash native modul talab qiladi; biriktirma faqat
+  ko'rsatiladi va bosilganda tizim brauzerida ochiladi), xabarni tahrirlash/o'chirish UI, guruh/kanal
+  yaratish va boshqarish, profil, push bildirishnoma. Navigatsiya — o'zimizning 3 ekranli stek
+  (`BackHandler` bilan); ekranlar ko'payganda React Navigation'ga o'tiladi.
+- **Tokenlar:** `react-native-keychain` (iOS Keychain / Android Keystore, `WHEN_UNLOCKED_THIS_DEVICE_ONLY`,
+  xizmat `uz.suhbat.tokens`) + xotira keshi. `@suhbat/client` o'zgarishsiz ishlatildi.
+- **API manzili:** build (bundle) vaqtida `SUHBAT_API_URL` — o'zimizning babel plagini
+  (`babel/inline-api-url.js`, faqat shu bitta o'zgaruvchi) almashtiradi; Metro `cacheVersion` qiymatga
+  bog'langan. Standart: Android emulyator `http://10.0.2.2:4000`, iOS simulyator `http://localhost:4000`.
+  `react-native-config` (native modul) ishlatilmadi.
+- **Crash ekrani:** `ErrorBoundary` (render xatosi → "Qayta urinish"; dev'da xato matni). Global JS
+  xato ishlovchisi va crash reporting (Sentry va h.k.) yo'q.
+- **Dizayn tokenlari:** `packages/ui-tokens` (palitra yorug'/qorong'i, spacing, radius, shrift) —
+  veb MUI mavzusi ham shundan oladi. Mobil tizim rejimiga (`useColorScheme`) ergashadi.
+
+### Monorepo + RN qarori (hoisting)
+- npm workspaces RN paketlarini **root `node_modules` ga hoist qiladi** — nohoist qilinmadi, yo'llar
+  qattiq yozilmaydi, **Node resolution** bilan topiladi:
+  - Metro: `watchFolders` = root `node_modules` + `packages/`; `nodeModulesPaths` = ilova, keyin root.
+    `@suhbat/*` dist (ESM, `exports`) Metro orqali to'g'ridan-to'g'ri bundle qilinadi.
+  - **`react` pin:** `resolveRequest` har qanday `react`/`react/*` importini ilovaning o'z nusxasiga
+    (`apps/mobile/node_modules/react`, 19.2.3) yo'naltiradi — root'dagi veb `react` (19.3) bundle'ga
+    tushmaydi (bundle'da faqat 19.2.3 tekshirildi). Jest'da xuddi shu `moduleNameMapper`.
+  - Gradle: `settings.gradle` (`@react-native/gradle-plugin`) va `app/build.gradle`
+    (`reactNativeDir`, `codegenDir`, `cliFile`, `hermesCommand` ← `hermes-compiler`) `node --print
+    require.resolve(...)` bilan. iOS: shablon Podfile allaqachon `require.resolve` ishlatadi.
+  - zod 4 uchun `@babel/plugin-transform-export-namespace-from` (RN preset `export * as` ni o'girmaydi).
+- Testlar: jest 29 + `@react-native/jest-preset` + RN Testing Library 14 (`test-renderer` 1.2 — React 19.2).
+
+### 3b-fazada nima tekshirildi
+- `npx turbo run lint typecheck test build` — yashil (mobil: 19 jest testi — reducer, Keychain ombori,
+  API manzili, crash ekrani, App oqimi soxta API/socket bilan: kirish → ro'yxat → chat, real vaqt
+  xabar, "yozmoqda", markRead, optimistik yuborish → ✓ → ✓✓, kanalda yopiq composer).
+- `react-native bundle` (android, ios, `--dev false`) lokal — native'siz; `SUHBAT_API_URL` bundle'ga qotishi.
+- GitHub Actions `Mobile` workflow: **Android** — `assembleDebug` + imzosiz `assembleRelease`
+  (arm64-v8a, x86_64; release APK ichida `index.android.bundle` borligi tekshiriladi), debug APK
+  artefakt (7 kun). **iOS** — `pod install` + `xcodebuild` Debug, simulyator, imzosiz.
+- **Tekshirilmagan:** ilova **hech qanday emulyator, simulyator yoki haqiqiy qurilmada ishga
+  tushirilmagan** (konteynerda Android SDK/Xcode yo'q; CI faqat build qiladi) — jonli API bilan
+  kirish, Socket.IO (RN WebSocket), Keychain/Keystore haqiqiy aylanishi, klaviatura/safe-area,
+  qorong'i rejim ko'rinishi, Android "orqaga" tugmasi faqat kod va jest darajasida. iOS Release build
+  (Hermes bytecode) CI'da yo'q. Release APK imzolanmagan (keystore — keyin, CI secret orqali).
+
 ## Maqsad
 Telegram'dek mustaqil messenjer: 1:1 va guruh chatlar, kanallar, media,
 ovozli xabar, qidiruv, bildirishnomalar; keyin qo'ng'iroqlar. Platformalar:
@@ -242,22 +295,28 @@ packages/
 **3. Desktop va mobil**
 - **3a ✅ (2026-10-12):** API cheklovlari (rate limit, yetim yuklashlarni tozalash) va
   `apps/desktop` (Electron). Quyida "3a-fazada nima qilindi".
-- **3b ⏳:** RN CLI ilova (CI'da APK, crash ekrani) — "Keyingi sessiya uchun".
+- **3b ✅ (2026-10-12):** `apps/mobile` (bare RN CLI) — asosiy chat oqimi, Keychain, CI'da Android
+  APK va iOS simulyator build, crash ekrani; `packages/ui-tokens`. Qurilmada sinalmagan — yuqorida.
 
 **4. Bildirishnomalar va qo'ng'iroqlar**
 - Push (FCM/APNs), keyin WebRTC qo'ng'iroqlar.
 
 ## Keyingi sessiya uchun
-Repo: `suhbat`. "CLAUDE.md va docs/REJA.md ni o'qi, 3b-fazani bajar (mobil):
-1. `apps/mobile` — **bare React Native CLI** (Expo emas), Android va iOS. `@suhbat/core`
-   va `@suhbat/client` dan foydalanadi (monorepo + Metro sozlamasi: workspaces, symlink).
-   `TokenStorage` — Keychain/Keystore (masalan `react-native-keychain`); `UploadBody` —
-   RN fayl tanasi (`createUpload` + `PUT`).
-2. Minimal ishlaydigan oqim: kirish/ro'yxatdan o'tish, chatlar ro'yxati, xabarlar, real vaqt
-   (Socket.IO), "yozmoqda", o'qildi. Dizayn tokenlari umumiy bo'lsa `packages/ui-tokens`.
-3. CI: Android APK (debug) build; iOS build macOS runner'da (imzosiz simulyator) — iloji bo'lsa.
-   Crash ekrani (error boundary). Release APK imzolash — keyin.
-4. Ilovalar bir-birini import qilmaydi; umumiy kod `packages/` da. `apps/mobile` Turborepo
-   `lint/typecheck/test` ga kirsin (build — alohida job).
+Repo: `suhbat`. "CLAUDE.md va docs/REJA.md ni o'qi, 4-fazani bajar (push bildirishnomalar):
+1. **API:** qurilma tokenlari (`DeviceToken`: userId, platform `android|ios|web`, token, updatedAt;
+   `POST/DELETE /devices`, logout'da o'chirish). Xabar kelganda **onlayn bo'lmagan** (yoki chatni
+   ochmagan) a'zolarga push: FCM HTTP v1 (Android, iOS ham FCM orqali yoki APNs to'g'ridan-to'g'ri —
+   qarorni REJA'ga yoz). Kalitlar faqat env'da (`.env.example` namunasi), yaroqsiz token javobida o'chirish,
+   kanalda katta auditoriya uchun navbat/batch. Matn ko'rinishi (preview) sozlamasi — maxfiylik.
+2. **Mobil:** `@react-native-firebase/messaging` (yoki `@notifee` bilan) — ruxsat so'rash (Android 13+
+   `POST_NOTIFICATIONS`, iOS), tokenni ro'yxatdan o'tkazish/yangilash, foreground'da in-app ko'rsatish,
+   bildirishnomani bosganda shu chatni ochish. `google-services.json` / `GoogleService-Info.plist`
+   **repoga tushmaydi** — CI secret'dan yoziladi, lokal uchun namuna/README.
+3. **Veb/desktop (ixtiyoriy):** Web Push (service worker) — keyin ham bo'lishi mumkin.
+4. Mobil 3b qoldiqlari (agar vaqt bo'lsa): haqiqiy emulyatorda sinash (CI'da Android emulyator
+   smoke testi — `reactivecircus/android-emulator-runner`), release APK imzolash (keystore secret),
+   media yuborish (rasm/fayl tanlash), xabarni tahrirlash/o'chirish UI.
+Keyin (4b): WebRTC qo'ng'iroqlar (signal Socket.IO orqali, TURN server — coturn)."
 Ixtiyoriy: profilni tahrirlash (`PATCH /users/me`), veb bundle code-splitting,
-egalikni o'tkazish, kanal ban ro'yxati, desktop ikonkalari va imzolash, avto-yangilanish."
+egalikni o'tkazish, kanal ban ro'yxati, desktop ikonkalari va imzolash, avto-yangilanish,
+Redis adapter (ko'p API nusxasi).
