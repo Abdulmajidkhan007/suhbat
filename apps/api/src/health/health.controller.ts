@@ -1,6 +1,9 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from '../prisma/prisma.service';
 
+/** Orkestrator tekshiruvi bitta IP'dan keladi — cheklanmaydi. */
+@SkipThrottle({ default: true, auth: true })
 @Controller('health')
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
