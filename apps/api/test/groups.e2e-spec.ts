@@ -367,12 +367,12 @@ describe('Guruh, kanal, media (e2e)', () => {
     await waitConnected(client);
     expect(connects).toBe(1);
 
-    // ~2s da server uzadi, mijoz refresh qilib qayta ulanadi
+    // JWT `exp` butun soniya: '2s' token 1–2 soniyada tugaydi. Server uzadi, mijoz refresh qilib qayta ulanadi
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('qayta ulanmadi')), 6000);
       const off = client.onConnectionChange((up) => { if (up && connects >= 2) { clearTimeout(timer); off(); resolve(); } });
     });
-    expect(Date.now() - t0).toBeGreaterThanOrEqual(1500);
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(500); // darhol emas — token tugashini kutgan
     expect(drops).toHaveLength(1);
     expect(refreshed).toBe(1);
 
