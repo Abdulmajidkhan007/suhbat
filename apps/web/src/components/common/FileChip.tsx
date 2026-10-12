@@ -13,12 +13,12 @@ const FileChip: React.FC<Props> = ({ attachment, onClick }) => (
   <Tooltip title={`${attachment.name} (${formatFileSize(attachment.size)})`} arrow>
     <Chip
       icon={<AttachFileIcon sx={{ fontSize: '14px !important' }} />}
-      label={attachment.name.length > 20 ? attachment.name.slice(0, 18) + '…' : attachment.name}
+      label={`${attachment.name.length > 24 ? attachment.name.slice(0, 22) + '…' : attachment.name} · ${formatFileSize(attachment.size)}`}
       size="small"
       onClick={onClick}
       clickable={!!onClick}
       sx={{
-        maxWidth:   200,
+        maxWidth:   280,
         fontSize:   '0.75rem',
         fontWeight: 500,
         bgcolor:    'action.hover',

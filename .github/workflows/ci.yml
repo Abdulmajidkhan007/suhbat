@@ -30,7 +30,29 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx turbo run lint typecheck test build
-      - name: API e2e (Postgres)
+      # MinIO manbadan quriladi (rasm nashr qilinmaydi) — qatlamlar GitHub Actions keshida.
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: docker/minio
+          load: true
+          tags: suhbat-minio:local
+          cache-from: type=gha,scope=minio
+          cache-to: type=gha,scope=minio,mode=max
+      - name: MinIO (S3-mos saqlash, docker compose)
+        run: |
+          docker compose up -d --no-build minio
+          for i in $(seq 1 40); do
+            curl -sf http://localhost:9000/minio/health/ready && exit 0
+            sleep 1
+          done
+          docker compose logs minio
+          exit 1
+      - name: API e2e (Postgres + MinIO)
+        env:
+          S3_ENDPOINT: http://localhost:9000
+          S3_ACCESS_KEY: suhbat
+          S3_SECRET_KEY: suhbat-minio-secret
         run: |
           npm run db:deploy -w @suhbat/api
           npm run test:e2e -w @suhbat/api

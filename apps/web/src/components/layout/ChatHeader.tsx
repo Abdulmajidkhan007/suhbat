@@ -1,12 +1,11 @@
 import React from 'react';
 import { IconButton, Typography, Tooltip, Box, Avatar, Chip } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
 import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined';
 import CallOutlinedIcon from '@mui/icons-material/CallOutlined';
 import GroupIcon from '@mui/icons-material/Group';
 import CampaignIcon from '@mui/icons-material/Campaign';
-import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AvatarWithStatus from '../common/AvatarWithStatus';
 import StatusBadge from '../common/StatusBadge';
 import { Chat } from '../../types';
@@ -17,7 +16,8 @@ interface Props {
   isOnline:        boolean;
   onMenuClick:     () => void;
   showMenuButton:  boolean;
-  onAddMember?:    () => void;
+  /** Guruh/kanal ma'lumotlari va boshqaruvi. */
+  onOpenInfo?:     () => void;
 }
 
 const ChatHeader: React.FC<Props> = ({
@@ -26,7 +26,7 @@ const ChatHeader: React.FC<Props> = ({
   isOnline,
   onMenuClick,
   showMenuButton,
-  onAddMember,
+  onOpenInfo,
 }) => {
   const isDirect  = chat.type === 'direct';
   const isChannel = chat.type === 'channel';
@@ -36,9 +36,6 @@ const ChatHeader: React.FC<Props> = ({
   const displayUid  = isDirect ? (other?.uid ?? chat.id) : chat.id;
 
   const memberCount = chat.memberCount ?? chat.participants.length;
-  const canAddMember =
-    !isDirect &&
-    (chat.ownerId === currentUid || (chat.admins ?? []).includes(currentUid));
 
   return (
     <Box
@@ -97,10 +94,10 @@ const ChatHeader: React.FC<Props> = ({
       </div>
 
       <div className="flex items-center gap-0.5">
-        {canAddMember && onAddMember && (
-          <Tooltip title={isChannel ? 'Obunachi qo\'shish' : 'A\'zo qo\'shish'}>
-            <IconButton size="small" onClick={onAddMember} sx={{ color: 'primary.main' }}>
-              <PersonAddOutlinedIcon fontSize="small" />
+        {!isDirect && onOpenInfo && (
+          <Tooltip title={isChannel ? 'Kanal haqida' : 'Guruh haqida'}>
+            <IconButton size="small" onClick={onOpenInfo} sx={{ color: 'text.secondary' }} aria-label={isChannel ? 'Kanal haqida' : 'Guruh haqida'}>
+              <InfoOutlinedIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         )}
@@ -118,11 +115,6 @@ const ChatHeader: React.FC<Props> = ({
             </Tooltip>
           </>
         )}
-        <Tooltip title="Ko'proq">
-          <IconButton size="small" sx={{ color: 'text.secondary' }}>
-            <MoreVertIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
       </div>
     </Box>
   );

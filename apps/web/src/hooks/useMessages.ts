@@ -1,23 +1,28 @@
 // src/hooks/useMessages.ts
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { ApiError } from '@suhbat/client';
+import { UploadUrlInputSchema, kindOfFile, normalizeMime } from '@suhbat/core';
+import type { UploadUrlInput } from '@suhbat/core';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import {
   appendOptimisticMessage,
   markMessageFailed,
+  messageDeleted,
   messageReceived,
+  messageUpdated,
   prependOlder,
   setLoadingOlder,
   setMessages,
   setMessagesError,
   setMessagesLoading,
 } from '../features/messages/messagesSlice';
-import { chatMessageReceived } from '../features/chats/chatsSlice';
-import { markChatRead } from '../features/realtime/realtimeThunks';
+import { chatMessageReceived, lastMessageEdited } from '../features/chats/chatsSlice';
+import { fetchChat, markChatRead } from '../features/realtime/realtimeThunks';
 import { selectActiveChat } from '../features/chats/chatsSelectors';
 import { api, socket } from '../services/api';
 import { toMessage, withStatus } from '../services/apiMappers';
-import { Message } from '../types';
+import { AttachmentKind, Message } from '../types';
 
 const PAGE_SIZE = 50;
 /** "Yozmoqda" qayta yuborish oralig'i va jim turgandan keyin to'xtash vaqti. */
@@ -103,6 +108,7 @@ export const useMessages = (chatId: string | null) => {
       status:       'sending',
       createdAt:    Date.now(),
       updatedAt:    Date.now(),
+      editedAt:     null,
       isOptimistic: true,
     }));
     try {
@@ -117,6 +123,69 @@ export const useMessages = (chatId: string | null) => {
       dispatch(markMessageFailed({ chatId, tempId }));
     }
   }, [chatId, user, dispatch]);
+
+  /**
+   * Fayl/rasm/ovoz: avval imzolangan URL orqali saqlashga yuklanadi, so'ng xabar
+   * `attachmentId` bilan yuboriladi. Xato matnini qaytaradi (muvaffaqiyatda null).
+   */
+  const sendAttachment = useCallback(async (
+    file: Blob & { name?: string },
+    opts: { kind?: AttachmentKind; name?: string; durationMs?: number; caption?: string } = {},
+  ): Promise<string | null> => {
+    if (!chatId || !user) return null;
+    const mime = normalizeMime(file.type);
+    if (!mime) return 'Fayl turi aniqlanmadi';
+    const kind = opts.kind ?? kindOfFile(mime);
+    const name = opts.name ?? file.name ?? 'fayl';
+    const checked = UploadUrlInputSchema.safeParse({
+      chatId, kind, name, mime, size: file.size, durationMs: opts.durationMs,
+    });
+    if (!checked.success) return checked.error.issues[0]?.message ?? 'Faylni yuborib bo\'lmaydi';
+    const input: UploadUrlInput = checked.data;
+
+    const tempId = `optimistic-${uuidv4()}`;
+    const previewUrl = URL.createObjectURL(file);
+    const content = opts.caption?.trim() ?? '';
+    dispatch(appendOptimisticMessage({
+      id: tempId, chatId, senderId: user.uid, senderName: user.displayName, senderPhoto: user.photoURL,
+      content, type: kind, status: 'sending',
+      attachment: { id: tempId, kind, name, url: previewUrl, type: mime, size: file.size, durationMs: opts.durationMs ?? null },
+      createdAt: Date.now(), updatedAt: Date.now(), editedAt: null, isOptimistic: true,
+    }));
+    try {
+      const { attachmentId } = await api.uploadAttachment(input, file);
+      const saved = socket.isConnected()
+        ? await socket.sendMessage({ chatId, content, attachmentId, clientId: tempId })
+        : await api.sendMessage(chatId, { content, attachmentId, clientId: tempId });
+      const message = toMessage(saved, chatRef.current);
+      dispatch(messageReceived({ message, clientId: tempId }));
+      dispatch(chatMessageReceived({ message, currentUid: user.uid, countUnread: false }));
+      URL.revokeObjectURL(previewUrl);
+      return null;
+    } catch (e) {
+      dispatch(markMessageFailed({ chatId, tempId }));
+      return e instanceof ApiError || e instanceof Error ? e.message : 'Faylni yuborib bo\'lmadi';
+    }
+  }, [chatId, user, dispatch]);
+
+  const editMessage = useCallback(async (messageId: string, content: string) => {
+    if (!chatId) return;
+    const text = content.trim();
+    const saved = socket.isConnected()
+      ? await socket.editMessage(chatId, messageId, text)
+      : await api.editMessage(chatId, messageId, text);
+    const message = toMessage(saved, chatRef.current);
+    dispatch(messageUpdated(message));
+    dispatch(lastMessageEdited({ chatId, senderId: message.senderId, createdAt: message.createdAt, content: message.content }));
+  }, [chatId, dispatch]);
+
+  const deleteMessage = useCallback(async (messageId: string) => {
+    if (!chatId) return;
+    if (socket.isConnected()) await socket.deleteMessage(chatId, messageId);
+    else await api.deleteMessage(chatId, messageId);
+    dispatch(messageDeleted({ chatId, messageId }));
+    void dispatch(fetchChat(chatId));
+  }, [chatId, dispatch]);
 
   // "Yozmoqda": har TYPING_RESEND_MS da bir marta true, jim qolsa false.
   const typingRef = useRef<{ sentAt: number; idle?: ReturnType<typeof setTimeout> }>({ sentAt: 0 });
@@ -157,6 +226,9 @@ export const useMessages = (chatId: string | null) => {
     loadingOlder,
     loadOlder,
     sendMessage,
+    sendAttachment,
+    editMessage,
+    deleteMessage,
     setTyping,
   };
 };

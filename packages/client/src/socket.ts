@@ -64,6 +64,16 @@ export const createSocketClient = (opts: SocketClientOptions) => {
     );
   });
 
+  // Server access token tugaganda ulanishni o'zi uzadi ("io server disconnect"):
+  // socket.io bunda qayta ulanmaydi — tokenni yangilab o'zimiz ulanamiz.
+  socket.on('disconnect', (reason) => {
+    if (reason !== 'io server disconnect') return;
+    opts.refreshAccessToken().then(
+      (token) => (token ? socket.connect() : opts.onUnauthorized?.()),
+      () => opts.onUnauthorized?.(),
+    );
+  });
+
   return {
     socket,
     connect:      () => void socket.connect(),
@@ -91,6 +101,14 @@ export const createSocketClient = (opts: SocketClientOptions) => {
 
     async sendMessage(payload: WsSendMessage): Promise<Message> {
       return unwrap(await socket.timeout(ackTimeout).emitWithAck('message:send', payload));
+    },
+
+    async editMessage(chatId: string, messageId: string, content: string): Promise<Message> {
+      return unwrap(await socket.timeout(ackTimeout).emitWithAck('message:edit', { chatId, messageId, content }));
+    },
+
+    async deleteMessage(chatId: string, messageId: string): Promise<{ deletedAt: string }> {
+      return unwrap(await socket.timeout(ackTimeout).emitWithAck('message:delete', { chatId, messageId }));
     },
 
     setTyping(chatId: string, isTyping: boolean): void {

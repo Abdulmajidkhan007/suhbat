@@ -75,7 +75,7 @@ const SettingsPanel: React.FC = () => {
             />
 
             <Typography variant="caption" color="text.secondary">
-              {user.email}
+              {user.email ?? ''}
             </Typography>
           </Box>
         </div>

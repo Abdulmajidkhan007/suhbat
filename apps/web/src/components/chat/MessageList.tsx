@@ -19,6 +19,12 @@ interface Props {
   hasOlder?:    boolean;
   loadingOlder?: boolean;
   onLoadOlder?: () => void;
+  /** Birovning xabarini o'chirish huquqi (guruh/kanal owner/admini). */
+  canModerate?: boolean;
+  /** Yozish huquqi (kanalda oddiy a'zoda yo'q) — tahrirlash uchun ham kerak. */
+  canWrite?:    boolean;
+  onEdit?:      (messageId: string, content: string) => Promise<void>;
+  onDelete?:    (messageId: string) => void;
 }
 
 const MessageList: React.FC<Props> = ({
@@ -31,6 +37,10 @@ const MessageList: React.FC<Props> = ({
   hasOlder = false,
   loadingOlder = false,
   onLoadOlder,
+  canModerate = false,
+  canWrite = true,
+  onEdit,
+  onDelete,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastId    = messages[messages.length - 1]?.id;
@@ -72,12 +82,17 @@ const MessageList: React.FC<Props> = ({
         {messages.map((msg, idx) => {
           const prevMsg = messages[idx - 1];
           const showAvatar = !prevMsg || prevMsg.senderId !== msg.senderId;
+          const isSelf = msg.senderId === currentUserId;
           return (
             <MessageBubble
               key={msg.id}
               message={msg}
-              isSelf={msg.senderId === currentUserId}
+              isSelf={isSelf}
               showAvatar={showAvatar}
+              canEdit={isSelf && canWrite && msg.type === 'text'}
+              canDelete={isSelf || canModerate}
+              onEdit={onEdit}
+              onDelete={onDelete}
             />
           );
         })}

@@ -3,7 +3,12 @@ import { useEffect } from 'react';
 import { useAppDispatch } from '../app/hooks';
 import { bumpSyncEpoch, setTyping } from '../features/chats/chatsSlice';
 import {
+  onChatDeleted,
+  onChatMember,
+  onChatUpdated,
+  onMessageDeleted,
   onMessageNew,
+  onMessageUpdated,
   onPresenceState,
   onPresenceUpdate,
   onRead,
@@ -23,6 +28,11 @@ export const useRealtime = (enabled: boolean) => {
 
     const offs = [
       socket.on('message:new', (e) => dispatch(onMessageNew(e))),
+      socket.on('message:updated', (e) => dispatch(onMessageUpdated(e))),
+      socket.on('message:deleted', (e) => dispatch(onMessageDeleted(e))),
+      socket.on('chat:updated', (e) => dispatch(onChatUpdated(e))),
+      socket.on('chat:member', (e) => dispatch(onChatMember(e))),
+      socket.on('chat:deleted', (e) => dispatch(onChatDeleted(e))),
       socket.on('message:read', (e) => dispatch(onRead(e))),
       socket.on('presence:state', (e) => dispatch(onPresenceState(e))),
       socket.on('presence:update', (e) => dispatch(onPresenceUpdate(e))),

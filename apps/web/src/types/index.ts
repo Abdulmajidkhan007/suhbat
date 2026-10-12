@@ -2,7 +2,8 @@ export type UserRole = 'owner' | 'admin' | 'member';
 
 export interface AppUser {
   uid:         string;
-  email:       string;
+  /** Faqat joriy foydalanuvchida (boshqalarniki serverdan kelmaydi). */
+  email?:      string;
   displayName: string;
   photoURL:    string | null;
   phoneNumber?: string | null;
@@ -14,13 +15,17 @@ export interface AppUser {
 export type MessageType   = 'text' | 'image' | 'file' | 'voice' | 'system';
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
+export type AttachmentKind = 'image' | 'file' | 'voice';
+
 export interface Attachment {
-  id:           string;
-  name:         string;
-  url:          string;
-  type:         string;
-  size:         number;
-  thumbnailUrl?: string;
+  id:         string;
+  kind:       AttachmentKind;
+  name:       string;
+  url:        string;
+  /** MIME turi. */
+  type:       string;
+  size:       number;
+  durationMs: number | null;
 }
 
 export interface Message {
@@ -35,6 +40,8 @@ export interface Message {
   attachment?: Attachment;
   createdAt:   number;
   updatedAt:   number;
+  /** Tahrirlangan vaqt (ms); tahrirlanmagan bo'lsa null. */
+  editedAt:    number | null;
   isOptimistic?: boolean;
 }
 
@@ -60,6 +67,8 @@ export interface Chat {
   participants:       string[];
   admins?:            string[];
   ownerId?:           string;
+  /** Joriy foydalanuvchining roli (kanalda `participantDetails` to'liq bo'lmasligi mumkin). */
+  myRole:             UserRole;
   isPublic?:          boolean;
   memberCount?:       number;
   participantDetails: Record<string, ChatParticipant>;
@@ -113,12 +122,4 @@ export interface UIState {
 
 export interface PresenceState {
   onlineUsers: Record<string, boolean>;
-}
-
-export interface UploadProgress {
-  id:       string;
-  fileName: string;
-  progress: number;
-  status:   'uploading' | 'complete' | 'error';
-  url?:     string;
 }

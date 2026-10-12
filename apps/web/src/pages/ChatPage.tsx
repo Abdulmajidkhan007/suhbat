@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box } from '@mui/material';
+import { Box, IconButton } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme, useMediaQuery } from '@mui/material';
 import toast from 'react-hot-toast';
@@ -9,6 +10,7 @@ import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { setActiveChat } from '../features/chats/chatsSlice';
 import { setSidebarOpen } from '../features/ui/uiSlice';
 import { signOut } from '../features/auth/authSlice';
+import { canModerateMessages, canWrite } from '@suhbat/core';
 import { useChats } from '../hooks/useChats';
 import { useMessages } from '../hooks/useMessages';
 import { usePresence } from '../hooks/usePresence';
@@ -21,6 +23,12 @@ import ChatHeader from '../components/layout/ChatHeader';
 import MessageList from '../components/chat/MessageList';
 import MessageComposer from '../components/chat/MessageComposer';
 import NewChatDialog from '../components/chat/NewChatDialog';
+import CreateGroupDialog from '../components/chat/CreateGroupDialog';
+import CreateChannelDialog from '../components/chat/CreateChannelDialog';
+import ChannelSearchDialog from '../components/chat/ChannelSearchDialog';
+import ChatInfoDialog from '../components/chat/ChatInfoDialog';
+import ConfirmDialog from '../components/common/ConfirmDialog';
+import { errorText } from '../utils/errors';
 import EmptyState from '../components/ui/EmptyState';
 
 import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
@@ -37,6 +45,12 @@ const ChatPage: React.FC = () => {
   const chats      = useAppSelector(selectSortedChats);
 
   const [newChatOpen, setNewChatOpen] = useState(false);
+  const [groupOpen, setGroupOpen]     = useState(false);
+  const [channelOpen, setChannelOpen] = useState(false);
+  const [findOpen, setFindOpen]       = useState(false);
+  const [infoOpen, setInfoOpen]       = useState(false);
+  const [deleteId, setDeleteId]       = useState<string | null>(null);
+  const [deleting, setDeleting]       = useState(false);
 
   useRealtime(true);
   const chatsState = useChats();
@@ -54,6 +68,7 @@ const ChatPage: React.FC = () => {
 
   const {
     messages, loading: msgLoading, error: msgError, hasOlder, loadingOlder, loadOlder, sendMessage, setTyping,
+    sendAttachment, editMessage, deleteMessage,
   } = useMessages(activeChat?.id ?? null);
 
   const handleSelectChat = useCallback(
@@ -81,9 +96,43 @@ const ChatPage: React.FC = () => {
     [handleSelectChat],
   );
 
-  const handleAttach = useCallback(async (_file: File) => {
-    toast('Fayl yuborish 2-fazada qo\'shiladi.', { icon: '📎' });
-  }, []);
+  const handleAttach = useCallback(async (file: File) => {
+    const error = await sendAttachment(file);
+    if (error) toast.error(error);
+  }, [sendAttachment]);
+
+  const handleVoice = useCallback(async ({ blob, durationMs }: { blob: Blob; durationMs: number }) => {
+    const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm';
+    const error = await sendAttachment(blob, { kind: 'voice', name: `ovoz.${ext}`, durationMs });
+    if (error) toast.error(error);
+  }, [sendAttachment]);
+
+  const handleEdit = useCallback(async (messageId: string, content: string) => {
+    try {
+      await editMessage(messageId, content);
+    } catch (e) {
+      toast.error(errorText(e, 'Xabarni tahrirlab bo\'lmadi.'));
+      throw e;
+    }
+  }, [editMessage]);
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await deleteMessage(deleteId);
+      setDeleteId(null);
+    } catch (e) {
+      toast.error(errorText(e, 'Xabarni o\'chirib bo\'lmadi.'));
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteId, deleteMessage]);
+
+  const handleLeft = useCallback(() => {
+    navigate('/', { replace: true });
+    toast.success('Tayyor');
+  }, [navigate]);
 
   const typingUsers = activeChat
     ? Object.entries(activeChat.typingUsers ?? {})
@@ -105,6 +154,9 @@ const ChatPage: React.FC = () => {
       onlineUsers={onlineUsers}
       onSelectChat={handleSelectChat}
       onNewChat={() => setNewChatOpen(true)}
+      onNewGroup={() => setGroupOpen(true)}
+      onNewChannel={() => setChannelOpen(true)}
+      onFindChannel={() => setFindOpen(true)}
       onSignOut={handleSignOut}
       onRetryChats={chatsState.retry}
     />
@@ -128,6 +180,7 @@ const ChatPage: React.FC = () => {
               isOnline={isOnline(otherParticipantId)}
               onMenuClick={() => dispatch(setSidebarOpen(true))}
               showMenuButton={isMobile}
+              onOpenInfo={() => setInfoOpen(true)}
             />
             <Box className="flex-1 flex flex-col overflow-hidden">
               <MessageList
@@ -139,11 +192,18 @@ const ChatPage: React.FC = () => {
                 hasOlder={hasOlder}
                 loadingOlder={loadingOlder}
                 onLoadOlder={loadOlder}
+                canModerate={canModerateMessages(activeChat.type, activeChat.myRole)}
+                canWrite={canWrite(activeChat.type, activeChat.myRole)}
+                onEdit={handleEdit}
+                onDelete={setDeleteId}
               />
               <MessageComposer
                 onSend={sendMessage}
                 onTyping={setTyping}
                 onAttach={handleAttach}
+                onVoice={handleVoice}
+                onError={(m) => toast.error(m)}
+                readOnlyReason={canWrite(activeChat.type, activeChat.myRole) ? undefined : 'Bu kanalda faqat adminlar yozishi mumkin'}
                 placeholder="Xabar yozing…"
               />
             </Box>
@@ -153,14 +213,23 @@ const ChatPage: React.FC = () => {
             key="no-chat"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex-1 flex items-center justify-center"
+            className="flex-1 flex flex-col h-full"
           >
-            <EmptyState
-              icon={<ForumOutlinedIcon sx={{ fontSize: 56, opacity: 0.3 }} />}
-              title="Suhbat tanlang"
-              description="Mavjud suhbatlardan birini tanlang yoki yangi suhbat boshlang."
-              action={{ label: 'Yangi suhbat', onClick: () => setNewChatOpen(true) }}
-            />
+            {isMobile && (
+              <Box className="p-2">
+                <IconButton onClick={() => dispatch(setSidebarOpen(true))} aria-label="Open sidebar">
+                  <MenuIcon />
+                </IconButton>
+              </Box>
+            )}
+            <Box className="flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={<ForumOutlinedIcon sx={{ fontSize: 56, opacity: 0.3 }} />}
+                title="Suhbat tanlang"
+                description="Mavjud suhbatlardan birini tanlang yoki yangi suhbat boshlang."
+                action={{ label: 'Yangi suhbat', onClick: () => setNewChatOpen(true) }}
+              />
+            </Box>
           </motion.div>
         )}
       </AnimatePresence>
@@ -174,6 +243,22 @@ const ChatPage: React.FC = () => {
         open={newChatOpen}
         onClose={() => setNewChatOpen(false)}
         onChatCreated={handleNewChatCreated}
+      />
+      <CreateGroupDialog open={groupOpen} onClose={() => setGroupOpen(false)} onCreated={handleNewChatCreated} />
+      <CreateChannelDialog open={channelOpen} onClose={() => setChannelOpen(false)} onCreated={handleNewChatCreated} />
+      <ChannelSearchDialog open={findOpen} onClose={() => setFindOpen(false)} onOpenChat={handleNewChatCreated} />
+      {activeChat && activeChat.type !== 'direct' && (
+        <ChatInfoDialog chat={activeChat} open={infoOpen} onClose={() => setInfoOpen(false)} onLeft={handleLeft} />
+      )}
+      <ConfirmDialog
+        open={deleteId !== null}
+        destructive
+        loading={deleting}
+        title="Xabar o'chirilsinmi?"
+        description="Xabar hamma uchun o'chadi. Buni qaytarib bo'lmaydi."
+        confirmLabel="O'chirish"
+        onConfirm={() => void confirmDelete()}
+        onClose={() => setDeleteId(null)}
       />
     </>
   );

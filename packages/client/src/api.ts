@@ -1,19 +1,32 @@
 import {
   AuthResponseSchema,
+  ChatMemberSchema,
   ChatSummarySchema,
   MessagePageSchema,
   MessageSchema,
+  PublicChannelSchema,
+  PublicUserSchema,
   TokenPairSchema,
+  UploadUrlResponseSchema,
   UserSchema,
 } from '@suhbat/core';
 import type {
+  ChatMember,
   ChatSummary,
+  CreateChannelInput,
+  CreateGroupInput,
   LoginInput,
   Message,
   MessagePage,
+  PublicChannel,
+  PublicUser,
   RegisterInput,
   SendMessageInput,
   TokenPair,
+  UpdateChatInput,
+  UpdateMemberRoleInput,
+  UploadUrlInput,
+  UploadUrlResponse,
   User,
 } from '@suhbat/core';
 import { z } from 'zod';
@@ -64,6 +77,9 @@ const errorMessage = (body: unknown, status: number): string => {
   }
   return `HTTP ${status}`;
 };
+
+/** Yuklanadigan fayl tanasi: veb — `File`/`Blob`, RN — `ArrayBuffer`/`Uint8Array`. */
+export type UploadBody = Blob | ArrayBuffer | ArrayBufferView;
 
 export type ApiClient = ReturnType<typeof createApiClient>;
 
@@ -164,8 +180,8 @@ export const createApiClient = (opts: ApiClientOptions) => {
 
     me: () => authed('GET', '/auth/me', UserSchema),
 
-    searchUsers: (q: string, limit?: number): Promise<User[]> =>
-      authed('GET', '/users/search', z.array(UserSchema), { query: { q, limit } }),
+    searchUsers: (q: string, limit?: number): Promise<PublicUser[]> =>
+      authed('GET', '/users/search', z.array(PublicUserSchema), { query: { q, limit } }),
 
     listChats: (): Promise<ChatSummary[]> => authed('GET', '/chats', z.array(ChatSummarySchema)),
 
@@ -180,6 +196,75 @@ export const createApiClient = (opts: ApiClientOptions) => {
 
     sendMessage: (chatId: string, input: SendMessageInput): Promise<Message> =>
       authed('POST', `/chats/${encodeURIComponent(chatId)}/messages`, MessageSchema, { body: input }),
+
+    // --- Guruh / kanal ---
+    createGroup: (input: CreateGroupInput): Promise<ChatSummary> =>
+      authed('POST', '/chats/group', ChatSummarySchema, { body: input }),
+
+    createChannel: (input: CreateChannelInput): Promise<ChatSummary> =>
+      authed('POST', '/chats/channel', ChatSummarySchema, { body: input }),
+
+    /** Ochiq kanallar qidiruvi (`q` bo'sh bo'lsa — eng ommabop). */
+    searchPublicChannels: (q?: string, limit?: number): Promise<PublicChannel[]> =>
+      authed('GET', '/chats/public', z.array(PublicChannelSchema), { query: { q: q || undefined, limit } }),
+
+    updateChat: (chatId: string, input: UpdateChatInput): Promise<ChatSummary> =>
+      authed('PATCH', `/chats/${encodeURIComponent(chatId)}`, ChatSummarySchema, { body: input }),
+
+    /** Faqat egasi. */
+    deleteChat: (chatId: string): Promise<void> =>
+      authed('DELETE', `/chats/${encodeURIComponent(chatId)}`, null),
+
+    /** Ochiq kanalga obuna bo'lish. */
+    joinChannel: (chatId: string): Promise<ChatSummary> =>
+      authed('POST', `/chats/${encodeURIComponent(chatId)}/join`, ChatSummarySchema),
+
+    leaveChat: (chatId: string): Promise<void> =>
+      authed('POST', `/chats/${encodeURIComponent(chatId)}/leave`, null),
+
+    addMembers: (chatId: string, userIds: string[]): Promise<ChatSummary> =>
+      authed('POST', `/chats/${encodeURIComponent(chatId)}/members`, ChatSummarySchema, { body: { userIds } }),
+
+    removeMember: (chatId: string, userId: string): Promise<void> =>
+      authed('DELETE', `/chats/${encodeURIComponent(chatId)}/members/${encodeURIComponent(userId)}`, null),
+
+    setMemberRole: (chatId: string, userId: string, role: UpdateMemberRoleInput['role']): Promise<ChatMember> =>
+      authed('PATCH', `/chats/${encodeURIComponent(chatId)}/members/${encodeURIComponent(userId)}`, ChatMemberSchema, {
+        body: { role },
+      }),
+
+    // --- Xabarni tahrirlash / o'chirish ---
+    editMessage: (chatId: string, messageId: string, content: string): Promise<Message> =>
+      authed('PATCH', `/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}`, MessageSchema, {
+        body: { content },
+      }),
+
+    deleteMessage: (chatId: string, messageId: string): Promise<{ deletedAt: string }> =>
+      authed(
+        'DELETE',
+        `/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}`,
+        z.object({ deletedAt: z.string() }),
+      ),
+
+    // --- Media ---
+    createUpload: (input: UploadUrlInput): Promise<UploadUrlResponse> =>
+      authed('POST', '/media/upload-url', UploadUrlResponseSchema, { body: input }),
+
+    /**
+     * Imzolangan URL olib, faylni to'g'ridan-to'g'ri saqlashga yuklaydi
+     * (API orqali oqim o'tmaydi). Qaytgan `attachmentId` — `sendMessage` uchun.
+     */
+    async uploadAttachment(input: UploadUrlInput, body: UploadBody): Promise<{ attachmentId: string }> {
+      const upload = await authed('POST', '/media/upload-url', UploadUrlResponseSchema, { body: input });
+      let res: Response;
+      try {
+        res = await doFetch(upload.uploadUrl, { method: 'PUT', headers: upload.headers, body: body as BodyInit });
+      } catch (e) {
+        throw new ApiError(0, 'Faylni yuklab bo\'lmadi. Internetni tekshiring.', e);
+      }
+      if (!res.ok) throw new ApiError(res.status, `Faylni yuklab bo'lmadi (HTTP ${res.status})`);
+      return { attachmentId: upload.attachmentId };
+    },
 
     getAccessToken: async (): Promise<string | null> => (await storage.get())?.accessToken ?? null,
 

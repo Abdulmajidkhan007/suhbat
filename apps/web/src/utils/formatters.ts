@@ -42,3 +42,18 @@ export const getInitials = (name: string): string => {
 export const truncate = (str: string, maxLength: number): string => {
   return str.length > maxLength ? `${str.slice(0, maxLength)}…` : str;
 };
+
+/** Ro'yxat va "oxirgi xabar" uchun qisqa matn: biriktirmada izoh bo'lmasa — turi. */
+export const messagePreview = (content: string, type: string): string => {
+  if (content) return content;
+  if (type === 'image') return 'Rasm';
+  if (type === 'voice') return 'Ovozli xabar';
+  if (type === 'file')  return 'Fayl';
+  return '';
+};
+
+/** Ovozli xabar davomiyligi: 4200 → "0:04". */
+export const formatDuration = (ms: number): string => {
+  const total = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+};

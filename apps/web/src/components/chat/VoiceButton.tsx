@@ -1,58 +1,69 @@
-import React, { useState } from 'react';
-import { IconButton, Tooltip } from '@mui/material';
+import React from 'react';
+import { IconButton, Tooltip, Typography } from '@mui/material';
 import MicIcon from '@mui/icons-material/Mic';
-import MicOffIcon from '@mui/icons-material/MicOff';
-import { motion, AnimatePresence } from 'framer-motion';
+import StopIcon from '@mui/icons-material/Stop';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import { motion } from 'framer-motion';
+import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
+import type { RecordedVoice } from '../../hooks/useVoiceRecorder';
+import { formatDuration } from '../../utils/formatters';
 
 interface Props {
-  onRecord?: () => void;
-  disabled?: boolean;
+  onRecorded: (voice: RecordedVoice) => void;
+  onError:    (message: string) => void;
+  disabled?:  boolean;
 }
 
-const VoiceButton: React.FC<Props> = ({ onRecord, disabled = false }) => {
-  const [recording, setRecording] = useState(false);
+/** Bosib yozishni boshlaydi; yozuv vaqtida — taymer, bekor qilish va yuborish (stop). */
+const VoiceButton: React.FC<Props> = ({ onRecorded, onError, disabled = false }) => {
+  const { supported, recording, elapsedMs, start, stop, cancel } = useVoiceRecorder({ onRecorded, onError });
 
-  const handleClick = () => {
-    setRecording((prev) => !prev);
-    onRecord?.();
-  };
+  if (!supported) return null;
+
+  if (!recording) {
+    return (
+      <Tooltip title="Ovozli xabar yozish">
+        <span>
+          <IconButton
+            onClick={() => void start()}
+            disabled={disabled}
+            size="medium"
+            sx={{ color: 'text.secondary', mb: 0.5 }}
+            aria-label="Ovozli xabar yozish"
+          >
+            <MicIcon fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+    );
+  }
 
   return (
-    <Tooltip title={recording ? 'Stop recording' : 'Record voice message'}>
-      <IconButton
-        onClick={handleClick}
-        disabled={disabled}
-        size="medium"
-        sx={{
-          color:   recording ? 'error.main' : 'text.secondary',
-          bgcolor: recording ? 'error.50'   : 'transparent',
-          '&:hover': { bgcolor: recording ? 'error.100' : 'action.hover' },
-          transition: 'all 0.2s',
-        }}
-        aria-label={recording ? 'Stop recording' : 'Record voice message'}
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={recording ? 'off' : 'on'}
-            initial={{ scale: 0.7, opacity: 0 }}
-            animate={{ scale: 1,   opacity: 1 }}
-            exit={{    scale: 0.7, opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            {recording ? (
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 1, repeat: Infinity }}
-              >
-                <MicOffIcon fontSize="small" />
-              </motion.div>
-            ) : (
-              <MicIcon fontSize="small" />
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </IconButton>
-    </Tooltip>
+    <div className="flex items-center gap-1 mb-0.5" role="status" aria-label="Yozilmoqda">
+      <Tooltip title="Bekor qilish">
+        <IconButton onClick={cancel} size="small" aria-label="Yozuvni bekor qilish" sx={{ color: 'text.secondary' }}>
+          <DeleteOutlinedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <motion.span
+        animate={{ opacity: [1, 0.3, 1] }}
+        transition={{ duration: 1, repeat: Infinity }}
+        className="inline-block w-2 h-2 rounded-full bg-red-500"
+      />
+      <Typography variant="caption" sx={{ minWidth: 34, fontVariantNumeric: 'tabular-nums' }}>
+        {formatDuration(elapsedMs)}
+      </Typography>
+      <Tooltip title="To'xtatib yuborish">
+        <IconButton
+          onClick={stop}
+          size="medium"
+          aria-label="To'xtatib yuborish"
+          sx={{ bgcolor: 'error.main', color: 'white', '&:hover': { bgcolor: 'error.dark' } }}
+        >
+          <StopIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </div>
   );
 };
 
