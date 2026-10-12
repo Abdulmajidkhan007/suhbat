@@ -7,7 +7,10 @@ const reactDir = path.dirname(require.resolve('react/package.json', { paths: [__
 module.exports = {
   preset: '@react-native/jest-preset',
   roots: ['<rootDir>/src'],
+  // CI'da turbo boshqa vazifalar bilan parallel ishlaydi — birinchi render (RN transform) sekin.
+  testTimeout: 30_000,
   setupFiles: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup-after-env.js'],
   moduleNameMapper: {
     '^react$': reactDir,
     '^react/(.*)$': `${reactDir}/$1`,

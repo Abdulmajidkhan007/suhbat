@@ -14,6 +14,8 @@ react {
     reactNativeDir = resolveNodeModule("react-native")
     codegenDir = resolveNodeModule("@react-native/codegen")
     cliFile = file("${resolveNodeModule("react-native")}/cli.js")
+    // Release bundle'ni Hermes bytecode'ga kompilyatsiya qiluvchi (`%OS-BIN%` ni plagin almashtiradi).
+    hermesCommand = "${resolveNodeModule("hermes-compiler")}/hermesc/%OS-BIN%/hermesc"
 
     autolinkLibrariesWithApp()
 }

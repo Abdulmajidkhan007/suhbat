@@ -7,7 +7,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "start": "react-native start",
-    "lint": "eslint src index.js babel jest.setup.js metro.config.js jest.config.js babel.config.js",
+    "lint": "eslint src index.js babel jest.setup.js jest.setup-after-env.js metro.config.js jest.config.js babel.config.js",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "bundle:android": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output build/index.android.bundle --assets-dest build/res",
