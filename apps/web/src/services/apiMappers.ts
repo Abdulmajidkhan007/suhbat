@@ -1,14 +1,15 @@
 // API (`@suhbat/core`) tiplarini UI tiplariga keltirish. Vaqtlar — ms.
 import { toMillis } from '@suhbat/core';
-import type { ChatMember, ChatSummary, Message as ApiMessage, User } from '@suhbat/core';
+import type { ChatMember, ChatSummary, Message as ApiMessage, PublicUser, User } from '@suhbat/core';
 import type { AppUser, Chat, ChatParticipant, Message } from '../types';
 import { messagePreview } from '../utils/formatters';
 
 const ms = (value: unknown, fallback = Date.now()): number => toMillis(value) ?? fallback;
 
-export const toAppUser = (u: User): AppUser => ({
+/** `User` (email bilan) faqat o'zi uchun; boshqalar — `PublicUser`. */
+export const toAppUser = (u: PublicUser | User): AppUser => ({
   uid:         u.id,
-  email:       u.email,
+  email:       'email' in u ? u.email : undefined,
   displayName: u.displayName,
   photoURL:    u.photoUrl,
   createdAt:   ms(u.createdAt),

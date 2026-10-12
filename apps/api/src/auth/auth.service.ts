@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import type { AuthResponse, LoginInput, RegisterInput, TokenPair, User } from '@suhbat/core';
+import type { AuthResponse, LoginInput, PublicUser, RegisterInput, TokenPair, User } from '@suhbat/core';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client';
@@ -14,13 +14,16 @@ export interface JwtPayload {
   exp?: number;
 }
 
-export const toPublicUser = (u: UserRow): User => ({
+/** Boshqalarga ko'rsatiladigan shakl — email YO'Q. */
+export const toPublicUser = (u: UserRow): PublicUser => ({
   id:          u.id,
-  email:       u.email,
   displayName: u.displayName,
   photoUrl:    u.photoUrl,
   createdAt:   u.createdAt.toISOString(),
 });
+
+/** Faqat foydalanuvchining o'zi uchun (email bilan). */
+export const toSelfUser = (u: UserRow): User => ({ ...toPublicUser(u), email: u.email });
 
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -65,7 +68,7 @@ export class AuthService {
   async me(userId: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
-    return toPublicUser(user);
+    return toSelfUser(user);
   }
 
   /**
@@ -126,7 +129,7 @@ export class AuthService {
     return {
       accessToken: await this.jwt.signAsync(payload),
       refreshToken,
-      user:        toPublicUser(user),
+      user:        toSelfUser(user),
     };
   }
 }

@@ -92,13 +92,13 @@
 - "Yozmoqda" qabul qiluvchida 6 soniyada o'chadi; yuboruvchi har 3 soniyada
   yangilaydi.
 - Profil tahrirlash API'si yo'q.
-- **Foydalanuvchi emaili boshqalarga ko'rinadi:** `User` DTO'da `email` bor, shu
-  sababli ism bo'yicha qidiruv va chat a'zolari ro'yxati emailni qaytaradi.
-  Qidiruv endi emailni terib topishga yo'l qo'ymaydi, lekin ism bo'yicha topilgan
-  odamning emaili javobda bor. Tuzatish: `PublicUser` (emailsiz) sxemasi — 3-faza
-  boshida tavsiya.
+- **Email faqat o'zi uchun:** `PublicUser` (id, displayName, photoUrl, createdAt) —
+  qidiruv, chat a'zolari, WS voqealari; `User` (email bilan) faqat `/auth/me` va
+  login/register/refresh javoblarida. Xom HTTP/WS javoblarida email yo'qligi e2e
+  bilan tekshiriladi (qasddan sizdirilsa test yiqiladi).
 - **MinIO tarqatilishi:** MinIO rasm va binary nashr qilmaydi; biz manbadan quramiz
-  (`docker/minio`, pin qilingan, qurish sekin). Uzoq muddatda S3-mos muqobilga
+  (`docker/minio`, pin qilingan; CI'da qatlamlar GitHub Actions keshida, lokal
+  birinchi qurish sekin). Uzoq muddatda S3-mos muqobilga
   (SeaweedFS, Garage) yoki boshqariladigan S3 (R2, Backblaze) ga o'tish ko'rib chiqilsin
   — API faqat S3 protokoliga tayanadi.
 - **Media:** tugatilmagan yuklashlar (URL olindi, xabar yuborilmadi) `attachments`
@@ -137,9 +137,9 @@
   ishga tushirib sinaldi).
 
 ### 2-fazada nima tekshirildi
-- `npx turbo run lint typecheck test build` — yashil (core 27, client 20, api 34,
-  web 32 unit test).
-- `npm run test:e2e -w @suhbat/api` (lokal Postgres 16) — 12 test yashil: guruh/kanal
+- `npx turbo run lint typecheck test build` — yashil (core 29, client 20, api 35,
+  web 33 unit test).
+- `npm run test:e2e -w @suhbat/api` (lokal Postgres 16) — 13 test yashil: email sizmasligi (xom javoblar), guruh/kanal
   hayot sikli va rollar, kanalda yozish cheklovi, ochiq kanal qidiruvi/obuna,
   tahrirlash/o'chirish + WS voqealari, media oqimi (imzolangan URL, hajm/MIME
   rad etish, biriktirmani qayta ishlatish, o'chirilganda fayl o'chishi),
@@ -151,7 +151,7 @@
   tayinlash, kanal yaratish/obuna/yozish cheklovi; mobil (390 px) va qorong'i rejim.
 - **Haqiqiy MinIO bilan lokal:** MinIO rasmi Docker Hub/quay'da ham, binary
   `dl.min.io` da ham yo'q (410), shuning uchun manbadan qurildi (`go install`,
-  Go proxy orqali, pin: `v0.0.0-20260212201848-7aac2a2c5b7c`) va **12 e2e testning
+  Go proxy orqali, pin: `v0.0.0-20260212201848-7aac2a2c5b7c`) va **13 e2e testning
   hammasi haqiqiy MinIO bilan o'tdi** (imzolangan PUT, imzodagi hajmga mos kelmagan
   yuklashni MinIO o'zi rad etishi, GET, o'chirish; brauzer CORS preflight javobi
   ham to'g'ri). `docker/minio/Dockerfile` (compose va CI shuni quradi) lokal
@@ -213,8 +213,8 @@ packages/
 ## Keyingi sessiya uchun
 Repo: `suhbat`. "CLAUDE.md va docs/REJA.md ni o'qi, 3-fazani boshla
 (desktop va mobil):
-1. Avval ma'lum cheklovlardan: `PublicUser` (emailsiz) sxemasi, media uchun
-   tugatilmagan yuklashlarni tozalash, rate limit (`@nestjs/throttler`).
+1. Avval ma'lum cheklovlardan: media uchun tugatilmagan yuklashlarni tozalash,
+   rate limit (`@nestjs/throttler`).
 2. `apps/desktop` — Electron: `apps/web` build'ini o'raydi (macOS, Windows),
    GitHub Release'ga build; tokenlar `TokenStorage` orqali (xavfsiz saqlash).
 3. `apps/mobile` — bare React Native CLI (Android, iOS): `@suhbat/core` va

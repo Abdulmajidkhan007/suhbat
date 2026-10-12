@@ -78,6 +78,48 @@ describe('Guruh, kanal, media (e2e)', () => {
     expect(await vali.searchUsers(emailOf('vali'))).toEqual([]); // o'zini qaytarmaydi
   });
 
+  it('email boshqalarga SIZMAYDI: qidiruv, chat a\'zolari, ro\'yxat, WS; faqat o\'zi uchun bor', async () => {
+    // Mijoz zod bilan "email"ni tashlab yuboradi — shuning uchun xom HTTP/WS javoblari tekshiriladi.
+    const get = async (n: Name, path: string) => {
+      const res = await fetch(`${url}${path}`, { headers: { Authorization: `Bearer ${(await api[n].getAccessToken())!}` } });
+      expect(res.status).toBe(200);
+      return res.json() as Promise<unknown>;
+    };
+    const hasEmail = (v: unknown) => JSON.stringify(v).includes('@e2e.uz');
+
+    // Ism bo'yicha qidiruv (qisqa q ham) — email maydoni yo'q
+    const byName = (await get('ali', `/users/search?q=vali%20${stamp}`)) as Record<string, unknown>[];
+    expect(byName).toHaveLength(1);
+    expect(byName[0]).not.toHaveProperty('email');
+    expect(Object.keys(byName[0]).sort()).toEqual(['createdAt', 'displayName', 'id', 'photoUrl']);
+    expect(hasEmail(await get('ali', '/users/search?q=a'))).toBe(false);
+    // To'liq email bilan topilganda ham javobda email yo'q
+    const byEmail = (await get('ali', `/users/search?q=${encodeURIComponent(emailOf('vali'))}`)) as Record<string, unknown>[];
+    expect(byEmail).toHaveLength(1);
+    expect(byEmail[0]).not.toHaveProperty('email');
+
+    // Chat a'zolari: GET /chats/:id va /chats ro'yxati
+    const direct = await api.ali.createDirectChat(user.vali.id);
+    const group = await api.ali.createGroup({ title: `Maxfiy ${stamp}`, memberIds: [user.vali.id] });
+    const one = await get('vali', `/chats/${group.id}`);
+    expect(hasEmail(one)).toBe(false);
+    expect(hasEmail(await get('vali', '/chats'))).toBe(false);
+    expect(hasEmail(await get('ali', `/chats/${direct.id}`))).toBe(false);
+
+    // WS: chat:member voqeasi emailsiz
+    const raw = next(ws.vali, 'chat:member', (e) => e.action === 'added' && e.userId === user.gani.id);
+    await api.ali.addMembers(group.id, [user.gani.id]);
+    expect(hasEmail(await raw)).toBe(false);
+    await api.ali.deleteChat(group.id);
+
+    // O'zi uchun email bor: /auth/me, login
+    expect(await get('ali', '/auth/me')).toMatchObject({ email: emailOf('ali') });
+    const login = await fetch(`${url}/auth/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: emailOf('ali'), password: '12345678' }),
+    });
+    expect(((await login.json()) as { user: { email: string } }).user.email).toBe(emailOf('ali'));
+  });
+
   it('guruh: yaratish, a\'zo qo\'shish/chiqarish, rollar, sozlamalar, o\'chirish + WS voqealari', async () => {
     const { ali, vali, gani } = api;
     const valiAdded = next(ws.vali, 'chat:member', (e) => e.userId === user.vali.id && e.action === 'added');

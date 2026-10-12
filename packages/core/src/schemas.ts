@@ -3,12 +3,18 @@ import { z } from 'zod';
 // API kontrakti: vaqtlar JSON'da ISO 8601 satr ko'rinishida.
 const isoDate = z.iso.datetime({ offset: true });
 
-export const UserSchema = z.object({
+/** Boshqa foydalanuvchilar uchun ko'rinish: **email yo'q** (sizib chiqmasligi uchun). */
+export const PublicUserSchema = z.object({
   id:          z.uuid(),
-  email:       z.email(),
   displayName: z.string().min(1).max(64),
   photoUrl:    z.url().nullable(),
   createdAt:   isoDate,
+});
+export type PublicUser = z.infer<typeof PublicUserSchema>;
+
+/** Faqat o'zi uchun (`/auth/me`, login/register/refresh): email bilan. */
+export const UserSchema = PublicUserSchema.extend({
+  email: z.email(),
 });
 export type User = z.infer<typeof UserSchema>;
 
@@ -105,7 +111,7 @@ export const ChatRoleSchema = z.enum(['owner', 'admin', 'member']);
 export type ChatRole = z.infer<typeof ChatRoleSchema>;
 
 export const ChatMemberSchema = z.object({
-  user:       UserSchema,
+  user:       PublicUserSchema,
   role:       ChatRoleSchema,
   /** Shu vaqtgacha (shu vaqt ham) yuborilgan xabarlarni o'qigan. */
   lastReadAt: isoDate.nullable(),

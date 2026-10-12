@@ -1,6 +1,6 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { UserSearchQuerySchema } from '@suhbat/core';
-import type { User, UserSearchQuery } from '@suhbat/core';
+import type { PublicUser, UserSearchQuery } from '@suhbat/core';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthedRequest } from '../auth/jwt-auth.guard';
 import { toPublicUser } from '../auth/auth.service';
@@ -15,13 +15,13 @@ export class UsersController {
   /**
    * Ism bo'yicha — qism (katta-kichik harf farqsiz); email bo'yicha — faqat
    * to'liq mos kelganda (aks holda `a@` bilan boshqalarning emailini terib
-   * chiqarish mumkin bo'lardi). O'zini qaytarmaydi.
+   * chiqarish mumkin bo'lardi). Javobda email YO'Q (`PublicUser`). O'zini qaytarmaydi.
    */
   @Get('search')
   async search(
     @Req() req: AuthedRequest,
     @Query(new ZodValidationPipe(UserSearchQuerySchema)) query: UserSearchQuery,
-  ): Promise<User[]> {
+  ): Promise<PublicUser[]> {
     const users = await this.prisma.user.findMany({
       where: {
         id: { not: req.user.sub },

@@ -5,6 +5,7 @@ import {
   MessagePageSchema,
   MessageSchema,
   PublicChannelSchema,
+  PublicUserSchema,
   TokenPairSchema,
   UploadUrlResponseSchema,
   UserSchema,
@@ -18,6 +19,7 @@ import type {
   Message,
   MessagePage,
   PublicChannel,
+  PublicUser,
   RegisterInput,
   SendMessageInput,
   TokenPair,
@@ -178,8 +180,8 @@ export const createApiClient = (opts: ApiClientOptions) => {
 
     me: () => authed('GET', '/auth/me', UserSchema),
 
-    searchUsers: (q: string, limit?: number): Promise<User[]> =>
-      authed('GET', '/users/search', z.array(UserSchema), { query: { q, limit } }),
+    searchUsers: (q: string, limit?: number): Promise<PublicUser[]> =>
+      authed('GET', '/users/search', z.array(PublicUserSchema), { query: { q, limit } }),
 
     listChats: (): Promise<ChatSummary[]> => authed('GET', '/chats', z.array(ChatSummarySchema)),
 

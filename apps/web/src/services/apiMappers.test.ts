@@ -5,7 +5,7 @@ import { toAppUser, toChat, toMessage, withStatus } from './apiMappers';
 const me = '00000000-0000-4000-8000-000000000001';
 const other = '00000000-0000-4000-8000-000000000002';
 const user = (id: string, displayName: string) => ({
-  id, email: `${displayName}@test.uz`, displayName, photoUrl: null, createdAt: '2026-10-11T10:00:00.000Z',
+  id, displayName, photoUrl: null, createdAt: '2026-10-11T10:00:00.000Z',
 });
 const apiMsg = (overrides = {}) => ({
   id: '00000000-0000-4000-8000-0000000000m1', chatId: '00000000-0000-4000-8000-0000000000c1',
@@ -24,6 +24,11 @@ const summary: ChatSummary = {
 };
 
 describe('apiMappers', () => {
+  it('toAppUser: boshqa foydalanuvchida email yo\'q, o\'zida bor', () => {
+    expect(toAppUser(user(other, 'Vali')).email).toBeUndefined();
+    expect(toAppUser({ ...user(me, 'Ali'), email: 'ali@test.uz' }).email).toBe('ali@test.uz');
+  });
+
   it('toAppUser: id → uid, vaqt ms', () => {
     expect(toAppUser(user(me, 'Ali'))).toMatchObject({ uid: me, displayName: 'Ali', photoURL: null, createdAt: Date.parse('2026-10-11T10:00:00.000Z') });
   });

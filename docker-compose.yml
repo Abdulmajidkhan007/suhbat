@@ -21,6 +21,7 @@ services:
   # Bucket'ni API o'zi yaratadi (`S3_BUCKET`). Faqat lokal ishlab chiqish uchun parol.
   minio:
     build: ./docker/minio
+    image: suhbat-minio:local
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: suhbat

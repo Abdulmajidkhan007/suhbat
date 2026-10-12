@@ -2,7 +2,8 @@ export type UserRole = 'owner' | 'admin' | 'member';
 
 export interface AppUser {
   uid:         string;
-  email:       string;
+  /** Faqat joriy foydalanuvchida (boshqalarniki serverdan kelmaydi). */
+  email?:      string;
   displayName: string;
   photoURL:    string | null;
   phoneNumber?: string | null;

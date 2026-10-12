@@ -166,11 +166,6 @@ const NewChatDialog: React.FC<Props> = ({ open, onClose, onChatCreated }) => {
                             {user.displayName}
                           </Typography>
                         }
-                        secondary={
-                          <Typography variant="caption" color="text.secondary">
-                            {user.email}
-                          </Typography>
-                        }
                       />
                       {creating === user.uid && <CircularProgress size={18} />}
                     </ListItemButton>
