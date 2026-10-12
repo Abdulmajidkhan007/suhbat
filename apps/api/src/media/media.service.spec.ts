@@ -53,6 +53,12 @@ describe('MediaService', () => {
     await expect(service.requireReady('a1', me, chatId)).resolves.toBe(row);
   });
 
+  it('requireReady: saqlashga ulanib bo\'lmasa — tushunarli 503', async () => {
+    prisma.attachment.findFirst.mockResolvedValue(row);
+    storage.head.mockRejectedValue(new Error('connect ECONNREFUSED'));
+    await expect(service.requireReady('a1', me, chatId)).rejects.toThrow('Fayl saqlash hozir mavjud emas');
+  });
+
   it('toDto: rasm inline, fayl attachment sifatida imzolanadi', async () => {
     storage.presignGet.mockResolvedValue('http://s3/get');
     await service.toDto(row as never);

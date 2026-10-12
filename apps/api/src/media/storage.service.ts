@@ -44,8 +44,9 @@ export class StorageService implements OnModuleInit {
         accessKeyId:     config.get<string>('S3_ACCESS_KEY') ?? 'suhbat',
         secretAccessKey: config.get<string>('S3_SECRET_KEY') ?? 'suhbat-minio-secret',
       },
-      // MinIO `bucket.host` emas, `host/bucket` ko'rinishini kutadi.
-      forcePathStyle: true,
+      // MinIO va R2 `host/bucket` ko'rinishini kutadi (standart). `bucket.host`
+      // talab qiladigan xizmat uchun S3_FORCE_PATH_STYLE=false.
+      forcePathStyle: config.get<string>('S3_FORCE_PATH_STYLE') !== 'false',
     };
     this.internal = new S3Client({ ...base, endpoint });
     this.signer = new S3Client({ ...base, endpoint: publicEndpoint });

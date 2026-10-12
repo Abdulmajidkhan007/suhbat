@@ -43,6 +43,23 @@ jobs:
           ls -la apps/mobile/android/app/build/outputs/apk/*/
           test -f apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
           unzip -l apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk | grep assets/index.android.bundle
+      # release.yml dagi imzolash yo'li: vaqtinchalik kalit bilan imzolangan release APK.
+      - name: Imzolangan release APK (vaqtinchalik kalit)
+        working-directory: apps/mobile/android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ci-throwaway
+          ANDROID_KEY_ALIAS: ci
+          ANDROID_KEY_PASSWORD: ci-throwaway
+          ANDROID_VERSION_NAME: 0.0.0-ci
+          ANDROID_VERSION_CODE: "7"
+        run: |
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/ci.keystore"
+          keytool -genkeypair -keystore "$ANDROID_KEYSTORE_PATH" -storepass ci-throwaway -keypass ci-throwaway \
+            -alias ci -keyalg RSA -keysize 2048 -validity 10 -dname "CN=ci"
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,x86_64
+          apk=app/build/outputs/apk/release/app-release.apk
+          test -f "$apk"
+          "$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner" verify --verbose "$apk" | head -5
       - uses: actions/upload-artifact@v4
         with:
           name: suhbat-android-debug

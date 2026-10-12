@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/.turbo
+**/build
+**/release
+.git
+.github
+**/.env
+**/.env.*
+!**/.env.example
+apps/mobile
+apps/desktop
+apps/web
+docs
+docker

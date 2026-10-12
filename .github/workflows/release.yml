@@ -1,0 +1,155 @@
+name: Release
+
+# `v*` tegi push qilinganda: desktop (macOS dmg, Windows nsis) + Android APK
+# GitHub Release'ga yuklanadi. Tegni egasi qo'yadi (docs/DEPLOY.md).
+#
+# Repo o'zgaruvchisi (Settings → Variables): SUHBAT_API_URL — shart (veb/desktop/mobil
+# build'iga qotadi). Android imzolash secret'lari (ixtiyoriy): ANDROID_KEYSTORE_BASE64,
+# ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD. Hammasi bo'lmasa APK
+# vaqtinchalik "debug" kaliti bilan imzolanadi va "sinov uchun" deb nomlanadi.
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  DATABASE_URL: postgresql://suhbat:suhbat@localhost:5432/suhbat
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            flag: --mac
+          - os: windows-latest
+            flag: --win
+    runs-on: ${{ matrix.os }}
+    env:
+      # Veb build'iga kiradi: desktop ilova qaysi API'ga ulanishi.
+      VITE_API_URL: ${{ vars.SUHBAT_API_URL }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: SUHBAT_API_URL o'rnatilganini tekshirish
+        shell: bash
+        run: |
+          if [ -z "$VITE_API_URL" ]; then
+            echo "::error::Repo o'zgaruvchisi SUHBAT_API_URL o'rnatilmagan (ilova API manzilisiz ishlamaydi)"
+            exit 1
+          fi
+      - run: npm ci
+      - run: npx turbo run build --filter=@suhbat/desktop
+      - name: Qadoqlash
+        run: npm run package -w @suhbat/desktop -- ${{ matrix.flag }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      SUHBAT_API_URL: ${{ vars.SUHBAT_API_URL }}
+      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: SUHBAT_API_URL o'rnatilganini tekshirish
+        run: |
+          if [ -z "$SUHBAT_API_URL" ]; then
+            echo "::error::Repo o'zgaruvchisi SUHBAT_API_URL o'rnatilmagan (ilova API manzilisiz ishlamaydi)"
+            exit 1
+          fi
+      - run: npm ci
+      - run: npx turbo run build --filter=@suhbat/mobile^...
+      - name: Imzolash kaliti
+        id: sign
+        run: |
+          ks="$RUNNER_TEMP/release.keystore"
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$ks"
+            echo "mode=release" >> "$GITHUB_OUTPUT"
+            echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Android imzolash secret'lari to'liq emas — APK vaqtinchalik debug kaliti bilan imzolanadi (faqat sinov uchun)"
+            keytool -genkeypair -keystore "$ks" -storepass android -keypass android \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+            echo "mode=debug" >> "$GITHUB_OUTPUT"
+            echo "ANDROID_KEYSTORE_PASSWORD=android" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=androiddebugkey" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=android" >> "$GITHUB_ENV"
+          fi
+          echo "ANDROID_KEYSTORE_PATH=$ks" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+      - name: Release APK (JS bundle Hermes bilan ichida)
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,x86_64
+      - name: APK imzosi va nomi
+        env:
+          MODE: ${{ steps.sign.outputs.mode }}
+        run: |
+          apk=apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          test -f "$apk"
+          unzip -l "$apk" | grep assets/index.android.bundle
+          "$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner" verify --verbose "$apk" | head -5
+          mkdir -p out
+          if [ "$MODE" = "release" ]; then
+            cp "$apk" "out/suhbat-$GITHUB_REF_NAME.apk"
+          else
+            cp "$apk" "out/suhbat-$GITHUB_REF_NAME-sinov-uchun-debug-imzo.apk"
+          fi
+          ls -l out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          if-no-files-found: error
+          path: out/*.apk
+
+  release:
+    needs: [desktop, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l artifacts
+          cat > notes.md <<'NOTES'
+          - **Android:** `*.apk`. Fayl nomida `sinov-uchun-debug-imzo` bo'lsa — vaqtinchalik kalit bilan imzolangan, faqat sinov uchun (har safar boshqa kalit: eskisini o'chirib qayta o'rnatish kerak bo'lishi mumkin). Boshqa holda — egasining kaliti bilan imzolangan.
+          - **Desktop:** macOS `dmg`, Windows `exe`. Imzosiz: macOS'da Gatekeeper, Windows'da SmartScreen ogohlantirishi chiqadi.
+          NOTES
+          gh release create "$GITHUB_REF_NAME" artifacts/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "suhbat $GITHUB_REF_NAME" \
+            --notes-file notes.md

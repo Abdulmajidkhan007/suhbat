@@ -48,13 +48,29 @@ android {
         applicationId "uz.suhbat.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Release CI'da tegdan beriladi (.github/workflows/release.yml); lokal — standart.
+        versionCode (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInteger()
+        versionName System.getenv("ANDROID_VERSION_NAME") ?: "1.0"
     }
     // Debug — AGP standart `~/.android/debug.keystore` (avtomatik yaratiladi, repoda kalit yo'q).
-    // Release imzolash keyin (keystore CI secret'idan); hozircha release imzosiz.
+    // Release: ANDROID_KEYSTORE_PATH (+ _PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD) berilsa
+    // imzolanadi (CI secret'idan), berilmasa imzosiz qoladi. Kalit repoda yo'q.
+    def releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+    signingConfigs {
+        if (releaseKeystorePath) {
+            release {
+                storeFile file(releaseKeystorePath)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (releaseKeystorePath) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
