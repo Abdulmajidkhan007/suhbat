@@ -1,0 +1,32 @@
+{
+  "name": "@suhbat/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "suhbat — desktop ilova (Electron, veb build'ini o'raydi)",
+  "author": "suhbat",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json && electron .",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "package": "electron-builder --publish never",
+    "package:dir": "electron-builder --dir --publish never"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@suhbat/client": "*",
+    "@suhbat/core": "*",
+    "@suhbat/web": "*",
+    "@types/node": "^22.18.0",
+    "electron": "44.7.0",
+    "electron-builder": "^26.15.3",
+    "eslint": "^9.39.5",
+    "globals": "^16.0.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "~4.0.18"
+  }
+}

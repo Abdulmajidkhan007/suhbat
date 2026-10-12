@@ -11,7 +11,8 @@ export const setSessionExpiredHandler = (fn: () => void) => {
 
 export const api = createApiClient({
   baseUrl:          API_URL,
-  storage:          webTokenStorage(window.localStorage),
+  // Electron'da — OS xavfsiz saqlash (preload ko'prigi), brauzerda — localStorage.
+  storage:          window.suhbatDesktop?.tokens ?? webTokenStorage(window.localStorage),
   onSessionExpired: () => sessionExpired(),
 });
 

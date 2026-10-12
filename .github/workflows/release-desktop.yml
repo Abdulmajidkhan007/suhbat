@@ -1,0 +1,68 @@
+name: Release (desktop)
+
+# `v*` tegi push qilinganda macOS (dmg) va Windows (nsis) build qilinadi va
+# GitHub Release'ga yuklanadi. Imzolash sertifikatlari yo'q — artefaktlar IMZOSIZ.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            flag: --mac
+          - os: windows-latest
+            flag: --win
+    runs-on: ${{ matrix.os }}
+    env:
+      # Veb build'iga kiradi: desktop ilova qaysi API'ga ulanishi. Repo o'zgaruvchisi (Settings → Variables).
+      VITE_API_URL: ${{ vars.SUHBAT_API_URL }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      DATABASE_URL: postgresql://suhbat:suhbat@localhost:5432/suhbat
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: SUHBAT_API_URL o'rnatilganini tekshirish
+        shell: bash
+        run: |
+          if [ -z "$VITE_API_URL" ]; then
+            echo "::error::Repo o'zgaruvchisi SUHBAT_API_URL o'rnatilmagan (desktop ilova API manzilisiz ishlamaydi)"
+            exit 1
+          fi
+      - run: npm ci
+      - run: npx turbo run build --filter=@suhbat/desktop
+      - name: Qadoqlash
+        run: npm run package -w @suhbat/desktop -- ${{ matrix.flag }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l artifacts
+          gh release create "$GITHUB_REF_NAME" artifacts/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "suhbat $GITHUB_REF_NAME" \
+            --notes "Desktop ilova (macOS dmg, Windows nsis). Artefaktlar imzosiz: macOS'da birinchi ochishda Gatekeeper, Windows'da SmartScreen ogohlantirishi chiqadi."

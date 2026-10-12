@@ -22,6 +22,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://suhbat:suhbat@localhost:5432/suhbat
       JWT_SECRET: ci-only-not-a-secret
+      # Desktop paketi bu job'da kerak emas (u alohida `desktop-package` job'ida).
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -56,3 +58,25 @@ jobs:
         run: |
           npm run db:deploy -w @suhbat/api
           npm run test:e2e -w @suhbat/api
+
+  # Desktop: Linux'da qadoqlash (electron-builder --dir) tekshiriladi. macOS/Windows
+  # build'lari faqat tag push qilinganda (`release-desktop.yml`).
+  desktop-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          DATABASE_URL: postgresql://suhbat:suhbat@localhost:5432/suhbat
+      - run: npx turbo run build --filter=@suhbat/desktop
+      - name: Linux'da qadoqlash (unpacked)
+        run: npm run package:dir -w @suhbat/desktop -- --linux
+      - name: Qadoqda veb build'i va ishga tushadigan fayl bor
+        run: |
+          test -f apps/desktop/release/linux-unpacked/suhbat
+          test -f apps/desktop/release/linux-unpacked/resources/web/index.html
+          test -f apps/desktop/release/linux-unpacked/resources/app.asar
