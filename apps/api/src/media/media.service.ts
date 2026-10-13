@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import type { Attachment, UploadUrlInput, UploadUrlResponse } from '@suhbat/core';
 import { randomUUID } from 'node:crypto';
 import type { Attachment as AttachmentRow } from '../generated/prisma/client';
@@ -7,6 +7,8 @@ import { StorageService, UPLOAD_URL_TTL_SECONDS } from './storage.service';
 
 @Injectable()
 export class MediaService {
+  private readonly logger = new Logger(MediaService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -50,7 +52,14 @@ export class MediaService {
       where: { id: attachmentId, uploaderId: me, chatId, messageId: null },
     });
     if (!row) throw new BadRequestException('Biriktirma topilmadi yoki allaqachon ishlatilgan');
-    const stored = await this.storage.head(row.key);
+    let stored;
+    try {
+      stored = await this.storage.head(row.key);
+    } catch (e) {
+      // Saqlash sozlanmagan yoki yetib bo'lmaydi — 500 emas, tushunarli 503.
+      this.logger.error(`saqlashga ulanib bo'lmadi: ${(e as Error).message}`);
+      throw new ServiceUnavailableException('Fayl saqlash hozir mavjud emas');
+    }
     if (!stored) throw new BadRequestException('Fayl hali yuklanmagan');
     if (stored.size !== row.size || stored.mime !== row.mime) {
       await this.storage.delete(row.key);

@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-12 (3b-faza)
+> Oxirgi yangilanish: 2026-10-12 (deploy tayyorgarligi)
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -125,7 +125,29 @@
   `edgesOut` xatosi). `npm audit` 4.0 ni (dev-only) critical deydi.
 - Veb bundle ~1 MB (code-splitting yo'q) — Vite ogohlantiradi.
 - Netlify konfiguratsiyasi yangilandi (`VITE_API_URL` kerak), deploy
-  sinalmagan; API hali hech qayerga joylanmagan.
+  sinalmagan; API hali hech qayerga joylanmagan (tayyorgarlik — pastdagi "Deploy" bo'limi).
+
+### Deploy tayyorgarligi (4-fazadan oldin)
+- **Qaror:** API + Postgres — **Railway** (Docker); media — **Cloudflare R2** (yoki Railway Buckets, sinalmagan);
+  veb — **Netlify** (statik, bepul, config bor; Railway'da statik uchun alohida konteyner kerak bo'lardi).
+  Qadamlar: `docs/DEPLOY.md` (egasi bajaradi — Railway/R2/Netlify/GitHub akkauntlariga men kira olmayman).
+- `apps/api/Dockerfile` (ko'p bosqichli, `node:22-slim`, non-root; kontekst — repo ildizi) va
+  `apps/api/railway.toml` (Dockerfile yo'li, `/health`, watch paths; xizmatda config path `/apps/api/railway.toml`,
+  Root Directory bo'sh). Ishga tushishda `prisma migrate deploy` keyin `node dist/main.js`; `PORT` Railway'dan.
+  `prisma` CLI `dependencies` ga ko'chirildi (runtime'da migratsiya uchun kerak).
+- Media: `S3_FORCE_PATH_STYLE` (standart `true`); saqlashga ulanib bo'lmasa xabarga biriktirish endi 500 emas,
+  tushunarli 503 ("Fayl saqlash hozir mavjud emas"); saqlash yo'q bo'lsa API baribir ko'tariladi (logda ogohlantirish).
+- CI: `api-image` job (image quriladi, Postgres bilan ishga tushadi, migratsiya + `/health`, non-root).
+- `release-desktop.yml` → `release.yml`: `v*` tegida desktop (mac/win) + Android APK → GitHub Release.
+  Android imzosi: `ANDROID_KEYSTORE_*` secret'lari bo'lsa o'z kaliti bilan, bo'lmasa vaqtinchalik kalit
+  ("sinov uchun" nomli APK). `SUHBAT_API_URL` repo o'zgaruvchisi hamma build'ga qotadi (bo'lmasa release yiqiladi).
+  Gradle: `ANDROID_KEYSTORE_PATH` va `ANDROID_VERSION_NAME/CODE` env'dan. `mobile.yml` imzolash yo'lini ham tekshiradi.
+- **Tekshirildi:** `docker build` (lokal; Docker Hub 429 bergani uchun mirror rasm va proksi bilan, `apt` qadamisiz
+  nusxada) → konteyner haqiqiy Postgres 16 bilan: 3 migratsiya qo'llandi, `/health` ok, ro'yxatdan o'tish ishladi,
+  non-root (uid 1000), S3 yo'q — API ko'tarildi. Image ~870 MB (asosan Prisma paketlari; kichraytirish mumkin).
+- **Tekshirilmadi:** Dockerfile'dagi `apt-get install openssl ca-certificates` qadami lokal (tarmoq cheklovi) —
+  faqat CI; Railway'da deploy, `TRUST_PROXY=1` yetarliligi, R2/Buckets bilan haqiqiy yuklash va CORS, Netlify,
+  `v*` teg bilan release (mac/win/Android), haqiqiy keystore bilan imzolash.
 
 ### 1-fazada nima tekshirildi
 - `npx turbo run lint typecheck test build` — yashil (core 16, client 13,
@@ -182,7 +204,7 @@
   Boshqa: tashqi havolalar tizim brauzerida, ilova ichida navigatsiya yo'q, ruxsatlardan faqat mikrofon.
 - **Build:** `electron-builder` — macOS `dmg` (x64+arm64), Windows `nsis` (x64). CI: `check` job
   desktop lint/typecheck/test/build'ni ham qamraydi; `desktop-package` job Linux'da
-  `--dir` qadoqlashni tekshiradi. `v*` tegi → `release-desktop.yml` macOS/Windows build qilib
+  `--dir` qadoqlashni tekshiradi. `v*` tegi → `release.yml` macOS/Windows build qilib
   GitHub Release'ga yuklaydi (repo o'zgaruvchisi `SUHBAT_API_URL` shart).
 - **Artefaktlar IMZOSIZ** (Apple Developer ID / notarizatsiya va Windows kod imzolash
   sertifikatlari yo'q): macOS'da Gatekeeper, Windows'da SmartScreen ogohlantiradi. Avto-yangilanish yo'q.

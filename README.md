@@ -119,8 +119,8 @@ npm run package -w @suhbat/desktop -- --win   # nsis (Windows'da)
 ```
 
 Dev: `SUHBAT_DEV_URL=http://localhost:3000 npm run dev -w @suhbat/desktop` (Vite serveriga ulanadi).
-Release: `v*` tegi push qilinsa `release-desktop.yml` macOS/Windows build'ini
-GitHub Release'ga yuklaydi (repo o'zgaruvchisi `SUHBAT_API_URL` kerak). Artefaktlar **imzosiz**.
+Release: `v*` tegi push qilinsa `release.yml` (desktop + Android APK) build qiladi va
+GitHub Release'ga yuklaydi (repo o'zgaruvchisi `SUHBAT_API_URL` kerak). Desktop artefaktlari **imzosiz**; Android APK imzosi — `docs/DEPLOY.md`.
 
 ## Mobil (React Native CLI)
 

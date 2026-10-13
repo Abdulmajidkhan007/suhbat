@@ -1,0 +1,19 @@
+# Railway "config as code". Xizmat sozlamalarida: Root Directory — bo'sh (repo ildizi),
+# Config-as-code path — /apps/api/railway.toml. Docker context — repo ildizi (monorepo).
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/api/Dockerfile"
+# Faqat API yoki u bog'liq paketlar o'zgarganda qayta deploy.
+watchPatterns = [
+  "apps/api/**",
+  "packages/core/**",
+  "packages/client/**",
+  "package.json",
+  "package-lock.json",
+]
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

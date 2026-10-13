@@ -1,5 +1,5 @@
-# Netlify'da "Base directory" = apps/web qilib qo'yiladi.
-# Env: VITE_API_URL — API manzili (masalan https://api.suhbat.uz).
+# Netlify: "Base directory" = apps/web. Env: VITE_API_URL — API manzili (masalan https://api.suhbat.uz),
+# build vaqtida qotadi. Qadamlar: docs/DEPLOY.md.
 [build]
   command   = "npm run build --workspace=@suhbat/core && npm run build --workspace=@suhbat/client && npm run build"
   publish   = "dist"
