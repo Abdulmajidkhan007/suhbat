@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-12 (deploy tayyorgarligi)
+> Oxirgi yangilanish: 2026-10-13 (veb Railway'ga o'tkazildi)
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -124,13 +124,20 @@
 - `vitest` 4.0.x da qoldi: 4.1.x npm 10 bilan o'rnatilmaydi (arborist
   `edgesOut` xatosi). `npm audit` 4.0 ni (dev-only) critical deydi.
 - Veb bundle ~1 MB (code-splitting yo'q) — Vite ogohlantiradi.
-- Netlify konfiguratsiyasi yangilandi (`VITE_API_URL` kerak), deploy
-  sinalmagan; API hali hech qayerga joylanmagan (tayyorgarlik — pastdagi "Deploy" bo'limi).
+- Veb `VITE_API_URL` ni build vaqtida qotiradi; deploy sinalmagan; API hali hech qayerga joylanmagan (tayyorgarlik — pastdagi "Deploy" bo'limi).
 
 ### Deploy tayyorgarligi (4-fazadan oldin)
 - **Qaror:** API + Postgres — **Railway** (Docker); media — **Cloudflare R2** (yoki Railway Buckets, sinalmagan);
-  veb — **Netlify** (statik, bepul, config bor; Railway'da statik uchun alohida konteyner kerak bo'lardi).
-  Qadamlar: `docs/DEPLOY.md` (egasi bajaradi — Railway/R2/Netlify/GitHub akkauntlariga men kira olmayman).
+  veb — **Railway** (2026-10-13 egasi qarori: Netlify emas; API va Postgres bilan bitta loyiha).
+  Qadamlar: `QADAMLAR.md` (egasi uchun, oddiy tilda) va `docs/DEPLOY.md` (texnik tafsilot);
+  egasi bajaradi — Railway/R2/GitHub akkauntlariga men kira olmayman.
+- **Veb Railway xizmati:** `apps/web/Dockerfile` (kontekst — repo ildizi; `VITE_API_URL` build arg;
+  runtime `caddy:2-alpine`, non-root, `$PORT`, SPA fallback, `/assets/*` uchun immutable kesh),
+  `apps/web/railway.toml` (config path `/apps/web/railway.toml`, healthcheck `/`), CI'da `web-image` job.
+  `.dockerignore` dan `apps/web` olib tashlandi. Netlify (`netlify.toml`, `_redirects`) o'chirildi.
+  Lokal tekshirildi: Caddy runtime konteyneri (`$PORT`, 200 `/`, SPA fallback, gzip, immutable kesh,
+  uid 65534) host'da qurilgan `dist` bilan; **to'liq `docker build` lokal tekshirilmadi** (sandbox
+  konteynerida npm tarmog'i yo'q) — build bosqichi CI `web-image` jobida tekshiriladi.
 - `apps/api/Dockerfile` (ko'p bosqichli, `node:22-slim`, non-root; kontekst — repo ildizi) va
   `apps/api/railway.toml` (Dockerfile yo'li, `/health`, watch paths; xizmatda config path `/apps/api/railway.toml`,
   Root Directory bo'sh). Ishga tushishda `prisma migrate deploy` keyin `node dist/main.js`; `PORT` Railway'dan.
@@ -146,7 +153,7 @@
   nusxada) → konteyner haqiqiy Postgres 16 bilan: 3 migratsiya qo'llandi, `/health` ok, ro'yxatdan o'tish ishladi,
   non-root (uid 1000), S3 yo'q — API ko'tarildi. Image ~870 MB (asosan Prisma paketlari; kichraytirish mumkin).
 - **Tekshirilmadi:** Dockerfile'dagi `apt-get install openssl ca-certificates` qadami lokal (tarmoq cheklovi) —
-  faqat CI; Railway'da deploy, `TRUST_PROXY=1` yetarliligi, R2/Buckets bilan haqiqiy yuklash va CORS, Netlify,
+  faqat CI; Railway'da deploy (API va veb), `TRUST_PROXY=1` yetarliligi, R2/Buckets bilan haqiqiy yuklash va CORS,
   `v*` teg bilan release (mac/win/Android), haqiqiy keystore bilan imzolash.
 
 ### 1-fazada nima tekshirildi
@@ -159,7 +166,7 @@
 - Brauzerda qo'lda (Playwright, lokal API + Vite, ikki foydalanuvchi):
   ro'yxatdan o'tish, qidiruv, chat ochish, real vaqt xabar, "yozmoqda",
   o'qildi belgisi, onlayn/oflayn, sahifani yangilaganda sessiya tiklanishi.
-- **Tekshirilmagan:** mobil brauzer/kichik ekran, Netlify deploy, bir nechta
+- **Tekshirilmagan:** mobil brauzer/kichik ekran, veb Railway deploy'i, bir nechta
   API nusxasi, uzoq muddatli ulanish (token muddati tugashi + qayta ulanish
   faqat unit testda), `npx turbo run dev` buyrug'i (API va veb alohida
   ishga tushirib sinaldi).
@@ -187,7 +194,7 @@
   faqat CI tekshiradi.
 - **Tekshirilmagan / farq:** brauzerdan MinIO'ga haqiqiy `PUT` (brauzer tekshiruvi
   soxta S3 bilan o'tgan; preflight faqat curl bilan), Safari/Firefox'da ovoz
-  yozish, bir nechta API nusxasi, Netlify deploy. Lokal Postgres 16
+  yozish, bir nechta API nusxasi, veb Railway deploy'i. Lokal Postgres 16
   (CI/compose'da 17).
 
 ### 3a-fazada nima qilindi
