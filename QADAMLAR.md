@@ -138,3 +138,49 @@ Menga quyidagini yuboring:
 3. Brauzer xatosi bo'lsa: sahifada **F12 → Console** dagi qizil xato matni.
 
 **Parol, `JWT_SECRET`, `S3_SECRET_KEY` va `DATABASE_URL` ni yubormang** — logda ular ko'rinib qolsa, o'chirib yuboring.
+
+## 12. Push bildirishnomalar (Firebase)
+
+Busiz ham ilova ishlaydi — faqat telefonga "yangi xabar" bildirishnomasi kelmaydi.
+Kod tayyor; quyidagilarni **siz** qilasiz (Firebase va Apple akkauntlariga men kira olmayman).
+
+### 12.1. Firebase loyiha
+1. https://console.firebase.google.com → **Add project** → nomi `suhbat` (Google Analytics kerak emas).
+
+### 12.2. Android ilova
+1. Loyiha ichida **Add app → Android**.
+2. **Package name** = `uz.suhbat.app` (aynan shunday). Qolganlari bo'sh qolsin → **Register app**.
+3. **`google-services.json`** ni yuklab oling. **Repoga qo'shmang.**
+4. GitHub → **Settings → Secrets and variables → Actions → Secrets → New repository secret**:
+   nomi `GOOGLE_SERVICES_JSON`, qiymati — faylning **butun matni** (ochib, hammasini nusxalang).
+
+### 12.3. iOS ilova (iPhone uchun; Apple Developer akkaunti kerak — $99/yil)
+1. Firebase → **Add app → iOS**, **Bundle ID** = `uz.suhbat.app` → **Register app**.
+2. **`GoogleService-Info.plist`** ni yuklab oling. **Repoga qo'shmang.**
+3. Terminalda base64 qiling: `base64 -i GoogleService-Info.plist` (macOS) va natijani GitHub secret
+   `GOOGLE_SERVICE_INFO_PLIST` ga qo'ying.
+4. https://developer.apple.com → **Certificates, IDs & Profiles → Keys → +** →
+   **Apple Push Notifications service (APNs)** belgilang → kalitni (`.p8`) yuklab oling,
+   **Key ID** va **Team ID** ni yozib oling.
+5. Firebase → **Project settings → Cloud Messaging → Apple app configuration → APNs Authentication Key →
+   Upload**: `.p8` fayl, Key ID, Team ID.
+6. developer.apple.com → **Identifiers** → `uz.suhbat.app` → **Push Notifications** yoqilgan bo'lsin.
+
+### 12.4. Server kaliti (API'ga)
+1. Firebase → **Project settings → Service accounts → Generate new private key** → JSON fayl yuklanadi.
+   **Bu maxfiy kalit** — hech kimga yubormang, repoga qo'shmang.
+2. Railway → API xizmati → **Variables → New Variable**:
+   nomi `FCM_SERVICE_ACCOUNT_JSON`, qiymati — JSON faylning **butun matni**
+   (yoki base64: `base64 -w0 key.json`; macOS: `base64 -i key.json`).
+3. API qayta deploy bo'ladi. Logda `FCM_SERVICE_ACCOUNT_JSON yo'q` ogohlantirishi **chiqmasa** — ulandi.
+
+### 12.5. Tekshirish
+1. Yangi APK'ni o'rnating (secret'lar qo'yilgandan **keyin** qurilgan build kerak).
+2. Telefonda kiring → "Bildirishnomalarga ruxsat berasizmi?" → **Ruxsat berish**.
+3. Ilovani yoping, boshqa hisobdan (masalan vebdan) xabar yozing — telefonga bildirishnoma kelishi kerak.
+   Bosilganda shu chat ochiladi.
+4. Kelmasa: Railway API **Deploy Logs** dagi `FcmClient` / `PushService` qatorlarini menga yuboring
+   (kalit matnini emas).
+
+> Eslatma: GitHub'dagi **Release** (`release.yml`) build'iga `GOOGLE_SERVICES_JSON` hali ulanmagan —
+> u alohida ish sifatida qo'shiladi. Hozircha push faqat `Mobile` workflow APK'sida va lokal build'da ishlaydi.

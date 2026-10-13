@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-13 (veb Railway'ga o'tkazildi)
+> Oxirgi yangilanish: 2026-10-13 (4-faza: push bildirishnomalar — PR ko'rib chiqishda)
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -155,6 +155,48 @@
 - **Tekshirilmadi:** Dockerfile'dagi `apt-get install openssl ca-certificates` qadami lokal (tarmoq cheklovi) —
   faqat CI; Railway'da deploy (API va veb), `TRUST_PROXY=1` yetarliligi, R2/Buckets bilan haqiqiy yuklash va CORS,
   `v*` teg bilan release (mac/win/Android), haqiqiy keystore bilan imzolash.
+
+### 4-faza (push bildirishnomalar) — nima qilindi
+- **Qaror: iOS ham FCM orqali** (APNs to'g'ridan-to'g'ri emas). APNs `.p8` kaliti Firebase'ga yuklanadi;
+  server bitta FCM HTTP v1 API bilan Android, iOS (va keyin veb) ga yuboradi. Kutubxona (`firebase-admin`)
+  ishlatilmadi: `FcmClient` service account bilan RS256 JWT imzolaydi → OAuth token (keshlanadi).
+- **API:** `DeviceToken` (userId, platform `android|ios|web`, token unique, updatedAt), `POST /devices`
+  (upsert — token boshqa hisobga o'tadi), `DELETE /devices/:token` (faqat o'ziniki), `/auth/logout` da
+  ixtiyoriy `deviceToken`. Xabar kelganda **socket'i yo'q** a'zolarga push (`ChatGateway.emitMessageNew`
+  dan, `void` — javob kutmaydi). Sarlavha: 1:1 — yuboruvchi; guruh — guruh nomi, matn "Ism: matn";
+  kanal — kanal nomi. Biriktirma: "📷 Rasm", "📎 Fayl", "🎤 Ovozli xabar". `data`: `{ type, chatId, messageId }`
+  (`PushDataSchema`); Android `tag` / iOS `thread-id` = chatId.
+  Katta auditoriya: a'zolar 1000 tadan bo'laklab o'qiladi va yuboriladi, parallellik `FCM_CONCURRENCY` (20).
+  Yaroqsiz token (404, `UNREGISTERED`, `SENDER_ID_MISMATCH`, "registration token" INVALID_ARGUMENT) — o'chiriladi.
+  `FCM_SERVICE_ACCOUNT_JSON` yo'q/yaroqsiz — push o'chiq, API ko'tariladi (logda ogohlantirish).
+- **Maxfiylik:** `User.notificationPreview` (standart `true`), `GET/PATCH /users/me/notifications` `{ preview }`;
+  `false` — "Suhbat / Yangi xabar" (matn va yuboruvchi FCM'ga umuman ketmaydi).
+- **Bloklash (yangi, minimal):** `UserBlock`, `POST/DELETE /users/:id/block`, `GET /users/blocked`.
+  Ikki tomonlama: bir-biriga push yo'q; 1:1 da hech biri yozolmaydi (403, yuklash URL'i ham).
+  Guruh/kanalda xabarlar ko'rinaveradi (faqat push yo'q). Veb/mobilda bloklash UI'si **yo'q**.
+- **Mobil:** `@react-native-firebase/app` + `messaging` 26.4 (notifee'siz). Kirgandan keyin ruxsat
+  (Android 13+ `POST_NOTIFICATIONS`, iOS) → token → `POST /devices`; `onTokenRefresh`; logout — serverdan va
+  FCM'dan o'chiriladi. Foreground — o'zimizning in-app banner (shu chat ochiq bo'lsa yo'q, 4 s), bosilganda chat;
+  fon/yopiq holatdan bosilganda ham chat ochiladi. Android kanali `messages` ("Xabarlar").
+  Firebase fayllari repoda yo'q: Gradle plagini va iOS `FirebaseApp.configure()` faqat fayl bo'lsa; CI
+  `GOOGLE_SERVICES_JSON` / `GOOGLE_SERVICE_INFO_PLIST` secret'laridan yozadi, bo'lmasa push'siz build.
+  iOS Podfile: static frameworks + CocoaPods (`$RNFirebaseDisableSPM`). Yo'riqnoma: `apps/mobile/README.md`,
+  egasi qadamlari: `QADAMLAR.md` 12-bo'lim.
+- **Tekshirildi:** `turbo run lint typecheck test` yashil (api unit 59 — FcmClient: JWT imzosi, token keshi, 401,
+  xato tasnifi; PushService: preview, bloklash so'rovi, bo'laklash, yaroqsiz token; mobil jest 26 — token
+  ro'yxati/yangilash, ruxsat yo'q, banner, bosilganda chat, logout). API e2e 24 (lokal Postgres 16), shundan
+  `push.e2e-spec.ts` 7 ta — soxta FCM bilan: device upsert/ko'chish/o'chirish, oflayn → push, onlayn → yo'q,
+  sekin FCM javobni bloklamaydi, preview o'chiq, guruh sarlavhasi va bloklash, yaroqsiz token, logout.
+  `react-native bundle` (android) lokal.
+- **Tekshirilmagan:** haqiqiy FCM (Google'ga so'rov — faqat soxta), **haqiqiy qurilma/emulyatorda push
+  qabul qilish**, iOS APNs/entitlement, iOS native build (static frameworks) — faqat CI'da quriladi.
+  `release.yml` ga `GOOGLE_SERVICES_JSON` ulanmagan (boshqa ishchi ish olib bormoqda) — release APK'da push o'chiq.
+- **Cheklovlar:** "onlayn" — bitta API nusxasi xotirasidagi presence (ko'p nusxada Redis kerak); socket ulangan,
+  lekin ilova fonda bo'lsa (iOS socket'ni tez uzadi, Android ba'zan saqlaydi) push kelmasligi mumkin; chat ochiq
+  bo'lishidan qat'i nazar oflayn a'zoga har xabarga push (mute/sozlama yo'q); push navbati xotirada
+  (API qayta ishga tushsa yuborilmagan push yo'qoladi, qayta urinish yo'q); token egasini almashtirish (upsert)
+  tokenni bilgan har kim uchun ochiq. Xabar o'qilganda bildirishnoma qurilmadan olib tashlanmaydi.
+- **Web Push — keyin** (service worker + VAPID/FCM web; `platform: 'web'` API'da tayyor).
 
 ### 1-fazada nima tekshirildi
 - `npx turbo run lint typecheck test build` — yashil (core 16, client 13,
@@ -328,7 +370,9 @@ packages/
   APK va iOS simulyator build, crash ekrani; `packages/ui-tokens`. Qurilmada sinalmagan — yuqorida.
 
 **4. Bildirishnomalar va qo'ng'iroqlar**
-- Push (FCM/APNs), keyin WebRTC qo'ng'iroqlar.
+- **4a (push) — PR ko'rib chiqishda (2026-10-13):** API + mobil (FCM HTTP v1, iOS ham FCM orqali),
+  preview sozlamasi, bloklash. Qurilmada sinalmagan; Web Push — keyin. Yuqorida "4-faza".
+- 4b: WebRTC qo'ng'iroqlar.
 
 ## Keyingi sessiya uchun
 Repo: `suhbat`. "CLAUDE.md va docs/REJA.md ni o'qi, 4-fazani bajar (push bildirishnomalar):
@@ -348,7 +392,9 @@ Repo: `suhbat`. "CLAUDE.md va docs/REJA.md ni o'qi, 4-fazani bajar (push bildiri
 Keyin (4b): WebRTC qo'ng'iroqlar (signal Socket.IO orqali, TURN server — coturn)."
 
 ### Deploy'dan keyingi navbat (tekshiruvchi tartibi, 2026-10-13)
-1. **4-faza:** push bildirishnomalar (FCM/APNs), keyin WebRTC qo'ng'iroqlar — yuqoridagi "Keyingi sessiya uchun" shundan boshlanadi.
+1. **4-faza:** push — PR'da (qolgan: egasi Firebase'ni sozlaydi — `QADAMLAR.md` 12; `release.yml` ga
+   `GOOGLE_SERVICES_JSON` env'ini qo'shish; haqiqiy qurilmada sinash; mobil/veb bloklash UI va preview
+   sozlamasi UI; Web Push). Keyin WebRTC qo'ng'iroqlar.
 2. **Mobil:** media yuborish, xabarni tahrirlash/o'chirish, guruh boshqaruvi + haqiqiy qurilmada sinov.
 3. **Do'konlar:** Play Store uchun doimiy keystore; iOS release / App Store.
 4. **Desktop:** ikonkalar, kod imzosi (Apple/Windows), avto-yangilanish.
