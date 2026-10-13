@@ -14,6 +14,8 @@
     "bundle:ios": "react-native bundle --platform ios --dev false --entry-file index.js --bundle-output build/main.jsbundle --assets-dest build/ios-assets"
   },
   "dependencies": {
+    "@react-native-firebase/app": "^26.4.0",
+    "@react-native-firebase/messaging": "^26.4.0",
     "@suhbat/client": "*",
     "@suhbat/core": "*",
     "@suhbat/ui-tokens": "*",

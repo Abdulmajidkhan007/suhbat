@@ -21,7 +21,21 @@ jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      # Push (FCM): bo'lsa Gradle `app/google-services.json` ni yozadi (JSON yoki base64);
+      # bo'lmasa (fork PR, secret qo'yilmagan) push'siz build — CI baribir yashil.
+      GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
     steps:
+      # RN (yangi arxitektura) + Firebase modullari: har modul, arxitektura va variant uchun C++ (CMake)
+      # build — runner diski/xotirasi yetmay job logsiz o'lib qolgan. Keraksiz SDK'larni o'chiramiz.
+      - name: Diskda joy bo'shatish
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost \
+            /opt/hostedtoolcache/CodeQL /usr/local/lib/node_modules/@angular "$AGENT_TOOLSDIRECTORY/PyPy" || true
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
+          df -h /
+          free -m
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -37,7 +51,9 @@ jobs:
       - run: npx turbo run build --filter=@suhbat/mobile^...
       - name: Debug APK + imzosiz release APK (JS bundle Hermes bilan ichida)
         working-directory: apps/mobile/android
-        run: ./gradlew assembleDebug assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,x86_64
+        run: |
+          ./gradlew assembleDebug assembleRelease --no-daemon --max-workers=3 -PreactNativeArchitectures=arm64-v8a,x86_64
+          df -h /
       - name: APK'lar bor, release'da JS bundle bor
         run: |
           ls -la apps/mobile/android/app/build/outputs/apk/*/
@@ -82,6 +98,17 @@ jobs:
           working-directory: apps/mobile
       - run: npm ci
       - run: npx turbo run build --filter=@suhbat/mobile^...
+      # Push (FCM): secret bo'lsa yoziladi, bo'lmasa build bosqichi faylsiz o'tadi (push o'chiq).
+      - name: GoogleService-Info.plist (ixtiyoriy)
+        env:
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > apps/mobile/ios/Suhbat/GoogleService-Info.plist
+            echo "GoogleService-Info.plist yozildi"
+          else
+            echo "GOOGLE_SERVICE_INFO_PLIST secret'i yo'q — push'siz build"
+          fi
       - name: CocoaPods
         working-directory: apps/mobile/ios
         run: bundle exec pod install

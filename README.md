@@ -52,9 +52,16 @@ standart 15m); refresh token — body'da, bir martalik (rotatsiya).
 | POST  | `/auth/register`       | `{ email, password, displayName }` → `{ accessToken, refreshToken, user }` |
 | POST  | `/auth/login`          | `{ email, password }` → `{ accessToken, refreshToken, user }` |
 | POST  | `/auth/refresh`        | `{ refreshToken }` → yangi `{ accessToken, refreshToken }` |
-| POST  | `/auth/logout`         | `{ refreshToken }` → 204 (shu sessiya yopiladi)         |
+| POST  | `/auth/logout`         | `{ refreshToken, deviceToken? }` → 204 (shu sessiya yopiladi; push tokeni ham o'chadi) |
 | GET   | `/auth/me`             | joriy foydalanuvchi                                     |
 | GET   | `/users/search?q=&limit=` | ism (qism) yoki email (faqat to'liq mos) bo'yicha; o'zini qaytarmaydi |
+| GET   | `/users/me/notifications` | `{ preview }` — push'da matn ko'rinadimi              |
+| PATCH | `/users/me/notifications` | `{ preview }` (`false` — faqat "Yangi xabar")         |
+| POST  | `/users/:id/block`     | bloklash (idempotent): 1:1 da yozib bo'lmaydi, push bormaydi |
+| DELETE| `/users/:id/block`     | blokdan chiqarish                                       |
+| GET   | `/users/blocked`       | men bloklaganlar                                        |
+| POST  | `/devices`             | `{ platform: 'android'\|'ios'\|'web', token }` — push tokeni (upsert) → 204 |
+| DELETE| `/devices/:token`      | o'z push tokenini o'chirish → 204                       |
 | GET   | `/chats`               | chatlar: a'zolar, oxirgi xabar, `unreadCount`           |
 | POST  | `/chats/direct`        | `{ userId }` → 1:1 chat (bor bo'lsa — o'sha)            |
 | GET   | `/chats/:id`           | bitta chat                                              |
@@ -140,6 +147,9 @@ O'rnatilmasa — Android emulyatorda `http://10.0.2.2:4000`, iOS simulyatorda
 Haqiqiy qurilmada kompyuterning LAN IP'sini bering (`http://192.168.x.x:4000`).
 Android: HTTP faqat debug build'da (release'da cleartext o'chiq). iOS: shablon ATS sozlamasi
 (`NSAllowsLocalNetworking`), ishlab chiqarishda faqat HTTPS.
+
+Push bildirishnomalar (FCM) uchun Firebase fayllari kerak — `apps/mobile/README.md`.
+Ularsiz ilova push'siz ishlaydi.
 
 Native'siz tekshiruv: `npm run lint|typecheck|test -w @suhbat/mobile`,
 `npm run bundle:android -w @suhbat/mobile`. Native build — `.github/workflows/mobile.yml`

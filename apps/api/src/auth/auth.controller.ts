@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
-import { LoginInputSchema, RefreshInputSchema, RegisterInputSchema } from '@suhbat/core';
-import type { LoginInput, RefreshInput, RegisterInput } from '@suhbat/core';
+import { LoginInputSchema, LogoutInputSchema, RefreshInputSchema, RegisterInputSchema } from '@suhbat/core';
+import type { LoginInput, LogoutInput, RefreshInput, RegisterInput } from '@suhbat/core';
 import { AuthThrottle } from '../common/throttle';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AuthService } from './auth.service';
@@ -33,8 +33,8 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(204)
-  async logout(@Body(new ZodValidationPipe(RefreshInputSchema)) body: RefreshInput) {
-    await this.auth.logout(body.refreshToken);
+  async logout(@Body(new ZodValidationPipe(LogoutInputSchema)) body: LogoutInput) {
+    await this.auth.logout(body.refreshToken, body.deviceToken);
   }
 
   @Get('me')

@@ -109,6 +109,7 @@
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
+				A1F0C0DE2026101300000001 /* [Suhbat] GoogleService-Info.plist */,
 				00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */,
 				E235C05ADACE081382539298 /* [CP] Copy Pods Resources */,
 			);
@@ -237,6 +238,22 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Suhbat/Pods-Suhbat-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		A1F0C0DE2026101300000001 /* [Suhbat] GoogleService-Info.plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "[Suhbat] GoogleService-Info.plist";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Firebase (push) konfiguratsiyasi repoda yo'q (apps/mobile/README.md).\n# Bo'lsa ilovaga nusxalanadi; bo'lmasa push o'chiq, build baribir o'tadi.\nSRC=\"${SRCROOT}/Suhbat/GoogleService-Info.plist\"\nDEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ -f \"$SRC\" ]; then\n  cp \"$SRC\" \"$DEST\"\nelse\n  rm -f \"$DEST\"\n  echo \"warning: GoogleService-Info.plist yo'q - push bildirishnomalar o'chiq\"\nfi\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -259,6 +276,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_BITCODE = NO;
+				CODE_SIGN_ENTITLEMENTS = Suhbat/Suhbat.entitlements;
 				INFOPLIST_FILE = Suhbat/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -288,6 +306,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				CODE_SIGN_ENTITLEMENTS = Suhbat/Suhbat.entitlements;
 				INFOPLIST_FILE = Suhbat/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (

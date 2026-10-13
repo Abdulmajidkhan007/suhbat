@@ -1,6 +1,8 @@
 import type { ApiClient, SocketClient } from '@suhbat/client';
 import type { ServerToClientEvents } from '@suhbat/core';
 import type { Services } from '../services/createServices';
+import { disabledPush } from '../services/push';
+import type { PushPlatform } from '../services/push';
 import { ME } from './fixtures';
 
 /** Server voqealarining hammasi bitta argumentli. */
@@ -10,7 +12,7 @@ type Listener = (payload: unknown) => void;
  * Testlar uchun soxta API va socket: faqat ilova ishlatadigan metodlar.
  * `emit` — serverdan voqea kelgandek.
  */
-export const createFakeServices = (api: Partial<ApiClient> = {}) => {
+export const createFakeServices = (api: Partial<ApiClient> = {}, push: PushPlatform = disabledPush('android')) => {
   const listeners = new Map<string, Set<Listener>>();
   const connectionListeners = new Set<(c: boolean) => void>();
   let connected = false;
@@ -25,6 +27,7 @@ export const createFakeServices = (api: Partial<ApiClient> = {}) => {
     getChat:          jest.fn(async () => { throw new Error('topilmadi'); }),
     listMessages:     jest.fn(async () => ({ items: [], nextCursor: null })),
     searchUsers:      jest.fn(async () => []),
+    registerDevice:   jest.fn(async () => undefined),
     ...api,
   };
 
@@ -59,6 +62,6 @@ export const createFakeServices = (api: Partial<ApiClient> = {}) => {
   };
 
   // Ilova ishlatmaydigan metodlar yo'q — chaqirilsa test TypeError bilan yiqiladi.
-  const services = { api: fakeApi, socket: fakeSocket } as unknown as Services;
+  const services = { api: fakeApi, socket: fakeSocket, push } as unknown as Services;
   return { services, api: fakeApi, socket: fakeSocket, emit };
 };

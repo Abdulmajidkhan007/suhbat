@@ -8,11 +8,13 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-linkage = ENV['USE_FRAMEWORKS']
-if linkage != nil
-  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
-  use_frameworks! :linkage => linkage.to_sym
-end
+# React Native Firebase (push): Firebase iOS SDK statik framework sifatida, CocoaPods orqali
+# (SPM o'chiq). `USE_FRAMEWORKS` env bilan almashtirish mumkin.
+$RNFirebaseAsStaticFramework = true
+$RNFirebaseDisableSPM = true
+linkage = ENV['USE_FRAMEWORKS'] || 'static'
+Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+use_frameworks! :linkage => linkage.to_sym
 
 target 'Suhbat' do
   config = use_native_modules!

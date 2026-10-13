@@ -1,6 +1,26 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
-import { UserSearchQuerySchema } from '@suhbat/core';
-import type { PublicUser, UserSearchQuery } from '@suhbat/core';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { UpdateNotificationSettingsInputSchema, UserSearchQuerySchema } from '@suhbat/core';
+import type {
+  NotificationSettings,
+  PublicUser,
+  UpdateNotificationSettingsInput,
+  UserSearchQuery,
+} from '@suhbat/core';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthedRequest } from '../auth/jwt-auth.guard';
 import { toPublicUser } from '../auth/auth.service';
@@ -34,5 +54,58 @@ export class UsersController {
       take:    query.limit,
     });
     return users.map(toPublicUser);
+  }
+
+  @Get('me/notifications')
+  async notificationSettings(@Req() req: AuthedRequest): Promise<NotificationSettings> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where:  { id: req.user.sub },
+      select: { notificationPreview: true },
+    });
+    return { preview: user.notificationPreview };
+  }
+
+  @Patch('me/notifications')
+  async updateNotificationSettings(
+    @Req() req: AuthedRequest,
+    @Body(new ZodValidationPipe(UpdateNotificationSettingsInputSchema)) body: UpdateNotificationSettingsInput,
+  ): Promise<NotificationSettings> {
+    const user = await this.prisma.user.update({
+      where:  { id: req.user.sub },
+      data:   { notificationPreview: body.preview },
+      select: { notificationPreview: true },
+    });
+    return { preview: user.notificationPreview };
+  }
+
+  /** Men bloklaganlar. */
+  @Get('blocked')
+  async blocked(@Req() req: AuthedRequest): Promise<PublicUser[]> {
+    const rows = await this.prisma.userBlock.findMany({
+      where:   { blockerId: req.user.sub },
+      include: { blocked: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((r) => toPublicUser(r.blocked));
+  }
+
+  /** Bloklash: 1:1 da yozishib bo'lmaydi, bir-biriga push bormaydi. Idempotent. */
+  @Post(':id/block')
+  @HttpCode(204)
+  async block(@Req() req: AuthedRequest, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    if (id === req.user.sub) throw new BadRequestException('O\'zingizni bloklab bo\'lmaydi');
+    const exists = await this.prisma.user.count({ where: { id } });
+    if (!exists) throw new NotFoundException('Foydalanuvchi topilmadi');
+    await this.prisma.userBlock.upsert({
+      where:  { blockerId_blockedId: { blockerId: req.user.sub, blockedId: id } },
+      create: { blockerId: req.user.sub, blockedId: id },
+      update: {},
+    });
+  }
+
+  @Delete(':id/block')
+  @HttpCode(204)
+  async unblock(@Req() req: AuthedRequest, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.prisma.userBlock.deleteMany({ where: { blockerId: req.user.sub, blockedId: id } });
   }
 }

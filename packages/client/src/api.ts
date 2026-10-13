@@ -4,6 +4,7 @@ import {
   ChatSummarySchema,
   MessagePageSchema,
   MessageSchema,
+  NotificationSettingsSchema,
   PublicChannelSchema,
   PublicUserSchema,
   TokenPairSchema,
@@ -18,13 +19,16 @@ import type {
   LoginInput,
   Message,
   MessagePage,
+  NotificationSettings,
   PublicChannel,
   PublicUser,
+  RegisterDeviceInput,
   RegisterInput,
   SendMessageInput,
   TokenPair,
   UpdateChatInput,
   UpdateMemberRoleInput,
+  UpdateNotificationSettingsInput,
   UploadUrlInput,
   UploadUrlResponse,
   User,
@@ -170,12 +174,16 @@ export const createApiClient = (opts: ApiClientOptions) => {
     register: (input: RegisterInput) => signIn('/auth/register', input),
     login:    (input: LoginInput) => signIn('/auth/login', input),
 
-    /** Tokenlar darhol o'chiriladi; serverga xabar berish xatosi e'tiborsiz. */
-    async logout(): Promise<void> {
+    /**
+     * Tokenlar darhol o'chiriladi; serverga xabar berish xatosi e'tiborsiz.
+     * `deviceToken` berilsa — shu qurilmaning push tokeni ham serverdan o'chadi.
+     */
+    async logout(opts: { deviceToken?: string } = {}): Promise<void> {
       const tokens = await storage.get();
       await storage.clear();
       if (!tokens) return;
-      await request('POST', '/auth/logout', null, { body: { refreshToken: tokens.refreshToken } }).catch(() => undefined);
+      const body = { refreshToken: tokens.refreshToken, ...(opts.deviceToken ? { deviceToken: opts.deviceToken } : {}) };
+      await request('POST', '/auth/logout', null, { body }).catch(() => undefined);
     },
 
     me: () => authed('GET', '/auth/me', UserSchema),
@@ -245,6 +253,28 @@ export const createApiClient = (opts: ApiClientOptions) => {
         `/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}`,
         z.object({ deletedAt: z.string() }),
       ),
+
+    // --- Push bildirishnomalar ---
+    /** Qurilma tokenini ro'yxatdan o'tkazadi (idempotent; `onTokenRefresh` da ham chaqiriladi). */
+    registerDevice: (input: RegisterDeviceInput): Promise<void> => authed('POST', '/devices', null, { body: input }),
+
+    unregisterDevice: (token: string): Promise<void> =>
+      authed('DELETE', `/devices/${encodeURIComponent(token)}`, null),
+
+    getNotificationSettings: (): Promise<NotificationSettings> =>
+      authed('GET', '/users/me/notifications', NotificationSettingsSchema),
+
+    updateNotificationSettings: (input: UpdateNotificationSettingsInput): Promise<NotificationSettings> =>
+      authed('PATCH', '/users/me/notifications', NotificationSettingsSchema, { body: input }),
+
+    // --- Bloklash ---
+    blockUser: (userId: string): Promise<void> =>
+      authed('POST', `/users/${encodeURIComponent(userId)}/block`, null),
+
+    unblockUser: (userId: string): Promise<void> =>
+      authed('DELETE', `/users/${encodeURIComponent(userId)}/block`, null),
+
+    listBlocked: (): Promise<PublicUser[]> => authed('GET', '/users/blocked', z.array(PublicUserSchema)),
 
     // --- Media ---
     createUpload: (input: UploadUrlInput): Promise<UploadUrlResponse> =>

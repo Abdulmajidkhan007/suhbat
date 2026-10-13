@@ -76,3 +76,7 @@ yarn-error.log
 
 # suhbat: lokal bundle tekshiruvi
 /build/
+
+# Firebase (push) konfiguratsiyasi — repoga TUSHMAYDI (README: "Push bildirishnomalar")
+google-services.json
+GoogleService-Info.plist

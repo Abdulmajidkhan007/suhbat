@@ -28,7 +28,7 @@ describe('directKeyOf', () => {
 describe('foydalanuvchi ko\'rinishlari', () => {
   const row = {
     id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', email: 'ali@test.uz', passwordHash: 'x', displayName: 'Ali',
-    photoUrl: null, createdAt: new Date('2026-10-11T10:00:00Z'), updatedAt: new Date(), lastSeenAt: null,
+    photoUrl: null, createdAt: new Date('2026-10-11T10:00:00Z'), updatedAt: new Date(), lastSeenAt: null, notificationPreview: true,
   };
 
   it('chat a\'zosida email va passwordHash yo\'q; o\'zi uchun email bor', () => {

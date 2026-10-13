@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Suhbat</string>
+    <string name="notification_channel_messages">Xabarlar</string>
 </resources>
