@@ -187,7 +187,10 @@
   ro'yxati/yangilash, ruxsat yo'q, banner, bosilganda chat, logout). API e2e 24 (lokal Postgres 16), shundan
   `push.e2e-spec.ts` 7 ta — soxta FCM bilan: device upsert/ko'chish/o'chirish, oflayn → push, onlayn → yo'q,
   sekin FCM javobni bloklamaydi, preview o'chiq, guruh sarlavhasi va bloklash, yaroqsiz token, logout.
-  `react-native bundle` (android) lokal.
+  `react-native bundle` (android) lokal. CI: `Mobile` workflow — Android (debug + release APK, push'siz,
+  `google-services.json` yo'q) va iOS simulyator build (static frameworks + Firebase) yashil.
+  Android job Firebase qo'shilgach ikki marta logsiz yiqildi (runner yo'qoldi — disk/xotira bo'lishi ehtimol,
+  aniq sabab ko'rinmadi); job boshida keraksiz SDK'lar o'chiriladi va `--max-workers=3` — shundan keyin yashil.
 - **Tekshirilmagan:** haqiqiy FCM (Google'ga so'rov — faqat soxta), **haqiqiy qurilma/emulyatorda push
   qabul qilish**, iOS APNs/entitlement, iOS native build (static frameworks) — faqat CI'da quriladi.
   `release.yml` ga `GOOGLE_SERVICES_JSON` ulanmagan (boshqa ishchi ish olib bormoqda) — release APK'da push o'chiq.
