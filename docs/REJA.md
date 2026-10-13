@@ -346,6 +346,13 @@ Repo: `suhbat`. "CLAUDE.md va docs/REJA.md ni o'qi, 4-fazani bajar (push bildiri
    smoke testi — `reactivecircus/android-emulator-runner`), release APK imzolash (keystore secret),
    media yuborish (rasm/fayl tanlash), xabarni tahrirlash/o'chirish UI.
 Keyin (4b): WebRTC qo'ng'iroqlar (signal Socket.IO orqali, TURN server — coturn)."
-Ixtiyoriy: profilni tahrirlash (`PATCH /users/me`), veb bundle code-splitting,
-egalikni o'tkazish, kanal ban ro'yxati, desktop ikonkalari va imzolash, avto-yangilanish,
-Redis adapter (ko'p API nusxasi).
+
+### Deploy'dan keyingi navbat (tekshiruvchi tartibi, 2026-10-13)
+1. **4-faza:** push bildirishnomalar (FCM/APNs), keyin WebRTC qo'ng'iroqlar — yuqoridagi "Keyingi sessiya uchun" shundan boshlanadi.
+2. **Mobil:** media yuborish, xabarni tahrirlash/o'chirish, guruh boshqaruvi + haqiqiy qurilmada sinov.
+3. **Do'konlar:** Play Store uchun doimiy keystore; iOS release / App Store.
+4. **Desktop:** ikonkalar, kod imzosi (Apple/Windows), avto-yangilanish.
+5. **Redis:** ko'p API nusxasi, presence va rate limit.
+6. **Profil tahrirlash** (`PATCH /users/me`), veb code-splitting.
+
+Boshqa ixtiyoriy: egalikni o'tkazish, kanal ban ro'yxati.
