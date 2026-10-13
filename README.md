@@ -1,6 +1,6 @@
 # suhbat
 
-O'zbek messenjeri — veb, desktop, Android, iOS. Reja va holat: [`docs/REJA.md`](docs/REJA.md).
+O'zbek messenjeri — veb, desktop, Android, iOS. Reja va holat: [`docs/REJA.md`](docs/REJA.md). Joylash (Railway) — [`QADAMLAR.md`](QADAMLAR.md).
 
 ## Tuzilish
 

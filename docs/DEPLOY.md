@@ -1,13 +1,13 @@
 # suhbat — joylash (deploy) qo'llanmasi
 
-> Egasi uchun, qadamma-qadam. Kod tayyor; **Railway'da, R2/Netlify'da va GitHub'da
-> bosiladigan qadamlarni siz bajarasiz**. Ularni men (Claude) sinab ko'ra olmadim —
-> pastdagi "Nima sinalgan" bo'limiga qarang.
+> Texnik tafsilot. Oddiy tilda, qadamma-qadam yo'riqnoma — repo ildizidagi
+> [`QADAMLAR.md`](../QADAMLAR.md). **Railway'da, R2'da va GitHub'da bosiladigan qadamlarni
+> egasi bajaradi**; ularni men (Claude) sinab ko'ra olmadim — pastdagi "Nima sinalgan" bo'limiga qarang.
 
 ## Umumiy rasm
 
 ```
- brauzer ──► Netlify (veb, statik)  ──┐
+ brauzer ──► Railway: Veb (Caddy)   ──┐
  desktop / telefon ───────────────────┼──► Railway: API  ──► Railway: Postgres
                                       │         │
                                       └─────────┴──► Cloudflare R2 (rasm, fayl, ovoz)
@@ -18,7 +18,7 @@
 | API (NestJS + WebSocket) | **Railway** (Docker) | Egasi qarori. WebSocket qo'llanadi. |
 | Baza | **Railway Postgres** | Shu loyihada, ichki tarmoq orqali. |
 | Media (fayllar) | **Cloudflare R2** (yoki Railway Buckets, 3-qadamga qarang) | S3-mos; kod `S3_*` env bilan ishlaydi; R2'da 10 GB bepul va chiqish (egress) puli yo'q. |
-| Veb | **Netlify** (hozirgi sozlama) | Statik sayt uchun bepul, CDN bor, `apps/web/netlify.toml` tayyor. Railway'da statik sayt uchun alohida konteyner (Caddy/nginx) kerak bo'lardi — ortiqcha xarajat va ish. |
+| Veb | **Railway** (Docker, Caddy) | Egasi qarori: hammasi bitta Railway loyihasida. `apps/web/Dockerfile` vebni quradi va kichik statik server (Caddy) bilan beradi; `apps/web/railway.toml` tayyor. |
 | Desktop, Android | **GitHub Release** | `v*` tegida avtomatik build. |
 
 > API **bitta nusxa**da ishlashi kerak (Replicas = 1): "onlayn" holati va rate limit
@@ -54,14 +54,26 @@
    `{"status":"ok","db":"up"}` chiqishi kerak. Migratsiyalar har ishga tushishda
    avtomatik qo'llanadi (Deploy logs'da `have been applied`).
 
-## 2. Veb (Netlify)
+## 2. Veb (Railway)
 
-1. https://netlify.com → **Add new site → Import from Git** → shu repo.
-2. **Base directory** = `apps/web` (build buyrug'i va `publish` `netlify.toml` dan olinadi).
-3. **Environment variables:** `VITE_API_URL` = API manzili (1.6 dagi, oxirida `/`siz).
-   *Bu build vaqtida qotadi* — o'zgartirsangiz saytni qayta build qiling.
-4. Sayt domeni (`https://....netlify.app` yoki o'zingizniki) ni Railway'dagi `CORS_ORIGIN` ga
-   qo'shing va API xizmatini qayta deploy qiling.
+Veb ham shu Railway loyihasida alohida xizmat (API va Postgres yonida).
+
+1. Loyihada **+ New → GitHub Repo →** `suhbat` (yana bir xizmat).
+2. **Settings:** *Root Directory* — bo'sh; *Config file path* = `/apps/web/railway.toml`
+   (Dockerfile yo'li, `/` tekshiruvi, watch paths shu faylda).
+3. **Variables:** `VITE_API_URL` = API manzili (1.6 dagi, oxirida `/`siz). Railway uni Docker
+   build-arg sifatida beradi; *u build vaqtida bundle'ga qotadi* — o'zgartirsangiz vebni qayta deploy qiling.
+4. **Settings → Networking → Generate Domain** (yoki Custom Domain). Bu manzilni API'dagi
+   `CORS_ORIGIN` ga qo'shing va API xizmatini qayta deploy qiling.
+
+Image: `apps/web/Dockerfile` (kontekst — repo ildizi) — build bosqichida `core/client/ui-tokens` va veb
+quriladi; runtime — `caddy:2-alpine`, non-root, `$PORT` ni tinglaydi (`apps/web/docker/Caddyfile`):
+noma'lum yo'llar `index.html` ga (SPA), `/assets/*` uchun 1 yillik `immutable` kesh,
+`index.html` uchun `no-cache`, gzip/zstd. Lokal tekshirish:
+```bash
+docker build -f apps/web/Dockerfile --build-arg VITE_API_URL=http://localhost:4000 -t suhbat-web .
+docker run --rm -e PORT=8080 -p 8080:8080 suhbat-web      # http://localhost:8080
+```
 
 ## 3. Media saqlash (S3-mos)
 
@@ -132,17 +144,17 @@ macOS'da Gatekeeper, Windows'da SmartScreen ogohlantiradi. iOS release hali yo'q
 - Railway Hobby: **$5/oy** (shuning ichida $5 resurs kreditlari). Kichik API (0,5 GB RAM atrofida) +
   Postgres odatda **~$5–15/oy** ishlatadi; foydalanuvchilar ko'paysa o'sadi.
 - Cloudflare R2: 10 GB gacha bepul, undan keyin ~$0,015/GB-oy, chiqish puli yo'q.
-- Netlify bepul tarif: kichik sayt uchun yetadi.
+- Veb xizmati (Caddy) juda yengil — odatda bir necha dollar ichida; u ham Railway kreditidan ketadi.
 - GitHub Actions: private repoda macOS daqiqalari qimmatroq hisoblanadi (bepul limitga ta'sir qiladi).
 - **Jami taxminan $5–15/oy.** Bu taxmin, kafolat emas.
 
 ## Nima sinalgan, nima yo'q
 
-Sinalgan (lokal / CI): API Docker image qurilishi, non-root, `prisma migrate deploy` + `/health`
+Sinalgan (lokal / CI): veb Docker image (Caddy: `$PORT`, SPA fallback, kesh, non-root), API Docker image qurilishi, non-root, `prisma migrate deploy` + `/health`
 haqiqiy Postgres bilan, saqlash yo'q holatda API ko'tarilishi va media xatosi 503 ekani;
 Android imzolash yo'li (CI'da vaqtinchalik kalit bilan).
 
 **Sinalmagan:** Railway'ning o'zida deploy (akkauntga kira olmadim), Railway proksisi ortida
-`TRUST_PROXY=1` yetarliligi, R2/Railway Buckets bilan haqiqiy yuklash va CORS, Netlify
-deploy, `v*` tegi bilan to'liq release (macOS/Windows/Android), haqiqiy keystore bilan imzolash.
+`TRUST_PROXY=1` yetarliligi, R2/Railway Buckets bilan haqiqiy yuklash va CORS, vebning Railway'dagi
+deploy'i (Dockerfile lokal/CI'da tekshirilgan), `v*` tegi bilan to'liq release (macOS/Windows/Android), haqiqiy keystore bilan imzolash.
 Birinchi deploy'da muammo chiqsa — Railway **Deploy logs** matnini yuboring.

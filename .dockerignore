@@ -10,6 +10,5 @@
 !**/.env.example
 apps/mobile
 apps/desktop
-apps/web
 docs
 docker
