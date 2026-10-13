@@ -49,7 +49,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Release CI'da tegdan beriladi (.github/workflows/release.yml); lokal — standart.
-        versionCode (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInteger()
+        versionCode Integer.parseInt(System.getenv("ANDROID_VERSION_CODE") ?: "1")
         versionName System.getenv("ANDROID_VERSION_NAME") ?: "1.0"
     }
     // Debug — AGP standart `~/.android/debug.keystore` (avtomatik yaratiladi, repoda kalit yo'q).
