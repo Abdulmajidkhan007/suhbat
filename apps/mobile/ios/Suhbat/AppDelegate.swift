@@ -1,3 +1,4 @@
+import FirebaseCore
 import UIKit
 import React
 import React_RCTAppDelegate
@@ -14,6 +15,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    // Push (FCM): GoogleService-Info.plist repoda yo'q — bo'lmasa Firebase ishga tushmaydi,
+    // ilova esa push'siz ishlayveradi (JS `getApps()` bo'sh qaytaradi).
+    if Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
+      FirebaseApp.configure()
+    }
+
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()

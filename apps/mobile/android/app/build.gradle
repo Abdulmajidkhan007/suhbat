@@ -87,3 +87,19 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Push (FCM): `google-services.json` repoda YO'Q (.gitignore). Lokal — faylni shu papkaga qo'ying;
+// CI — `GOOGLE_SERVICES_JSON` env (JSON yoki base64) bo'lsa fayl yoziladi. Fayl bo'lmasa
+// plagin qo'llanmaydi: build o'tadi, ilova push'siz ishlaydi (apps/mobile/README.md).
+def googleServicesFile = file("google-services.json")
+def googleServicesEnv = System.getenv("GOOGLE_SERVICES_JSON")?.trim()
+if (!googleServicesFile.exists() && googleServicesEnv) {
+    googleServicesFile.text = googleServicesEnv.startsWith("{")
+        ? googleServicesEnv
+        : new String(googleServicesEnv.decodeBase64(), "UTF-8")
+}
+if (googleServicesFile.exists()) {
+    apply plugin: "com.google.gms.google-services"
+} else {
+    logger.warn("google-services.json yo'q — push bildirishnomalar o'chiq")
+}

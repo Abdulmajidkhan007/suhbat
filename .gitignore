@@ -26,3 +26,7 @@ npm-debug.log*
 
 # electron-builder chiqishi
 release/
+
+# Firebase (push) konfiguratsiyasi — repoga tushmaydi
+google-services.json
+GoogleService-Info.plist

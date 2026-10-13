@@ -2,6 +2,7 @@ import { ActivityIndicator, StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationProvider, useNavigation } from './navigation/Navigator';
+import { PushNotifications } from './push/PushNotifications';
 import { AuthScreen } from './screens/AuthScreen';
 import { ChatListScreen } from './screens/ChatListScreen';
 import { ChatScreen } from './screens/ChatScreen';
@@ -30,6 +31,7 @@ const Root = () => {
     <ChatStoreProvider key={session.user.id}>
       <NavigationProvider>
         <Screens />
+        <PushNotifications />
       </NavigationProvider>
     </ChatStoreProvider>
   );
