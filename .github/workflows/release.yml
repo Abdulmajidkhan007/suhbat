@@ -1,7 +1,8 @@
 name: Release
 
-# `v*` tegi push qilinganda: desktop (macOS dmg, Windows nsis) + Android APK
-# GitHub Release'ga yuklanadi. Tegni egasi qo'yadi (docs/DEPLOY.md).
+# `v*` tegi push qilinganda yoki qo'lda (Actions → Release → Run workflow, `tag` kiritiladi):
+# desktop (macOS dmg, Windows nsis) + Android APK GitHub Release'ga yuklanadi.
+# Qo'lda ishga tushirilganda `main` dagi commit'ga shu nomli teg/release yaratiladi (docs/DEPLOY.md).
 #
 # Repo o'zgaruvchisi (Settings → Variables): SUHBAT_API_URL — shart (veb/desktop/mobil
 # build'iga qotadi). Android imzolash secret'lari (ixtiyoriy): ANDROID_KEYSTORE_BASE64,
@@ -10,12 +11,34 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tegi (masalan v0.1.0); main dagi commit'ga yaratiladi"
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 env:
+  # Teg nomi: push bo'lsa ref nomi, qo'lda ishga tushirilsa kiritilgan qiymat.
+  TAG: ${{ inputs.tag || github.ref_name }}
   DATABASE_URL: postgresql://suhbat:suhbat@localhost:5432/suhbat
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Teg nomini tekshirish
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Teg nomi noto'g'ri: '$TAG' (kutilgan ko'rinish: v0.1.0)"
+            exit 1
+          fi
+
   desktop:
+    needs: check
     strategy:
       fail-fast: false
       matrix:
@@ -31,6 +54,9 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Qo'lda ishga tushirilganda doim main; push'da bo'sh = teg ko'rsatgan commit.
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || '' }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -55,6 +81,7 @@ jobs:
             apps/desktop/release/*.exe
 
   android:
+    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -66,6 +93,9 @@ jobs:
       KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Qo'lda ishga tushirilganda doim main; push'da bo'sh = teg ko'rsatgan commit.
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || '' }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -104,7 +134,7 @@ jobs:
             echo "ANDROID_KEY_PASSWORD=android" >> "$GITHUB_ENV"
           fi
           echo "ANDROID_KEYSTORE_PATH=$ks" >> "$GITHUB_ENV"
-          echo "ANDROID_VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_NAME=${TAG#v}" >> "$GITHUB_ENV"
           echo "ANDROID_VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
       - name: Release APK (JS bundle Hermes bilan ichida)
         working-directory: apps/mobile/android
@@ -119,9 +149,9 @@ jobs:
           "$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner" verify --verbose "$apk" | head -5
           mkdir -p out
           if [ "$MODE" = "release" ]; then
-            cp "$apk" "out/suhbat-$GITHUB_REF_NAME.apk"
+            cp "$apk" "out/suhbat-$TAG.apk"
           else
-            cp "$apk" "out/suhbat-$GITHUB_REF_NAME-sinov-uchun-debug-imzo.apk"
+            cp "$apk" "out/suhbat-$TAG-sinov-uchun-debug-imzo.apk"
           fi
           ls -l out
       - uses: actions/upload-artifact@v4
@@ -149,7 +179,15 @@ jobs:
           - **Android:** `*.apk`. Fayl nomida `sinov-uchun-debug-imzo` bo'lsa — vaqtinchalik kalit bilan imzolangan, faqat sinov uchun (har safar boshqa kalit: eskisini o'chirib qayta o'rnatish kerak bo'lishi mumkin). Boshqa holda — egasining kaliti bilan imzolangan.
           - **Desktop:** macOS `dmg`, Windows `exe`. Imzosiz: macOS'da Gatekeeper, Windows'da SmartScreen ogohlantirishi chiqadi.
           NOTES
-          gh release create "$GITHUB_REF_NAME" artifacts/* \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "suhbat $GITHUB_REF_NAME" \
-            --notes-file notes.md
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # Release allaqachon bor (masalan, GitHub UI'dan yaratilgan): fayllarni yuklab qo'yamiz.
+            gh release upload "$TAG" artifacts/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            args=()
+            # Teg hali yo'q bo'lsa (qo'lda ishga tushirish), main dagi commit'ga yaratiladi.
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then args+=(--target main); fi
+            gh release create "$TAG" artifacts/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "suhbat $TAG" \
+              --notes-file notes.md "${args[@]}"
+          fi

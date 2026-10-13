@@ -211,7 +211,7 @@
   Boshqa: tashqi havolalar tizim brauzerida, ilova ichida navigatsiya yo'q, ruxsatlardan faqat mikrofon.
 - **Build:** `electron-builder` — macOS `dmg` (x64+arm64), Windows `nsis` (x64). CI: `check` job
   desktop lint/typecheck/test/build'ni ham qamraydi; `desktop-package` job Linux'da
-  `--dir` qadoqlashni tekshiradi. `v*` tegi → `release.yml` macOS/Windows build qilib
+  `--dir` qadoqlashni tekshiradi. `v*` tegi (yoki qo'lda Run workflow, `tag` input) → `release.yml` macOS/Windows build qilib
   GitHub Release'ga yuklaydi (repo o'zgaruvchisi `SUHBAT_API_URL` shart).
 - **Artefaktlar IMZOSIZ** (Apple Developer ID / notarizatsiya va Windows kod imzolash
   sertifikatlari yo'q): macOS'da Gatekeeper, Windows'da SmartScreen ogohlantiradi. Avto-yangilanish yo'q.
@@ -222,7 +222,7 @@
   `window.suhbatDesktop` bor, sahifada `require/process` yo'q, noto'g'ri token IPC rad etiladi.
 - **Tekshirilmadi:** macOS dmg va Windows nsis build'lari (Linux konteynerda yo'q — faqat
   tag'da CI), haqiqiy `safeStorage` shifrlash aylanishi (konteynerda kalit ombori yo'q:
-  Linux'da `set` jim o'tkazib yuboriladi), release workflow (tag bilan ishga tushirilmagan),
+  Linux'da `set` jim o'tkazib yuboriladi), release workflow (na tag bilan, na `workflow_dispatch` bilan haqiqiy ishga tushirilmagan; faqat actionlint o'tdi; mavjud release'ga `upload --clobber` yo'li ham sinalmagan),
   desktop ↔ jonli API (CORS `suhbat://app`), ikonkalar (standart Electron ikonkasi), MinIO bilan
   tozalash e2e (soxta S3 bilan o'tgan).
 

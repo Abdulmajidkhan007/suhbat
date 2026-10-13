@@ -54,6 +54,11 @@
    `{"status":"ok","db":"up"}` chiqishi kerak. Migratsiyalar har ishga tushishda
    avtomatik qo'llanadi (Deploy logs'da `have been applied`).
 
+> **Railway tuzoqlari:** (1) monorepoda Railway har workspace uchun service yaratadi — `desktop`/`mobile`
+> ni o'chiring; (2) Railpack'ning Custom Build/Start buyruqlarini tozalang; (3) ishonchli yechim —
+> service Variables'ga `RAILWAY_DOCKERFILE_PATH=apps/api/Dockerfile` (veb uchun `apps/web/Dockerfile`).
+> Bu amalda ishladi, `/health` ok.
+
 ## 2. Veb (Railway)
 
 Veb ham shu Railway loyihasida alohida xizmat (API va Postgres yonida).
@@ -126,13 +131,15 @@ Bu variantni sinab ko'rmadim — brauzer uchun CORS'ni ham shu yerda sozlash ker
 
 ## 5. Birinchi release
 
-PR `main`ga merge bo'lgach:
+PR `main`ga merge bo'lgach. Telefondan: GitHub → **Actions → Release → Run workflow** (branch `main`,
+*tag* = `v0.1.0`) — teg va release `main` dagi commit'ga o'zi yaratiladi. Yoki terminalda:
 ```bash
 git checkout main && git pull
 git tag v0.1.0
 git push origin v0.1.0
 ```
-(yoki GitHub → Releases → *Draft a new release* → yangi teg `v0.1.0` → Publish.)
+(yoki GitHub → Releases → *Draft a new release* → yangi teg `v0.1.0` → Publish; release oldindan bo'lsa,
+workflow fayllarni unga `--clobber` bilan yuklaydi.)
 **Actions → Release** ishlaydi (taxminan 20–40 daqiqa): macOS `dmg`, Windows `exe`, Android `apk`
 **Releases** sahifasiga yuklanadi. Keyingi versiyalar — `v0.1.1`, `v0.2.0`, ...
 

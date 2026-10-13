@@ -118,16 +118,26 @@ Repoga **qo'shmang**. GitHub → **Settings → Secrets and variables → Action
 
 ## 10. Birinchi release (`v0.1.0`)
 
-PR'lar `main`ga merge bo'lgach, terminalda:
-```bash
-git checkout main && git pull
-git tag v0.1.0
-git push origin v0.1.0
-```
-(Yoki GitHub → **Releases → Draft a new release** → yangi teg `v0.1.0` → **Publish**.)
+PR'lar `main`ga merge bo'lgach. **Telefondan (terminalsiz):** GitHub → **Actions → Release →
+Run workflow** → Branch: `main`, *tag* = `v0.1.0` → **Run workflow**. Workflow `main` dagi commit'ga
+`v0.1.0` tegi va release'ni o'zi yaratadi.
+(Terminalda: `git checkout main && git pull && git tag v0.1.0 && git push origin v0.1.0`. Yoki GitHub →
+**Releases → Draft a new release** → yangi teg → **Publish**: release oldindan bo'lsa ham, workflow
+fayllarni unga yuklab qo'yadi.)
 GitHub **Actions → Release** ishlaydi (taxminan 20–40 daqiqa); macOS `dmg`, Windows `exe` va Android `apk`
 **Releases** sahifasiga yuklanadi. Keyingi versiyalar: `v0.1.1`, `v0.2.0`, ...
 Ilovalar imzosiz: macOS/Windows ogohlantirish ko'rsatadi (normal). iOS hali yo'q.
+
+## Railway tuzoqlari (amalda uchragan)
+
+- Railway monorepoda **har workspace uchun avtomatik service** yaratadi — kerakmaslarini
+  (`desktop`, `mobile`) **Settings → Delete service** bilan o'chiring. Faqat API va Web qoladi.
+- **Railpack** (avtomatik build) o'zi taxmin qilgan yoki qo'lda yozilgan *Custom Build Command* /
+  *Custom Start Command* larni ishlatadi: Settings'da ikkalasini ham **tozalang** (bo'sh qoldiring).
+- Ishonchli yechim — service **Variables**'ga Dockerfile yo'lini berish:
+  API uchun `RAILWAY_DOCKERFILE_PATH=apps/api/Dockerfile`, Web uchun
+  `RAILWAY_DOCKERFILE_PATH=apps/web/Dockerfile`. Shunda Railway Railpack o'rniga Dockerfile bilan quradi.
+  Bu usul amalda ishladi (`/health` ok).
 
 ## 11. Muammo bo'lsa nima yuborish kerak
 
