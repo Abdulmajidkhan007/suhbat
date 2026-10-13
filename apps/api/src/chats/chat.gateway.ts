@@ -31,6 +31,7 @@ import type { Server, Socket } from 'socket.io';
 import type { ZodType } from 'zod';
 import type { JwtPayload } from '../auth/auth.service';
 import { RateLimiter } from '../common/rate-limiter';
+import { PushService } from '../push/push.service';
 import { ChatsService } from './chats.service';
 import type { MemberChange } from './chats.service';
 import { PresenceService } from './presence.service';
@@ -76,6 +77,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     private readonly jwt: JwtService,
     private readonly chats: ChatsService,
     private readonly presence: PresenceService,
+    private readonly push: PushService,
     config: ConfigService,
   ) {
     const positive = (key: string, fallback: number) => {
@@ -246,11 +248,16 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     }
   }
 
-  /** REST orqali yuborilgan xabar ham shu yerdan tarqatiladi. */
+  /**
+   * REST orqali yuborilgan xabar ham shu yerdan tarqatiladi. Socket'i yo'q
+   * a'zolarga push — kutilmaydi (javobni bloklamaydi), xatolari `PushService` ichida.
+   */
   emitMessageNew(message: Message, memberIds: string[], clientId?: string) {
     const others = memberIds.filter((id) => id !== message.senderId);
     if (others.length > 0) this.server.to(rooms(others)).emit(WsEvent.MessageNew, { message });
     this.server.to(userRoom(message.senderId)).emit(WsEvent.MessageNew, { message, clientId });
+    const offline = others.filter((id) => !this.presence.isOnline(id));
+    if (offline.length > 0) void this.push.notifyNewMessage(message, offline);
   }
 
   emitMessageUpdated(message: Message, memberIds: string[]) {

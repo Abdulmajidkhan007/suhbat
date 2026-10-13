@@ -98,6 +98,19 @@ describe('createApiClient', () => {
     expect(JSON.parse(fetch.mock.calls[0][1]!.body as string)).toEqual({ refreshToken: 'r1' });
   });
 
+  it('logout: deviceToken berilsa body\'ga qo\'shiladi', async () => {
+    const { api, fetch } = setup(() => json(200));
+    await api.logout({ deviceToken: 'fcm-1' });
+    expect(JSON.parse(fetch.mock.calls[0][1]!.body as string)).toEqual({ refreshToken: 'r1', deviceToken: 'fcm-1' });
+  });
+
+  it('unregisterDevice: token URL\'da kodlanadi', async () => {
+    const { api, fetch } = setup(() => json(200));
+    await api.unregisterDevice('a:b/c');
+    expect(String(fetch.mock.calls[0][0])).toMatch(/\/devices\/a%3Ab%2Fc$/);
+    expect(fetch.mock.calls[0][1]!.method).toBe('DELETE');
+  });
+
   it('sessiyasiz authed so\'rov — 401, tarmoqqa chiqmaydi', async () => {
     const { api, fetch } = setup(() => json(200), null as never);
     await expect(api.listChats()).rejects.toMatchObject({ status: 401 });

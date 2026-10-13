@@ -197,11 +197,28 @@ export class ChatsService {
     return (await this.access(chatId, me)).memberIds;
   }
 
-  /** Yozish huquqi (kanalda faqat owner/admin) — yuklash URL'i berishdan oldin ham tekshiriladi. */
+  /**
+   * Yozish huquqi (kanalda faqat owner/admin; 1:1 da — hech kim bloklamagan bo'lsa).
+   * Yuklash URL'i berishdan oldin ham tekshiriladi.
+   */
   async assertCanWrite(chatId: string, me: string): Promise<ChatAccess> {
     const access = await this.access(chatId, me);
     if (!canWrite(access.type, access.role)) throw new ForbiddenException('Kanalda faqat adminlar yozishi mumkin');
+    if (access.type === 'direct') {
+      const other = access.memberIds.find((id) => id !== me);
+      if (other && (await this.isBlockedBetween(me, other))) {
+        throw new ForbiddenException('Bu foydalanuvchi bilan yozishib bo\'lmaydi (bloklangan)');
+      }
+    }
     return access;
+  }
+
+  /** Ikki tomondan biri ikkinchisini bloklaganmi. */
+  private async isBlockedBetween(a: string, b: string): Promise<boolean> {
+    const n = await this.prisma.userBlock.count({
+      where: { OR: [{ blockerId: a, blockedId: b }, { blockerId: b, blockedId: a }] },
+    });
+    return n > 0;
   }
 
   // --- Sozlamalar ---

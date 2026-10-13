@@ -102,10 +102,15 @@ export class AuthService {
     return { accessToken, refreshToken: next };
   }
 
-  /** Shu qurilma sessiyasini (token oilasini) yopadi. Noma'lum token — jim o'tadi. */
-  async logout(refreshToken: string): Promise<void> {
+  /**
+   * Shu qurilma sessiyasini (token oilasini) yopadi va push tokenini o'chiradi
+   * (faqat shu foydalanuvchiniki bo'lsa). Noma'lum token — jim o'tadi.
+   */
+  async logout(refreshToken: string, deviceToken?: string): Promise<void> {
     const row = await this.prisma.refreshToken.findUnique({ where: { tokenHash: hashToken(refreshToken) } });
-    if (row) await this.revokeFamily(row.familyId, new Date());
+    if (!row) return;
+    await this.revokeFamily(row.familyId, new Date());
+    if (deviceToken) await this.prisma.deviceToken.deleteMany({ where: { token: deviceToken, userId: row.userId } });
   }
 
   private async revokeFamily(familyId: string, now: Date) {
