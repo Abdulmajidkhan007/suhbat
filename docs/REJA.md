@@ -288,6 +288,8 @@
   `live`), taymer, tugatish, tizim xabari "🎥 Video qo'ng'iroq, 0:03"; ovozli qo'ng'iroqni rad etish; mobil
   kenglik (390 px). Bu bitta mashinada (localhost, host ICE nomzodlari) — NAT/TURN orqali emas.
   `react-native bundle` (android) lokal.
+  CI (PR #11) yashil: check (API e2e — MinIO bilan), api-image, web-image, desktop-package, Mobile android
+  (debug + release APK, `react-native-webrtc` bilan) va ios (simulyator, `JitsiWebRTC` pod bilan) — faqat build.
 - **Tekshirilmagan:** haqiqiy qurilmada (Android/iOS) qo'ng'iroq — ilova hech qachon qurilmada ishga
   tushirilmagan; turli tarmoqlar (NAT, mobil internet), TURN (sozlanmagan); Electron oynasida qo'ng'iroq va macOS
   ruxsat oynasi; Safari/Firefox; haqiqiy FCM bilan qo'ng'iroq push'i; uzoq qo'ng'iroq. **Haqiqiy media oqimi
