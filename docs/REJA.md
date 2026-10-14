@@ -226,7 +226,10 @@
 - **QADAMLAR.md:** 8 — `SUHBAT_API_URL` to'g'ri/noto'g'ri misollar; 9 — Termux bilan keystore (openjdk-17, keytool,
   base64, 4 secret), maxfiylik va zaxira ogohlantirishi.
 - **Tekshirildi (lokal):** `turbo run lint typecheck test build` yashil; ikonkalar ko'zda (kontakt varag'i);
-  ICNS/ICO Pillow bilan o'qildi (11 va 7 o'lcham); `check-api-url.sh` qo'lda. CI natijasi — PR'da.
+  ICNS/ICO Pillow bilan o'qildi (11 va 7 o'lcham); `check-api-url.sh` qo'lda.
+  CI (PR #10) yashil: check, desktop-package, web/api-image, Mobile android + ios. Android release APK
+  (`verify-apk.sh`, `aapt2`): `label='Suhbat'`, `mipmap/ic_launcher` — 5 zichlik PNG + `anydpi-v26` XML
+  (AGP resurs yo'llarini qisqartiradi: `res/BW.xml`), `usesCleartextTraffic=false`.
 - **Tekshirilmadi:** ikonka haqiqiy telefon/launcher'da, macOS dmg / Windows exe ichidagi ikonka (faqat release
   teg'ida quriladi), iOS build'da AppIcon (CI ios job Debug simulyator), haqiqiy `GOOGLE_SERVICES_JSON` bilan
   release, haqiqiy keystore.
