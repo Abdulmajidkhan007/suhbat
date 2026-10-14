@@ -96,7 +96,7 @@ const NewChatDialog: React.FC<Props> = ({ open, onClose, onChatCreated }) => {
         <Typography component="span" variant="subtitle1" sx={{ fontWeight: 700 }}>
           Yangi suhbat
         </Typography>
-        <IconButton size="small" onClick={handleClose} aria-label="Close">
+        <IconButton size="small" onClick={handleClose} aria-label="Yopish">
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>

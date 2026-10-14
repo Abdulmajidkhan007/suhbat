@@ -9,7 +9,7 @@ interface Props {
   placeholder?: string;
 }
 
-const SearchInput: React.FC<Props> = ({ value, onChange, placeholder = 'Searchâ€¦' }) => (
+const SearchInput: React.FC<Props> = ({ value, onChange, placeholder = 'Qidirish' }) => (
   <Paper
     elevation={0}
     className="flex items-center gap-1 rounded-xl px-3 py-1"
@@ -30,7 +30,7 @@ const SearchInput: React.FC<Props> = ({ value, onChange, placeholder = 'Searchâ€
       inputProps={{ 'aria-label': placeholder }}
     />
     {value && (
-      <IconButton size="small" onClick={() => onChange('')} sx={{ p: 0.25 }}>
+      <IconButton size="small" onClick={() => onChange('')} aria-label="Tozalash" sx={{ p: 0.25 }}>
         <CloseIcon sx={{ fontSize: 16 }} />
       </IconButton>
     )}

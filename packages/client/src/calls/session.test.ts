@@ -6,7 +6,7 @@ import { CallSession, MEDIA_ERROR, uuidV4 } from './session.js';
 import type { CallSignal } from './session.js';
 import type { CallMediaDevices, CallSessionDeps, CallSignaling, PeerConnection, PeerEvents } from './types.js';
 
-const ali: PublicUser = { id: '11111111-1111-4111-8111-111111111111', displayName: 'Ali', photoUrl: null, createdAt: '2026-10-14T00:00:00.000Z' };
+const ali: PublicUser = { id: '11111111-1111-4111-8111-111111111111', displayName: 'Ali', photoUrl: null, bio: null, createdAt: '2026-10-14T00:00:00.000Z' };
 const vali: PublicUser = { ...ali, id: '22222222-2222-4222-8222-222222222222', displayName: 'Vali' };
 const CHAT = '33333333-3333-4333-8333-333333333333';
 const CALL = '44444444-4444-4444-8444-444444444444';

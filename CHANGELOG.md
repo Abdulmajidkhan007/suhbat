@@ -2,6 +2,16 @@
 
 Release matni shu fayldan olinadi (`release.yml`: `## vX.Y.Z` bo'limi).
 
+## Chiqarilmagan (v0.1.2)
+
+- **Global qidiruv** (veb, desktop, mobil): "Qidirish" — suhbatlar, foydalanuvchilar va ochiq kanallar bo'limlari;
+  foydalanuvchini bossangiz suhbat ochiladi, kanalni bossangiz "Obuna bo'lish".
+- **Profil tahriri:** ism va "Men haqimda" (`PATCH /users/me`). Avatar keyinroq.
+- Kanal ma'lumotida "Ega va adminlar" ro'yxatida endi faqat ega/adminlar; obunachilar soni alohida.
+- Veb o'zbekchalashtirildi; vaqt 24 soatlik ("14:20"); sozlamalardan texnologiya yozuvi olib tashlandi.
+- Telefon brauzerida ro'yxat to'liq kenglikda, chat ochilganda yashirinadi ("Orqaga" tugmasi bilan).
+- Kanalga obunachi qo'shishda tanlangan odam aniq belgilanadi.
+
 ## v0.1.1
 
 - **"Tarmoq xatosi" tuzatildi (ro'yxatdan o'tish/kirish).** Sabab: `SUHBAT_API_URL` `https://` siz

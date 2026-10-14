@@ -14,16 +14,18 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { UpdateNotificationSettingsInputSchema, UserSearchQuerySchema } from '@suhbat/core';
+import { UpdateNotificationSettingsInputSchema, UpdateProfileInputSchema, UserSearchQuerySchema } from '@suhbat/core';
 import type {
   NotificationSettings,
   PublicUser,
   UpdateNotificationSettingsInput,
+  UpdateProfileInput,
+  User,
   UserSearchQuery,
 } from '@suhbat/core';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthedRequest } from '../auth/jwt-auth.guard';
-import { toPublicUser } from '../auth/auth.service';
+import { toPublicUser, toSelfUser } from '../auth/auth.service';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -54,6 +56,22 @@ export class UsersController {
       take:    query.limit,
     });
     return users.map(toPublicUser);
+  }
+
+  /** Profilni tahrirlash (ism, bio). Bo'sh `bio` — o'chirish. Avatar yuklash keyinga qoldirilgan (S3). */
+  @Patch('me')
+  async updateProfile(
+    @Req() req: AuthedRequest,
+    @Body(new ZodValidationPipe(UpdateProfileInputSchema)) body: UpdateProfileInput,
+  ): Promise<User> {
+    const user = await this.prisma.user.update({
+      where: { id: req.user.sub },
+      data: {
+        ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),
+        ...(body.bio !== undefined ? { bio: body.bio || null } : {}),
+      },
+    });
+    return toSelfUser(user);
   }
 
   @Get('me/notifications')

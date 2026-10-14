@@ -8,6 +8,7 @@ import { AuthScreen } from './screens/AuthScreen';
 import { ChatListScreen } from './screens/ChatListScreen';
 import { ChatScreen } from './screens/ChatScreen';
 import { NewChatScreen } from './screens/NewChatScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
 import type { Services } from './services/createServices';
 import { ChatStoreProvider } from './state/ChatStoreProvider';
 import { SessionProvider, useSession } from './state/SessionProvider';
@@ -19,6 +20,7 @@ const Screens = () => {
     case 'chats':   return <ChatListScreen />;
     case 'chat':    return <ChatScreen key={route.chatId} chatId={route.chatId} />;
     case 'newChat': return <NewChatScreen />;
+    case 'profile': return <ProfileScreen />;
   }
 };
 

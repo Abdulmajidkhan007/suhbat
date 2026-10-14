@@ -15,6 +15,8 @@ interface SessionContextValue {
   login:    (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout:   () => Promise<void>;
+  /** Profil tahrirlangach joriy foydalanuvchini yangilaydi. */
+  updateUser: (user: User) => void;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -71,6 +73,10 @@ export const SessionProvider = ({ children, services: injected }: Props) => {
     setSession({ status: 'signedIn', user: await api.register(input) });
   }, [api]);
 
+  const updateUser = useCallback((user: User) => {
+    setSession((s) => (s.status === 'signedIn' ? { status: 'signedIn', user } : s));
+  }, []);
+
   const logout = useCallback(async () => {
     calls.hangup();
     socket.disconnect();
@@ -82,8 +88,8 @@ export const SessionProvider = ({ children, services: injected }: Props) => {
   }, [api, socket, push, calls]);
 
   const value = useMemo(
-    () => ({ session, services, login, register, logout }),
-    [session, services, login, register, logout],
+    () => ({ session, services, login, register, logout, updateUser }),
+    [session, services, login, register, logout, updateUser],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };

@@ -73,6 +73,10 @@ const authSlice = createSlice({
       state.loading     = false;
       state.error       = null;
     },
+    /** Profil tahrirlangach (`PATCH /users/me` javobi) joriy foydalanuvchini yangilaydi. */
+    userUpdated(state, action: PayloadAction<AppUser>) {
+      if (state.user) state.user = { ...state.user, ...action.payload };
+    },
     setInitialized(state) {
       state.initialized = true;
     },
@@ -114,5 +118,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { setUser, setInitialized, clearError } = authSlice.actions;
+export const { setUser, userUpdated, setInitialized, clearError } = authSlice.actions;
 export default authSlice.reducer;

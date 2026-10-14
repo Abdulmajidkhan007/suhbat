@@ -3,11 +3,16 @@ import { z } from 'zod';
 // API kontrakti: vaqtlar JSON'da ISO 8601 satr ko'rinishida.
 const isoDate = z.iso.datetime({ offset: true });
 
+export const DISPLAY_NAME_MAX = 64;
+export const BIO_MAX = 200;
+
 /** Boshqa foydalanuvchilar uchun ko'rinish: **email yo'q** (sizib chiqmasligi uchun). */
 export const PublicUserSchema = z.object({
   id:          z.uuid(),
   displayName: z.string().min(1).max(64),
   photoUrl:    z.url().nullable(),
+  /** Qisqa "o'zim haqimda" matni (ixtiyoriy). */
+  bio:         z.string().max(BIO_MAX).nullable(),
   createdAt:   isoDate,
 });
 export type PublicUser = z.infer<typeof PublicUserSchema>;
@@ -100,6 +105,18 @@ export const TokenPairSchema = z.object({
 export type TokenPair = z.infer<typeof TokenPairSchema>;
 
 // --- Foydalanuvchilar ---
+/**
+ * `PATCH /users/me`: berilgan maydonlargina o'zgaradi. `bio: null` yoki bo'sh satr —
+ * tarifni o'chirish. Kamida bitta maydon kerak.
+ */
+export const UpdateProfileInputSchema = z
+  .object({
+    displayName: z.string().trim().min(1, 'Ism bo\'sh bo\'lmasin').max(DISPLAY_NAME_MAX).optional(),
+    bio:         z.string().trim().max(BIO_MAX).nullable().optional(),
+  })
+  .refine((v) => v.displayName !== undefined || v.bio !== undefined, { message: 'O\'zgartirish uchun maydon yo\'q' });
+export type UpdateProfileInput = z.infer<typeof UpdateProfileInputSchema>;
+
 export const UserSearchQuerySchema = z.object({
   q:     z.string().trim().min(1).max(64),
   limit: z.coerce.number().int().min(1).max(50).default(20),

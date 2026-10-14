@@ -5,6 +5,7 @@ export const ME: User = {
   displayName: 'Ali Valiyev',
   email:       'ali@example.uz',
   photoUrl:    null,
+  bio:         null,
   createdAt:   '2026-10-01T10:00:00.000Z',
 };
 
@@ -12,6 +13,7 @@ export const PEER: PublicUser = {
   id:          '00000000-0000-4000-8000-000000000002',
   displayName: 'Vali',
   photoUrl:    null,
+  bio:         null,
   createdAt:   '2026-10-01T10:00:00.000Z',
 };
 

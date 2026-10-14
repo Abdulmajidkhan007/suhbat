@@ -12,6 +12,7 @@ const row = (overrides = {}) => ({
   passwordHash: '',
   displayName:  'Ali',
   photoUrl:     null,
+  bio:          null,
   createdAt:    new Date('2026-10-11T10:00:00.000Z'),
   updatedAt:    new Date('2026-10-11T10:00:00.000Z'),
   ...overrides,
@@ -38,7 +39,7 @@ describe('AuthService', () => {
     expect(data.passwordHash).not.toBe('12345678');
     expect(await argon2.verify(data.passwordHash, '12345678')).toBe(true);
     expect(res.user).toEqual({
-      id: row().id, email: 'ali@test.uz', displayName: 'Ali', photoUrl: null,
+      id: row().id, email: 'ali@test.uz', displayName: 'Ali', photoUrl: null, bio: null,
       createdAt: '2026-10-11T10:00:00.000Z',
     });
     expect(res.user).not.toHaveProperty('passwordHash');

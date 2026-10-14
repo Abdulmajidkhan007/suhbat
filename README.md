@@ -55,6 +55,7 @@ standart 15m); refresh token — body'da, bir martalik (rotatsiya).
 | POST  | `/auth/logout`         | `{ refreshToken, deviceToken? }` → 204 (shu sessiya yopiladi; push tokeni ham o'chadi) |
 | GET   | `/auth/me`             | joriy foydalanuvchi                                     |
 | GET   | `/users/search?q=&limit=` | ism (qism) yoki email (faqat to'liq mos) bo'yicha; o'zini qaytarmaydi |
+| PATCH | `/users/me`               | `{ displayName?, bio? }` — profil (javob `User`); bo'sh `bio` o'chiradi |
 | GET   | `/users/me/notifications` | `{ preview }` — push'da matn ko'rinadimi              |
 | PATCH | `/users/me/notifications` | `{ preview }` (`false` — faqat "Yangi xabar")         |
 | POST  | `/users/:id/block`     | bloklash (idempotent): 1:1 da yozib bo'lmaydi, push bormaydi |

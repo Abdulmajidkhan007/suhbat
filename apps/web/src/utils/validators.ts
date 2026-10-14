@@ -18,9 +18,9 @@ export interface ValidationResult {
 }
 
 export const validateSignIn = (email: string, password: string): ValidationResult => {
-  if (!email.trim())         return { valid: false, message: 'Email is required.' };
-  if (!isValidEmail(email))  return { valid: false, message: 'Enter a valid email address.' };
-  if (!password)             return { valid: false, message: 'Password is required.' };
+  if (!email.trim())         return { valid: false, message: 'Email kiriting.' };
+  if (!isValidEmail(email))  return { valid: false, message: 'Email manzili noto\'g\'ri.' };
+  if (!password)             return { valid: false, message: 'Parol kiriting.' };
   return { valid: true, message: '' };
 };
 
@@ -29,11 +29,11 @@ export const validateSignUp = (
   password:    string,
   displayName: string,
 ): ValidationResult => {
-  if (!displayName.trim())             return { valid: false, message: 'Name is required.' };
-  if (!isValidDisplayName(displayName)) return { valid: false, message: 'Name must be 2-50 characters.' };
-  if (!email.trim())                   return { valid: false, message: 'Email is required.' };
-  if (!isValidEmail(email))            return { valid: false, message: 'Enter a valid email address.' };
-  if (!password)                       return { valid: false, message: 'Password is required.' };
+  if (!displayName.trim())             return { valid: false, message: 'Ismingizni kiriting.' };
+  if (!isValidDisplayName(displayName)) return { valid: false, message: 'Ism 2 dan 50 tagacha belgi bo\'lishi kerak.' };
+  if (!email.trim())                   return { valid: false, message: 'Email kiriting.' };
+  if (!isValidEmail(email))            return { valid: false, message: 'Email manzili noto\'g\'ri.' };
+  if (!password)                       return { valid: false, message: 'Parol kiriting.' };
   if (!isValidPassword(password))      return { valid: false, message: 'Parol kamida 8 ta belgi bo\'lishi kerak.' };
   return { valid: true, message: '' };
 };

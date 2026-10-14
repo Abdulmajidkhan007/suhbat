@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Chip, CircularProgress, List, ListItemButton, ListItemText, Typography } from '@mui/material';
+import { Box, Checkbox, Chip, CircularProgress, List, ListItemButton, ListItemText, Typography } from '@mui/material';
 import SearchInput from '../common/SearchInput';
 import AvatarWithStatus from '../common/AvatarWithStatus';
 import { api } from '../../services/api';
@@ -67,9 +67,20 @@ const UserPicker: React.FC<Props> = ({ selected, onChange, excludeIds = [], maxH
         )}
         <List disablePadding>
           {visible.map((u) => (
-            <ListItemButton key={u.uid} selected={chosen.has(u.uid)} onClick={() => toggle(u)} sx={{ borderRadius: '10px', gap: 1.5 }}>
+            <ListItemButton
+              key={u.uid}
+              role="checkbox"
+              aria-checked={chosen.has(u.uid)}
+              selected={chosen.has(u.uid)}
+              onClick={() => toggle(u)}
+              sx={{
+                borderRadius: '10px', gap: 1.5,
+                '&.Mui-selected': { bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' } },
+              }}
+            >
               <AvatarWithStatus uid={u.uid} displayName={u.displayName} photoURL={u.photoURL} showStatus={false} size={32} />
               <ListItemText primary={u.displayName} slotProps={{ primary: { variant: 'body2', sx: { fontWeight: 600 } } }} />
+              <Checkbox edge="end" checked={chosen.has(u.uid)} tabIndex={-1} disableRipple readOnly sx={{ p: 0, color: 'inherit', '&.Mui-checked': { color: 'inherit' } }} slotProps={{ input: { 'aria-hidden': true } }} />
             </ListItemButton>
           ))}
         </List>

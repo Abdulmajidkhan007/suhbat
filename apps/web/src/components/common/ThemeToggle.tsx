@@ -9,8 +9,8 @@ const ThemeToggle: React.FC = () => {
   const { mode, toggle } = useTheme();
 
   return (
-    <Tooltip title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-      <IconButton onClick={toggle} size="medium" aria-label="Toggle theme">
+    <Tooltip title={mode === 'dark' ? 'Yorug\' rejimga o\'tish' : 'Qorong\'i rejimga o\'tish'}>
+      <IconButton onClick={toggle} size="medium" aria-label="Mavzuni almashtirish">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={mode}

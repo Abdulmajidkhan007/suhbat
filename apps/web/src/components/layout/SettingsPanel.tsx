@@ -1,14 +1,20 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Box, Typography, TextField, Divider, IconButton, Avatar,
+  Box, Typography, TextField, Divider, IconButton, Avatar, Button,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
+import { BIO_MAX, DISPLAY_NAME_MAX, UpdateProfileInputSchema } from '@suhbat/core';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { setActivePanel } from '../../features/ui/uiSlice';
 import { setTheme } from '../../features/theme/themeSlice';
+import { userUpdated } from '../../features/auth/authSlice';
+import { api } from '../../services/api';
+import { toAppUser } from '../../services/apiMappers';
+import { errorText } from '../../utils/errors';
 import { getAvatarColor } from '../../utils/colors';
 import { getInitials } from '../../utils/formatters';
 import { ThemeMode } from '../../types';
@@ -18,9 +24,37 @@ const SettingsPanel: React.FC = () => {
   const user       = useAppSelector((s) => s.auth.user)!;
   const mode       = useAppSelector((s) => s.theme.mode);
   const themes: { label: string; value: ThemeMode; icon: React.ReactNode }[] = [
-    { label: 'Light', value: 'light', icon: <LightModeIcon fontSize="small" /> },
-    { label: 'Dark',  value: 'dark',  icon: <DarkModeIcon  fontSize="small" /> },
+    { label: 'Yorug\'',   value: 'light', icon: <LightModeIcon fontSize="small" /> },
+    { label: 'Qorong\'i', value: 'dark',  icon: <DarkModeIcon  fontSize="small" /> },
   ];
+
+  const [name, setName] = useState(user.displayName);
+  const [bio, setBio]   = useState(user.bio ?? '');
+  const [saving, setSaving] = useState(false);
+
+  // Server (yoki boshqa tab) yangilaganda maydonlar tiklanadi.
+  useEffect(() => {
+    setName(user.displayName);
+    setBio(user.bio ?? '');
+  }, [user.displayName, user.bio]);
+
+  const parsed  = UpdateProfileInputSchema.safeParse({ displayName: name, bio });
+  const dirty   = name.trim() !== user.displayName || bio.trim() !== (user.bio ?? '');
+  const nameErr = name.trim().length === 0 ? 'Ism bo\'sh bo\'lmasin' : undefined;
+
+  const save = async () => {
+    if (!parsed.success || !dirty) return;
+    setSaving(true);
+    try {
+      const updated = await api.updateProfile(parsed.data);
+      dispatch(userUpdated(toAppUser(updated)));
+      toast.success('Profil saqlandi');
+    } catch (e) {
+      toast.error(errorText(e, 'Profilni saqlab bo\'lmadi.'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <motion.div
@@ -37,9 +71,9 @@ const SettingsPanel: React.FC = () => {
         sx={{ borderColor: 'divider', minHeight: 64, flexShrink: 0 }}
       >
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          Settings
+          Sozlamalar
         </Typography>
-        <IconButton size="small" onClick={() => dispatch(setActivePanel('chats'))}>
+        <IconButton size="small" onClick={() => dispatch(setActivePanel('chats'))} aria-label="Yopish">
           <CloseIcon fontSize="small" />
         </IconButton>
       </Box>
@@ -48,7 +82,7 @@ const SettingsPanel: React.FC = () => {
         {/* Profile section */}
         <div>
           <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.1em', fontSize: '0.7rem' }}>
-            Profile
+            Profil
           </Typography>
           <Box className="flex flex-col items-center gap-3 mt-3">
             <Avatar
@@ -66,13 +100,36 @@ const SettingsPanel: React.FC = () => {
 
             <TextField
               label="Ism"
-              value={user.displayName}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               fullWidth
               size="small"
-              disabled
-              helperText="Profilni tahrirlash — tez orada"
+              error={Boolean(nameErr)}
+              helperText={nameErr}
+              slotProps={{ htmlInput: { maxLength: DISPLAY_NAME_MAX } }}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
             />
+            <TextField
+              label="Men haqimda"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              fullWidth
+              size="small"
+              multiline
+              maxRows={4}
+              helperText={`${bio.length}/${BIO_MAX}`}
+              slotProps={{ htmlInput: { maxLength: BIO_MAX } }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+            />
+            <Button
+              variant="contained"
+              fullWidth
+              disabled={!dirty || !parsed.success || saving}
+              onClick={() => void save()}
+              sx={{ textTransform: 'none', borderRadius: '10px' }}
+            >
+              {saving ? 'Saqlanmoqda…' : 'Saqlash'}
+            </Button>
 
             <Typography variant="caption" color="text.secondary">
               {user.email ?? ''}
@@ -85,7 +142,7 @@ const SettingsPanel: React.FC = () => {
         {/* Theme section */}
         <div>
           <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.1em', fontSize: '0.7rem' }}>
-            Appearance
+            {'Ko\'rinish'}
           </Typography>
           <Box className="flex gap-3 mt-3">
             {themes.map((t) => (
@@ -121,10 +178,7 @@ const SettingsPanel: React.FC = () => {
         {/* App info */}
         <div className="mt-auto">
           <Typography variant="caption" color="text.disabled" align="center" sx={{ display: 'block' }}>
-            suhbat
-          </Typography>
-          <Typography variant="caption" color="text.disabled" align="center" sx={{ display: 'block' }}>
-            React · NestJS · Socket.IO
+            Suhbat v{__APP_VERSION__}
           </Typography>
         </div>
       </Box>

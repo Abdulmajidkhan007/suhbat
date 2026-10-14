@@ -1,5 +1,6 @@
 // src/utils/formatters.ts
 import { format, isToday, isYesterday, differenceInDays } from 'date-fns';
+import { uz } from 'date-fns/locale';
 import { toMillis } from '@suhbat/core';
 
 // Vaqt qiymati raqam bo'lmasligi mumkin (Firestore `Timestamp`, ISO satr,
@@ -10,18 +11,32 @@ const toDate = (timestamp: unknown): Date | null => {
   return ms === null ? null : new Date(ms);
 };
 
+/** 24 soatlik vaqt: "14:20". */
 export const formatMessageTime = (timestamp: unknown): string => {
   const date = toDate(timestamp);
-  return date ? format(date, 'h:mm a') : '';
+  return date ? format(date, 'HH:mm') : '';
 };
 
+/** Ro'yxat uchun: bugun — "14:20", kecha — "Kecha", hafta ichida — "Dushanba", aks holda "11.10.2026". */
 export const formatChatTime = (timestamp: unknown): string => {
   const date = toDate(timestamp);
   if (!date) return '';
-  if (isToday(date))     return format(date, 'h:mm a');
-  if (isYesterday(date)) return 'Yesterday';
-  if (differenceInDays(new Date(), date) < 7) return format(date, 'EEEE');
-  return format(date, 'MM/dd/yyyy');
+  if (isToday(date))     return format(date, 'HH:mm');
+  if (isYesterday(date)) return 'Kecha';
+  if (differenceInDays(new Date(), date) < 7) {
+    const day = format(date, 'EEEE', { locale: uz });
+    return day.charAt(0).toUpperCase() + day.slice(1);
+  }
+  return format(date, 'dd.MM.yyyy');
+};
+
+/** "Oxirgi marta": "bugun 14:20 da", "kecha 09:05 da", "11.10.2026 da"; noma'lum bo'lsa — "yaqinda emas". */
+export const formatLastSeen = (timestamp: unknown): string => {
+  const date = toDate(timestamp);
+  if (!date || date.getTime() <= 0) return 'yaqinda emas';
+  if (isToday(date))     return `bugun ${format(date, 'HH:mm')} da`;
+  if (isYesterday(date)) return `kecha ${format(date, 'HH:mm')} da`;
+  return `${format(date, 'dd.MM.yyyy')} da`;
 };
 
 export const formatFileSize = (bytes: number): string => {

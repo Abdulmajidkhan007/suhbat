@@ -3,13 +3,14 @@ import type { ReactNode } from 'react';
 import { BackHandler } from 'react-native';
 
 /**
- * Minimal stek navigatsiya (3 ekran) — native navigatsiya kutubxonasisiz.
+ * Minimal stek navigatsiya (4 ekran) — native navigatsiya kutubxonasisiz.
  * Ekranlar ko'payganda (sozlamalar, chat ma'lumotlari, media) React Navigation'ga o'tiladi.
  */
 export type Route =
   | { name: 'chats' }
   | { name: 'chat'; chatId: string }
-  | { name: 'newChat' };
+  | { name: 'newChat' }
+  | { name: 'profile' };
 
 interface NavigationValue {
   route:   Route;

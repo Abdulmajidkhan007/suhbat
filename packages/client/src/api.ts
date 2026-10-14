@@ -31,6 +31,7 @@ import type {
   UpdateChatInput,
   UpdateMemberRoleInput,
   UpdateNotificationSettingsInput,
+  UpdateProfileInput,
   UploadUrlInput,
   UploadUrlResponse,
   User,
@@ -189,6 +190,10 @@ export const createApiClient = (opts: ApiClientOptions) => {
     },
 
     me: () => authed('GET', '/auth/me', UserSchema),
+
+    /** Profilni tahrirlash (ism, bio); yangilangan `User` qaytadi. */
+    updateProfile: (input: UpdateProfileInput): Promise<User> =>
+      authed('PATCH', '/users/me', UserSchema, { body: input }),
 
     searchUsers: (q: string, limit?: number): Promise<PublicUser[]> =>
       authed('GET', '/users/search', z.array(PublicUserSchema), { query: { q, limit } }),

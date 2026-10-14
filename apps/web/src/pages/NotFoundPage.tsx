@@ -16,13 +16,13 @@ const NotFoundPage: React.FC = () => {
           404
         </Typography>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Page not found
+          Sahifa topilmadi
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mt: 1, mb: 3 }}>
-          The page you're looking for doesn't exist.
+          Siz izlagan sahifa mavjud emas.
         </Typography>
         <Button variant="contained" onClick={() => navigate('/')} sx={{ borderRadius: '10px' }}>
-          Go home
+          Bosh sahifaga
         </Button>
       </motion.div>
     </div>
