@@ -34,8 +34,12 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Suhbat video qo'ng'iroqlar uchun kameradan foydalanadi.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Suhbat qo'ng'iroqlar uchun mikrofondan foydalanadi.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

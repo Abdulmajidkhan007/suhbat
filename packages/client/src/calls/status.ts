@@ -31,3 +31,12 @@ export const callStatusText = (state: Pick<CallState<unknown>, 'phase' | 'direct
       return state.endReason ? endText[state.endReason] : endText.hangup;
   }
 };
+
+/**
+ * Javob berilmagan kiruvchi qo'ng'iroq tugadi (bekor qilindi, javobsiz, boshqa qurilmada
+ * qabul qilindi yoki o'zi rad etdi) — "tugadi" ekrani ko'rsatilmaydi, darhol yopiladi.
+ */
+export const isSilentEnd = (state: Pick<CallState<unknown>, 'phase' | 'direction' | 'endReason'>): boolean =>
+  state.phase === 'ended' && state.direction === 'incoming' &&
+  (state.endReason === 'cancelled' || state.endReason === 'missed' ||
+    state.endReason === 'answered_elsewhere' || state.endReason === 'rejected');

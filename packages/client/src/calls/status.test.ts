@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { callStatusText } from './status.js';
+import { callStatusText, isSilentEnd } from './status.js';
 import type { CallState } from './types.js';
 
 const base: Parameters<typeof callStatusText>[0] = {
@@ -23,5 +23,16 @@ describe('callStatusText', () => {
     expect(callStatusText({ ...base, phase: 'ended', endReason: 'error', error: 'Mikrofonga ruxsat berilmadi' }, 0)).toBe(
       'Mikrofonga ruxsat berilmadi',
     );
+  });
+});
+
+describe('isSilentEnd', () => {
+  it('faqat javob berilmagan kiruvchi', () => {
+    const ended = { ...base, phase: 'ended' as const, direction: 'incoming' as const };
+    expect(isSilentEnd({ ...ended, endReason: 'cancelled' })).toBe(true);
+    expect(isSilentEnd({ ...ended, endReason: 'answered_elsewhere' })).toBe(true);
+    expect(isSilentEnd({ ...ended, endReason: 'hangup' })).toBe(false);
+    expect(isSilentEnd({ ...ended, endReason: 'error' })).toBe(false);
+    expect(isSilentEnd({ ...ended, direction: 'outgoing', endReason: 'rejected' })).toBe(false);
   });
 });

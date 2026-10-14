@@ -65,8 +65,10 @@ export const PushNotifications = () => {
     };
   }, [push, openChat]);
 
-  // Ilova ochiq: shu chat ochiq bo'lmasa banner.
+  // Ilova ochiq: shu chat ochiq bo'lmasa banner. Qo'ng'iroq — banner emas: socket orqali
+  // kiruvchi qo'ng'iroq ekrani chiqadi (server ulanganda `call:invite` ni qayta yuboradi).
   useEffect(() => push.onForegroundMessage((p) => {
+    if (p.data.type === 'call') return;
     if (!isOpen(p.data.chatId)) setBanner(p);
   }), [push, isOpen]);
 

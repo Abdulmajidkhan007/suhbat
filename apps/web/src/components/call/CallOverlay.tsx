@@ -1,4 +1,5 @@
 import React from 'react';
+import { isSilentEnd } from '@suhbat/client';
 import { useCall } from '../../hooks/useCall';
 import { callManager } from '../../services/calls';
 import CallScreen from './CallScreen';
@@ -24,8 +25,7 @@ const CallOverlay: React.FC = () => {
     );
   }
 
-  const unansweredIncoming = state.direction === 'incoming' && state.connectedAt === null && state.endReason !== 'error';
-  if (state.phase === 'ended' && unansweredIncoming) return null;
+  if (isSilentEnd(state)) return null;
 
   return (
     <CallScreen

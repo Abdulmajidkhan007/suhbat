@@ -1,4 +1,6 @@
-import type { ApiClient, SocketClient } from '@suhbat/client';
+import { createCallManager } from '@suhbat/client';
+import type { ApiClient, CallMediaDevices, CallSignaling, PeerConnection, SocketClient } from '@suhbat/client';
+import type { MediaStream } from 'react-native-webrtc';
 import type { ServerToClientEvents } from '@suhbat/core';
 import type { Services } from '../services/createServices';
 import { disabledPush } from '../services/push';
@@ -61,7 +63,45 @@ export const createFakeServices = (api: Partial<ApiClient> = {}, push: PushPlatf
     listeners.get(event)?.forEach((l) => l(payload));
   };
 
+  // Qo'ng'iroq: haqiqiy CallManager, signal/media/peer — soxta.
+  const signaling: { [K in keyof CallSignaling]: jest.Mock } = {
+    inviteCall:     jest.fn(async (p: { callId: string }) => ({ callId: p.callId })),
+    callRinging:    jest.fn(),
+    acceptCall:     jest.fn(async (callId: string) => ({ callId })),
+    rejectCall:     jest.fn(async (callId: string) => ({ callId })),
+    cancelCall:     jest.fn(async (callId: string) => ({ callId })),
+    endCall:        jest.fn(async (callId: string) => ({ callId })),
+    sendCallOffer:  jest.fn(),
+    sendCallAnswer: jest.fn(),
+    sendCallIce:    jest.fn(),
+  };
+  const fakeStream = { toURL: () => 'stream://local', getTracks: () => [] } as unknown as MediaStream;
+  const media: CallMediaDevices<MediaStream> = {
+    getLocalStream:  jest.fn(async () => fakeStream),
+    stopStream:      jest.fn(),
+    setAudioEnabled: jest.fn(),
+    setVideoEnabled: jest.fn(),
+  };
+  const peer: PeerConnection<MediaStream> = {
+    addStream:            jest.fn(),
+    createOffer:          jest.fn(async () => ({ type: 'offer' as const, sdp: 'v=0' })),
+    createAnswer:         jest.fn(async () => ({ type: 'answer' as const, sdp: 'v=0' })),
+    setLocalDescription:  jest.fn(async () => undefined),
+    setRemoteDescription: jest.fn(async () => undefined),
+    addIceCandidate:      jest.fn(async () => undefined),
+    close:                jest.fn(),
+  };
+  const calls = createCallManager<MediaStream>({
+    events:        fakeSocket as SocketClient,
+    signaling,
+    media,
+    createPeer:    () => peer,
+    getIceServers: async () => [],
+    // Qisqa, lekin sekin CI'da ham "tugadi" ekranini tekshirishga yetarli.
+    endedLingerMs: 300,
+  });
+
   // Ilova ishlatmaydigan metodlar yo'q — chaqirilsa test TypeError bilan yiqiladi.
-  const services = { api: fakeApi, socket: fakeSocket, push } as unknown as Services;
-  return { services, api: fakeApi, socket: fakeSocket, emit };
+  const services = { api: fakeApi, socket: fakeSocket, push, calls } as unknown as Services;
+  return { services, api: fakeApi, socket: fakeSocket, emit, signaling, calls, media };
 };

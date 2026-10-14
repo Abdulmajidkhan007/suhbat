@@ -31,9 +31,10 @@ export const SessionProvider = ({ children, services: injected }: Props) => {
   const [services] = useState<Services>(
     () => injected ?? createServices({ onSessionExpired: () => expiredRef.current() }),
   );
-  const { api, socket, push } = services;
+  const { api, socket, push, calls } = services;
 
   expiredRef.current = () => {
+    calls.hangup();
     socket.disconnect();
     setSession({ status: 'signedOut', expired: true });
   };
@@ -71,13 +72,14 @@ export const SessionProvider = ({ children, services: injected }: Props) => {
   }, [api]);
 
   const logout = useCallback(async () => {
+    calls.hangup();
     socket.disconnect();
     // Shu qurilmaning push tokeni serverdan va FCM'dan o'chadi — chiqqan hisobga push bormaydi.
     const deviceToken = push.available ? await push.getToken().catch(() => null) : null;
     await api.logout(deviceToken ? { deviceToken } : {});
     if (deviceToken) await push.deleteToken().catch(() => undefined);
     setSession({ status: 'signedOut', expired: false });
-  }, [api, socket, push]);
+  }, [api, socket, push, calls]);
 
   const value = useMemo(
     () => ({ session, services, login, register, logout }),
