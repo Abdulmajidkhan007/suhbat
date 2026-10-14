@@ -6,9 +6,9 @@ name: Mobile
 on:
   push:
     branches: [main]
-    paths: [apps/mobile/**, packages/**, package-lock.json, .github/workflows/mobile.yml]
+    paths: [apps/mobile/**, packages/**, package-lock.json, scripts/verify-apk.sh, .github/workflows/mobile.yml]
   pull_request:
-    paths: [apps/mobile/**, packages/**, package-lock.json, .github/workflows/mobile.yml]
+    paths: [apps/mobile/**, packages/**, package-lock.json, scripts/verify-apk.sh, .github/workflows/mobile.yml]
 
 concurrency:
   group: mobile-${{ github.ref }}
@@ -76,6 +76,9 @@ jobs:
           apk=app/build/outputs/apk/release/app-release.apk
           test -f "$apk"
           "$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner" verify --verbose "$apk" | head -5
+      # JS bundle, brend ikonkasi (adaptive), release'da cleartext HTTP o'chiq.
+      - name: Release APK tekshiruvi (ikonka, cleartext)
+        run: bash scripts/verify-apk.sh apps/mobile/android/app/build/outputs/apk/release/app-release.apk
       - uses: actions/upload-artifact@v4
         with:
           name: suhbat-android-debug

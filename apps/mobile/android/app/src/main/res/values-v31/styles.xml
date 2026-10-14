@@ -1,0 +1,10 @@
+<resources>
+
+    <!-- Android 12+: tizim ishga tushish ekrani (ikonka markazda) — brend fonida. -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <item name="android:windowSplashScreenBackground">@color/brand_primary</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/brand_primary</item>
+    </style>
+
+</resources>

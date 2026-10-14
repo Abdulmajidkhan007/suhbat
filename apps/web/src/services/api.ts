@@ -1,7 +1,8 @@
 // Bitta API va WebSocket mijozi (`@suhbat/client`) — butun ilova uchun.
-import { createApiClient, createSocketClient, webTokenStorage } from '@suhbat/client';
+import { createApiClient, createSocketClient, normalizeApiUrl, webTokenStorage } from '@suhbat/client';
 
-export const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
+// Sxemasiz host (`api.suhbat.uz`) berilsa `https://` qo'shiladi — aks holda so'rov nisbiy yo'lga ketadi.
+export const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL || 'http://localhost:4000');
 
 let sessionExpired: () => void = () => {};
 /** Sessiya tugaganda (refresh ham yaroqsiz) nima qilish — `useAuth` o'rnatadi. */

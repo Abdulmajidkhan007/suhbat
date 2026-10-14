@@ -4,9 +4,10 @@ name: Release
 # desktop (macOS dmg, Windows nsis) + Android APK GitHub Release'ga yuklanadi.
 # Qo'lda ishga tushirilganda `main` dagi commit'ga shu nomli teg/release yaratiladi (docs/DEPLOY.md).
 #
-# Repo o'zgaruvchisi (Settings → Variables): SUHBAT_API_URL — shart (veb/desktop/mobil
-# build'iga qotadi). Android imzolash secret'lari (ixtiyoriy): ANDROID_KEYSTORE_BASE64,
-# ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD. Hammasi bo'lmasa APK
+# Repo o'zgaruvchisi (Settings → Variables): SUHBAT_API_URL — shart, to'liq `https://...`
+# ko'rinishida (veb/desktop/mobil build'iga qotadi; scripts/check-api-url.sh tekshiradi).
+# Push secret'i (ixtiyoriy): GOOGLE_SERVICES_JSON — bo'lmasa APK push'siz.
+# Android imzolash secret'lari (ixtiyoriy): ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD. Hammasi bo'lmasa APK
 # vaqtinchalik "debug" kaliti bilan imzolanadi va "sinov uchun" deb nomlanadi.
 on:
   push:
@@ -61,13 +62,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: SUHBAT_API_URL o'rnatilganini tekshirish
+      # Bo'sh yoki https:// siz qiymat ilovaga qotib "Tarmoq xatosi" berardi — build shu yerda yiqiladi.
+      - name: SUHBAT_API_URL ni tekshirish
         shell: bash
-        run: |
-          if [ -z "$VITE_API_URL" ]; then
-            echo "::error::Repo o'zgaruvchisi SUHBAT_API_URL o'rnatilmagan (ilova API manzilisiz ishlamaydi)"
-            exit 1
-          fi
+        run: bash scripts/check-api-url.sh "$VITE_API_URL" SUHBAT_API_URL
       - run: npm ci
       - run: npx turbo run build --filter=@suhbat/desktop
       - name: Qadoqlash
@@ -91,7 +89,16 @@ jobs:
       KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      # Push (FCM, ixtiyoriy): JSON yoki base64. Bo'lmasa push'siz build + ogohlantirish.
+      GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
     steps:
+      # mobile.yml dagi kabi: RN + Firebase C++ build'i runner diskiga sig'masligi mumkin.
+      - name: Diskda joy bo'shatish
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost \
+            /opt/hostedtoolcache/CodeQL /usr/local/lib/node_modules/@angular "$AGENT_TOOLSDIRECTORY/PyPy" || true
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
+          df -h /
       - uses: actions/checkout@v4
         with:
           # Qo'lda ishga tushirilganda doim main; push'da bo'sh = teg ko'rsatgan commit.
@@ -105,11 +112,16 @@ jobs:
           distribution: zulu
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-      - name: SUHBAT_API_URL o'rnatilganini tekshirish
+      # Android release'da cleartext HTTP o'chiq — faqat https:// qabul qilinadi.
+      - name: SUHBAT_API_URL ni tekshirish
+        run: bash scripts/check-api-url.sh "$SUHBAT_API_URL" SUHBAT_API_URL https-only
+      # Gradle (`app/build.gradle`) GOOGLE_SERVICES_JSON env'idan `app/google-services.json` ni yozadi.
+      - name: Push (FCM) konfiguratsiyasi
         run: |
-          if [ -z "$SUHBAT_API_URL" ]; then
-            echo "::error::Repo o'zgaruvchisi SUHBAT_API_URL o'rnatilmagan (ilova API manzilisiz ishlamaydi)"
-            exit 1
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "GOOGLE_SERVICES_JSON bor — APK push bildirishnomalar bilan quriladi"
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON secret'i yo'q — APK push bildirishnomalarsiz quriladi (QADAMLAR.md 12)"
           fi
       - run: npm ci
       - run: npx turbo run build --filter=@suhbat/mobile^...
@@ -138,14 +150,13 @@ jobs:
           echo "ANDROID_VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
       - name: Release APK (JS bundle Hermes bilan ichida)
         working-directory: apps/mobile/android
-        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,x86_64
+        run: ./gradlew assembleRelease --no-daemon --max-workers=3 -PreactNativeArchitectures=arm64-v8a,x86_64
       - name: APK imzosi va nomi
         env:
           MODE: ${{ steps.sign.outputs.mode }}
         run: |
           apk=apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-          test -f "$apk"
-          unzip -l "$apk" | grep assets/index.android.bundle
+          bash scripts/verify-apk.sh "$apk"
           "$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner" verify --verbose "$apk" | head -5
           mkdir -p out
           if [ "$MODE" = "release" ]; then
@@ -166,6 +177,12 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Faqat CHANGELOG.md (release matni shu tegning bo'limidan olinadi).
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || '' }}
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -175,7 +192,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -l artifacts
-          cat > notes.md <<'NOTES'
+          # CHANGELOG.md dagi `## vX.Y.Z` bo'limi (bo'lsa) + o'rnatish eslatmalari.
+          awk -v tag="$TAG" '/^## / { on = ($2 == tag) ; next } on' CHANGELOG.md > notes.md 2>/dev/null || true
+          if [ -s notes.md ]; then printf '\n---\n' >> notes.md; fi
+          cat >> notes.md <<'NOTES'
           - **Android:** `*.apk`. Fayl nomida `sinov-uchun-debug-imzo` bo'lsa — vaqtinchalik kalit bilan imzolangan, faqat sinov uchun (har safar boshqa kalit: eskisini o'chirib qayta o'rnatish kerak bo'lishi mumkin). Boshqa holda — egasining kaliti bilan imzolangan.
           - **Desktop:** macOS `dmg`, Windows `exe`. Imzosiz: macOS'da Gatekeeper, Windows'da SmartScreen ogohlantirishi chiqadi.
           NOTES

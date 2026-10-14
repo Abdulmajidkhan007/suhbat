@@ -16,9 +16,11 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "db:up": "docker compose up -d postgres minio",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "icons": "node scripts/gen-icons.mjs"
   },
   "devDependencies": {
+    "sharp": "^0.35.5",
     "turbo": "^2.11.7",
     "typescript": "~5.9.3"
   }

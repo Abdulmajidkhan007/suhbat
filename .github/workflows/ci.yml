@@ -32,6 +32,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx turbo run lint typecheck test build
+      # release.yml dagi SUHBAT_API_URL tekshiruvi: to'g'ri qiymat o'tadi, sxemasizi yiqiladi.
+      - name: API URL tekshiruv skripti
+        run: |
+          bash scripts/check-api-url.sh https://api.suhbat.uz
+          for bad in "" "suhbatapi-production.up.railway.app" "https://" " https://api.suhbat.uz"; do
+            if bash scripts/check-api-url.sh "$bad" > /dev/null; then echo "::error::'$bad' qabul qilinmasligi kerak edi"; exit 1; fi
+          done
+          if bash scripts/check-api-url.sh http://api.suhbat.uz SUHBAT_API_URL https-only > /dev/null; then exit 1; fi
       # MinIO manbadan quriladi (rasm nashr qilinmaydi) — qatlamlar GitHub Actions keshida.
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
