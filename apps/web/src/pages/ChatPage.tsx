@@ -11,10 +11,13 @@ import { setActiveChat } from '../features/chats/chatsSlice';
 import { setSidebarOpen } from '../features/ui/uiSlice';
 import { signOut } from '../features/auth/authSlice';
 import { canModerateMessages, canWrite } from '@suhbat/core';
+import type { CallMedia } from '@suhbat/core';
 import { useChats } from '../hooks/useChats';
 import { useMessages } from '../hooks/useMessages';
 import { usePresence } from '../hooks/usePresence';
 import { useRealtime } from '../hooks/useRealtime';
+import { useCall } from '../hooks/useCall';
+import { callManager } from '../services/calls';
 import { selectActiveChat, selectSortedChats } from '../features/chats/chatsSelectors';
 
 import AppShell from '../components/layout/AppShell';
@@ -28,6 +31,7 @@ import CreateChannelDialog from '../components/chat/CreateChannelDialog';
 import ChannelSearchDialog from '../components/chat/ChannelSearchDialog';
 import ChatInfoDialog from '../components/chat/ChatInfoDialog';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import CallOverlay from '../components/call/CallOverlay';
 import { errorText } from '../utils/errors';
 import EmptyState from '../components/ui/EmptyState';
 
@@ -53,6 +57,8 @@ const ChatPage: React.FC = () => {
   const [deleting, setDeleting]       = useState(false);
 
   useRealtime(true);
+  const call = useCall();
+  const inCall = call !== null && call.phase !== 'ended';
   const chatsState = useChats();
   const { onlineUsers, isOnline } = usePresence();
 
@@ -81,6 +87,7 @@ const ChatPage: React.FC = () => {
   );
 
   const handleSignOut = useCallback(async () => {
+    callManager.hangup();
     try {
       await dispatch(signOut());
       navigate('/login');
@@ -143,6 +150,18 @@ const ChatPage: React.FC = () => {
   const otherParticipantId = activeChat?.type === 'direct'
     ? Object.values(activeChat.participantDetails).find((p) => p.uid !== user.uid)?.uid ?? ''
     : '';
+  const otherParticipant = activeChat?.participantDetails[otherParticipantId];
+
+  const handleStartCall = (media: CallMedia) => {
+    if (!activeChat || !otherParticipant) return;
+    callManager
+      .startCall({
+        chatId: activeChat.id,
+        peer:   { id: otherParticipant.uid, displayName: otherParticipant.displayName, photoUrl: otherParticipant.photoURL },
+        media,
+      })
+      .catch((e: unknown) => toast.error(errorText(e, 'Qo\'ng\'iroq qilib bo\'lmadi.')));
+  };
 
   const sidebar = (
     <Sidebar
@@ -181,6 +200,8 @@ const ChatPage: React.FC = () => {
               onMenuClick={() => dispatch(setSidebarOpen(true))}
               showMenuButton={isMobile}
               onOpenInfo={() => setInfoOpen(true)}
+              onStartCall={otherParticipant ? handleStartCall : undefined}
+              callDisabled={inCall}
             />
             <Box className="flex-1 flex flex-col overflow-hidden">
               <MessageList
@@ -239,6 +260,7 @@ const ChatPage: React.FC = () => {
   return (
     <>
       <AppShell sidebar={sidebar} main={main} />
+      <CallOverlay />
       <NewChatDialog
         open={newChatOpen}
         onClose={() => setNewChatOpen(false)}

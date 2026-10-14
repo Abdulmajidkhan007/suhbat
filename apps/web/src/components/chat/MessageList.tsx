@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Box, Button, CircularProgress } from '@mui/material';
 import { AnimatePresence } from 'framer-motion';
 import MessageBubble from './MessageBubble';
+import SystemMessage from './SystemMessage';
 import { MessageSkeleton } from '../ui/SkeletonLoader';
 import ErrorState from '../ui/ErrorState';
 import EmptyState from '../ui/EmptyState';
@@ -80,8 +81,9 @@ const MessageList: React.FC<Props> = ({
 
       <AnimatePresence initial={false}>
         {messages.map((msg, idx) => {
+          if (msg.type === 'system') return <SystemMessage key={msg.id} message={msg} />;
           const prevMsg = messages[idx - 1];
-          const showAvatar = !prevMsg || prevMsg.senderId !== msg.senderId;
+          const showAvatar = !prevMsg || prevMsg.senderId !== msg.senderId || prevMsg.type === 'system';
           const isSelf = msg.senderId === currentUserId;
           return (
             <MessageBubble

@@ -1,7 +1,7 @@
-import type { CallMedia, PublicUser, ServerToClientEvents } from '@suhbat/core';
+import type { CallMedia, ServerToClientEvents } from '@suhbat/core';
 import { CallSession } from './session.js';
 import type { CallSignal } from './session.js';
-import type { CallSessionDeps, CallState } from './types.js';
+import type { CallPeer, CallSessionDeps, CallState } from './types.js';
 
 /** Socket voqealariga obuna (`createSocketClient().on` mos keladi). */
 export interface CallEventSource {
@@ -90,7 +90,7 @@ export const createCallManager = <S>(opts: CallManagerOptions<S>) => {
     },
 
     /** Chiquvchi qo'ng'iroq. Boshqa qo'ng'iroq davom etayotgan bo'lsa — xato. */
-    async startCall(input: { chatId: string; peer: PublicUser; media: CallMedia }): Promise<void> {
+    async startCall(input: { chatId: string; peer: CallPeer; media: CallMedia }): Promise<void> {
       if (busy()) throw new Error('Siz allaqachon qo\'ng\'iroqdasiz');
       const session = new CallSession<S>(opts);
       attach(session);

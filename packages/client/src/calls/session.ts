@@ -4,10 +4,10 @@ import type {
   CallMedia,
   CallSdp,
   IceServer,
-  PublicUser,
   WsCallIncoming,
 } from '@suhbat/core';
 import type {
+  CallPeer,
   CallSessionDeps,
   CallSessionEndReason,
   CallState,
@@ -100,7 +100,7 @@ export class CallSession<S> {
   }
 
   /** Chiquvchi qo'ng'iroq. Xato bo'lsa (ruxsat yo'q, server rad etdi) holat `ended` + `error`. */
-  async start(input: { chatId: string; peer: PublicUser; media: CallMedia }): Promise<void> {
+  async start(input: { chatId: string; peer: CallPeer; media: CallMedia }): Promise<void> {
     if (this.state.phase !== 'idle') throw new Error('Qo\'ng\'iroq allaqachon boshlangan');
     const callId = (this.deps.newId ?? uuidV4)();
     this.update({ phase: 'calling', direction: 'outgoing', callId, chatId: input.chatId, peer: input.peer, media: input.media });

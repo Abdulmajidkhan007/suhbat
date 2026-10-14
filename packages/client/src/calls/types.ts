@@ -17,6 +17,9 @@ import type {
 export type CallPhase = 'idle' | 'calling' | 'ringing' | 'connecting' | 'connected' | 'ended';
 export type CallDirection = 'outgoing' | 'incoming';
 
+/** Suhbatdosh (UI uchun yetarli qism; `PublicUser` ham mos keladi). */
+export type CallPeer = Pick<PublicUser, 'id' | 'displayName' | 'photoUrl'>;
+
 /**
  * Server sabablari + mijozdagilar: `failed` — media ulanishi (ICE) o'rnatilmadi/uzildi;
  * `error` — mikrofon/kameraga ruxsat yo'q yoki signal xatosi (`error` maydonida matn).
@@ -30,7 +33,7 @@ export interface CallState<S> {
   media:         CallMedia;
   direction:     CallDirection;
   /** Suhbatdosh. */
-  peer:          PublicUser | null;
+  peer:          CallPeer | null;
   /** Chiquvchi: qabul qiluvchining qurilmasi jiringlayapti (`call:ringing` keldi). */
   remoteRinging: boolean;
   /** Media ulanishi uzilib, qayta tiklanmoqda (ICE `disconnected`). */
