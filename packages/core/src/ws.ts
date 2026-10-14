@@ -10,6 +10,14 @@ import {
   hasContentOrAttachment,
 } from './schemas.js';
 import type { ChatMember, Message } from './schemas.js';
+import type {
+  WsCallEnded,
+  WsCallIce,
+  WsCallIncoming,
+  WsCallInvite,
+  WsCallRef,
+  WsCallSdp,
+} from './calls.js';
 
 export const WS_UNAUTHORIZED = 'unauthorized';
 
@@ -29,6 +37,17 @@ export const WsEvent = {
   ChatDeleted:    'chat:deleted',
   PresenceState:  'presence:state',
   PresenceUpdate: 'presence:update',
+  // qo'ng'iroqlar (ikki yo'nalishda; batafsil — `calls.ts`)
+  CallInvite:  'call:invite',
+  CallRinging: 'call:ringing',
+  CallAccept:  'call:accept',
+  CallReject:  'call:reject',
+  CallCancel:  'call:cancel',
+  CallEnd:     'call:end',
+  CallOffer:   'call:offer',
+  CallAnswer:  'call:answer',
+  CallIce:     'call:ice',
+  CallBusy:    'call:busy',
 } as const;
 
 // --- mijoz → server ---
@@ -149,6 +168,18 @@ export interface ServerToClientEvents {
   'message:read':    (e: WsReadEvent) => void;
   'presence:state':  (e: WsPresenceState) => void;
   'presence:update': (e: WsPresenceUpdate) => void;
+  /** Kiruvchi qo'ng'iroq (ulanganda hali jiringlayotgan bo'lsa qayta yuboriladi). */
+  'call:invite':     (e: WsCallIncoming) => void;
+  /** Chaqiruvchiga: qabul qiluvchining qurilmasi jiringlayapti. */
+  'call:ringing':    (e: WsCallRef) => void;
+  /** Chaqiruvchiga: qabul qilindi — endi `call:offer` yuboradi. */
+  'call:accept':     (e: WsCallRef) => void;
+  'call:end':        (e: WsCallEnded) => void;
+  /** Chaqiruvchiga: qabul qiluvchi boshqa qo'ng'iroqda. */
+  'call:busy':       (e: WsCallRef) => void;
+  'call:offer':      (e: WsCallSdp) => void;
+  'call:answer':     (e: WsCallSdp) => void;
+  'call:ice':        (e: WsCallIce) => void;
 }
 
 export interface ClientToServerEvents {
@@ -157,4 +188,13 @@ export interface ClientToServerEvents {
   'message:read': (p: WsMarkRead, ack: (r: WsAck<{ lastReadAt: string }>) => void) => void;
   'message:edit': (p: WsEditMessage, ack: (r: WsAck<Message>) => void) => void;
   'message:delete': (p: WsDeleteMessage, ack: (r: WsAck<{ deletedAt: string }>) => void) => void;
+  'call:invite':    (p: WsCallInvite, ack: (r: WsAck<WsCallRef>) => void) => void;
+  'call:ringing':   (p: WsCallRef) => void;
+  'call:accept':    (p: WsCallRef, ack: (r: WsAck<WsCallRef>) => void) => void;
+  'call:reject':    (p: WsCallRef, ack: (r: WsAck<WsCallRef>) => void) => void;
+  'call:cancel':    (p: WsCallRef, ack: (r: WsAck<WsCallRef>) => void) => void;
+  'call:end':       (p: WsCallRef, ack: (r: WsAck<WsCallRef>) => void) => void;
+  'call:offer':     (p: WsCallSdp) => void;
+  'call:answer':    (p: WsCallSdp) => void;
+  'call:ice':       (p: WsCallIce) => void;
 }

@@ -1,16 +1,18 @@
 import { canWrite, messageStatus, toMillis } from '@suhbat/core';
-import type { ChatSummary } from '@suhbat/core';
+import type { CallMedia, ChatSummary } from '@suhbat/core';
 import type { Palette } from '@suhbat/ui-tokens';
 import { fontSize, spacing } from '@suhbat/ui-tokens';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { useCall } from '../calls/useCall';
 import { Composer } from '../components/Composer';
+import { HeaderButton } from '../components/HeaderButton';
 import { MessageBubble } from '../components/MessageBubble';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { useNavigation } from '../navigation/Navigator';
 import type { LocalMessage } from '../state/chatState';
 import { useChatStore } from '../state/ChatStoreProvider';
-import { useCurrentUser } from '../state/SessionProvider';
+import { useCurrentUser, useSession } from '../state/SessionProvider';
 import { useStyles, useTheme } from '../theme/ThemeProvider';
 import { chatTitle, directPeerId, formatTime } from '../utils/format';
 
@@ -43,6 +45,9 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
   const items = page?.items ?? EMPTY;
   const [error, setError] = useState<string | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const { services: { calls } } = useSession();
+  const call = useCall();
+  const inCall = call !== null && call.phase !== 'ended';
 
   useEffect(() => {
     setActiveChat(chatId);
@@ -89,6 +94,12 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
   const writable = canWrite(chat.type, myRole);
   const showSender = chat.type === 'group';
   const nameOf = (id: string) => chat.members.find((m) => m.user.id === id)?.user.displayName;
+  const peerId = directPeerId(chat, me.id);
+  const peer = chat.members.find((m) => m.user.id === peerId)?.user;
+  const startCall = (media: CallMedia) => {
+    if (!peer) return;
+    calls.startCall({ chatId, peer, media }).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Qo\'ng\'iroq qilib bo\'lmadi'));
+  };
 
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -96,6 +107,12 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
         title={chatTitle(chat, me.id)}
         subtitle={subtitleFor(chat, me.id, state.typing[chatId] ?? [], state.online)}
         onBack={back}
+        right={peer ? (
+          <View style={styles.headerActions}>
+            <HeaderButton label="📞" accessibilityLabel="Ovozli qo'ng'iroq" disabled={inCall} onPress={() => startCall('audio')} />
+            <HeaderButton label="🎥" accessibilityLabel="Video qo'ng'iroq" disabled={inCall} onPress={() => startCall('video')} />
+          </View>
+        ) : undefined}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <FlatList
@@ -133,6 +150,7 @@ const createStyles = (p: Palette) => StyleSheet.create({
   list:     { flex: 1 },
   center:   { flex: 1 },
   error:    { padding: spacing(2), color: p.danger, textAlign: 'center' },
+  headerActions: { flexDirection: 'row', gap: spacing(4) },
   // Inverted ro'yxatda bo'sh holat teskari aylanadi — qaytarib to'g'rilaymiz.
   empty:    { padding: spacing(8), textAlign: 'center', color: p.textSecondary, transform: [{ scaleY: -1 }] },
   readonly: { padding: spacing(4), textAlign: 'center', color: p.textSecondary, fontSize: fontSize.sm, backgroundColor: p.surface },

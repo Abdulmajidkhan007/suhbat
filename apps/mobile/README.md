@@ -42,3 +42,17 @@ Fayllarni Firebase konsolidan olish — [`QADAMLAR.md`](../../QADAMLAR.md), "Pus
 }
 ```
 Android paket nomi — `uz.suhbat.app`, iOS Bundle ID — `uz.suhbat.app`.
+
+## Qo'ng'iroqlar (WebRTC)
+
+- `react-native-webrtc` 124 (autolinking; Android `minSdk 24`, iOS — `JitsiWebRTC` pod). Mantiq —
+  `@suhbat/client` (`createCallManager`), bu yerda faqat adapterlar (`src/calls/nativeWebrtc.ts`) va UI
+  (`src/calls/CallOverlay.tsx`).
+- Ruxsatlar: Android — `RECORD_AUDIO`, `CAMERA` (qo'ng'iroq boshlanganda so'raladi), Android 12+
+  `BLUETOOTH_CONNECT` (ixtiyoriy); iOS — `NSMicrophoneUsageDescription`, `NSCameraUsageDescription`.
+- Kiruvchi qo'ng'iroq faqat ilova ochiq (socket ulangan) bo'lsa ekranga chiqadi. Oflayn bo'lsa server
+  `calls` kanaliga push yuboradi; bosilganda ilova ochiladi va hali jiringlayotgan qo'ng'iroq qayta keladi.
+- **Yo'q (keyin):** CallKit / ConnectionService (tizim qo'ng'iroq ekrani, qulflangan ekranda jiringlash),
+  karnay/quloqchinni almashtirish (`react-native-incall-manager`), fonda qo'ng'iroqni davom ettirish
+  (iOS `UIBackgroundModes: audio/voip`).
+- Testlarda `react-native-webrtc` mock qilingan (`jest.setup.js`); haqiqiy media faqat qurilmada.

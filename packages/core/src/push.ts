@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CallMediaSchema } from './calls.js';
 
 // Push bildirishnomalar (FCM HTTP v1): qurilma tokenlari, sozlamalar va
 // bildirishnoma ichidagi `data` kontrakti — API, mobil va veb uchun bitta.
@@ -35,11 +36,26 @@ export const UpdateNotificationSettingsInputSchema = NotificationSettingsSchema.
 export type UpdateNotificationSettingsInput = z.infer<typeof UpdateNotificationSettingsInputSchema>;
 
 /** Bildirishnoma `data` qismi (FCM'da hamma qiymat satr). Bosilganda shu chat ochiladi. */
-export const PushDataSchema = z.object({
+export const PushMessageDataSchema = z.object({
   type:      z.literal('message'),
   chatId:    z.uuid(),
   messageId: z.uuid(),
 });
+export type PushMessageData = z.infer<typeof PushMessageDataSchema>;
+
+/**
+ * Kiruvchi qo'ng'iroq (qabul qiluvchi oflayn). Bosilganda ilova ochilib socket ulanadi —
+ * qo'ng'iroq hali jiringlayotgan bo'lsa server `call:invite` ni qayta yuboradi.
+ */
+export const PushCallDataSchema = z.object({
+  type:   z.literal('call'),
+  callId: z.uuid(),
+  chatId: z.uuid(),
+  media:  CallMediaSchema,
+});
+export type PushCallData = z.infer<typeof PushCallDataSchema>;
+
+export const PushDataSchema = z.discriminatedUnion('type', [PushMessageDataSchema, PushCallDataSchema]);
 export type PushData = z.infer<typeof PushDataSchema>;
 
 /** Matn yashirilganda ko'rsatiladigan sarlavha va matn. */

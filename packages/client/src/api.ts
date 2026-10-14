@@ -2,6 +2,7 @@ import {
   AuthResponseSchema,
   ChatMemberSchema,
   ChatSummarySchema,
+  IceServersResponseSchema,
   MessagePageSchema,
   MessageSchema,
   NotificationSettingsSchema,
@@ -16,6 +17,7 @@ import type {
   ChatSummary,
   CreateChannelInput,
   CreateGroupInput,
+  IceServersResponse,
   LoginInput,
   Message,
   MessagePage,
@@ -275,6 +277,9 @@ export const createApiClient = (opts: ApiClientOptions) => {
       authed('DELETE', `/users/${encodeURIComponent(userId)}/block`, null),
 
     listBlocked: (): Promise<PublicUser[]> => authed('GET', '/users/blocked', z.array(PublicUserSchema)),
+
+    /** Qo'ng'iroq uchun STUN/TURN (TURN credential vaqtinchalik bo'lishi mumkin — har qo'ng'iroqda so'raladi). */
+    getIceServers: (): Promise<IceServersResponse> => authed('GET', '/calls/ice-servers', IceServersResponseSchema),
 
     // --- Media ---
     createUpload: (input: UploadUrlInput): Promise<UploadUrlResponse> =>

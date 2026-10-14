@@ -7,13 +7,23 @@ interface Props {
   label:   string;
   onPress: () => void;
   danger?: boolean;
+  /** Ikonka (emoji) bo'lsa — ekran o'quvchi uchun matn. */
+  accessibilityLabel?: string;
+  disabled?: boolean;
 }
 
-export const HeaderButton = ({ label, onPress, danger = false }: Props) => {
+export const HeaderButton = ({ label, onPress, danger = false, accessibilityLabel, disabled = false }: Props) => {
   const styles = useStyles(createStyles);
   return (
-    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button">
-      <Text style={[styles.text, danger && styles.danger]}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+    >
+      <Text style={[styles.text, danger && styles.danger, disabled && styles.disabled]}>{label}</Text>
     </Pressable>
   );
 };
@@ -21,4 +31,5 @@ export const HeaderButton = ({ label, onPress, danger = false }: Props) => {
 const createStyles = (p: Palette) => StyleSheet.create({
   text:   { color: p.primary, fontSize: fontSize.md, fontWeight: '600' },
   danger: { color: p.danger },
+  disabled: { opacity: 0.4 },
 });

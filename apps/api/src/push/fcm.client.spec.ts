@@ -1,7 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import { createVerify, generateKeyPairSync } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FcmClient, classifyFcmError, parseServiceAccount, signAssertion } from './fcm.client';
+import { FcmClient, buildFcmPayload, classifyFcmError, parseServiceAccount, signAssertion } from './fcm.client';
 import type { FcmMessage } from './fcm.client';
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -48,6 +48,25 @@ describe('signAssertion', () => {
       iat:   1_700_000_000,
       exp:   1_700_003_600,
     });
+  });
+});
+
+describe('buildFcmPayload', () => {
+  const base: FcmMessage = { notification: { title: 't', body: 'b' }, data: { type: 'message' }, threadId: 'chat-1' };
+
+  it('standart: messages kanali, TTL yo\'q', () => {
+    const { message } = buildFcmPayload('tok', base);
+    expect(message.android).toEqual({
+      priority:     'HIGH',
+      notification: { channel_id: 'messages', tag: 'chat-1', sound: 'default' },
+    });
+    expect(message.apns.headers).toEqual({ 'apns-priority': '10' });
+  });
+
+  it('qo\'ng\'iroq: calls kanali, Android ttl va APNs expiration', () => {
+    const { message } = buildFcmPayload('tok', { ...base, channelId: 'calls', ttlSeconds: 45 }, 1_000_000);
+    expect(message.android).toMatchObject({ ttl: '45s', notification: { channel_id: 'calls' } });
+    expect(message.apns.headers).toEqual({ 'apns-priority': '10', 'apns-expiration': String(1000 + 45) });
   });
 });
 

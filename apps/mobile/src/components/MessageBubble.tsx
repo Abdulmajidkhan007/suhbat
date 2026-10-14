@@ -27,6 +27,15 @@ export const MessageBubble = memo(({ message, own, status, senderName, onRetry }
   const failed = message.local === 'failed';
   const attachment = message.attachment;
 
+  if (message.type === 'system') {
+    // Tizim xabari (qo'ng'iroq natijasi) — markazda, pufakchasiz.
+    return (
+      <View style={styles.systemRow} accessibilityRole="text">
+        <Text style={styles.system}>{message.content} · {formatTime(message.createdAt)}</Text>
+      </View>
+    );
+  }
+
   const onPress = failed
     ? () => onRetry?.(message)
     : attachment
@@ -58,6 +67,11 @@ export const MessageBubble = memo(({ message, own, status, senderName, onRetry }
 });
 
 const createStyles = (p: Palette) => StyleSheet.create({
+  systemRow: { alignItems: 'center', marginVertical: spacing(1) },
+  system: {
+    fontSize: fontSize.xs, color: p.textSecondary, backgroundColor: p.surface,
+    paddingHorizontal: spacing(3), paddingVertical: spacing(1), borderRadius: radius.full, overflow: 'hidden',
+  },
   row:     { flexDirection: 'row', paddingHorizontal: spacing(3), paddingVertical: spacing(0.5) },
   rowOwn:  { justifyContent: 'flex-end' },
   bubble:  { maxWidth: '80%', borderRadius: radius.lg, paddingHorizontal: spacing(3), paddingVertical: spacing(2) },

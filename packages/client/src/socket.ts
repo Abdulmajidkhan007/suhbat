@@ -1,9 +1,13 @@
 import { WS_UNAUTHORIZED } from '@suhbat/core';
 import type {
+  CallIceCandidate,
+  CallSdp,
   ClientToServerEvents,
   Message,
   ServerToClientEvents,
   WsAck,
+  WsCallInvite,
+  WsCallRef,
   WsSendMessage,
 } from '@suhbat/core';
 import { io } from 'socket.io-client';
@@ -117,6 +121,35 @@ export const createSocketClient = (opts: SocketClientOptions) => {
 
     async markRead(chatId: string, messageId: string): Promise<{ lastReadAt: string }> {
       return unwrap(await socket.timeout(ackTimeout).emitWithAck('message:read', { chatId, messageId }));
+    },
+
+    // --- Qo'ng'iroq signali (`@suhbat/core` calls.ts) ---
+    async inviteCall(payload: WsCallInvite): Promise<WsCallRef> {
+      return unwrap(await socket.timeout(ackTimeout).emitWithAck('call:invite', payload));
+    },
+    callRinging(callId: string): void {
+      socket.emit('call:ringing', { callId });
+    },
+    async acceptCall(callId: string): Promise<WsCallRef> {
+      return unwrap(await socket.timeout(ackTimeout).emitWithAck('call:accept', { callId }));
+    },
+    async rejectCall(callId: string): Promise<WsCallRef> {
+      return unwrap(await socket.timeout(ackTimeout).emitWithAck('call:reject', { callId }));
+    },
+    async cancelCall(callId: string): Promise<WsCallRef> {
+      return unwrap(await socket.timeout(ackTimeout).emitWithAck('call:cancel', { callId }));
+    },
+    async endCall(callId: string): Promise<WsCallRef> {
+      return unwrap(await socket.timeout(ackTimeout).emitWithAck('call:end', { callId }));
+    },
+    sendCallOffer(callId: string, description: CallSdp): void {
+      socket.emit('call:offer', { callId, description });
+    },
+    sendCallAnswer(callId: string, description: CallSdp): void {
+      socket.emit('call:answer', { callId, description });
+    },
+    sendCallIce(callId: string, candidate: CallIceCandidate | null): void {
+      socket.emit('call:ice', { callId, candidate });
     },
   };
 };

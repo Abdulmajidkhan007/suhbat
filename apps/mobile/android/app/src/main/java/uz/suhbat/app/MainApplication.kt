@@ -29,14 +29,18 @@ class MainApplication : Application(), ReactApplication {
     loadReactNative(this)
   }
 
-  /** Push'lar `messages` kanaliga tushadi (firebase.json va API `channel_id` bilan bir xil). */
+  /**
+   * Push kanallari (API `channel_id` bilan bir xil): `messages` — xabarlar (firebase.json'dagi standart),
+   * `calls` — kiruvchi qo'ng'iroq.
+   */
   private fun createNotificationChannels() {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-    val channel = NotificationChannel(
-      "messages",
-      getString(R.string.notification_channel_messages),
-      NotificationManager.IMPORTANCE_HIGH,
-    )
-    getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    val manager = getSystemService(NotificationManager::class.java)
+    for ((id, name) in listOf(
+      "messages" to R.string.notification_channel_messages,
+      "calls" to R.string.notification_channel_calls,
+    )) {
+      manager.createNotificationChannel(NotificationChannel(id, getString(name), NotificationManager.IMPORTANCE_HIGH))
+    }
   }
 }

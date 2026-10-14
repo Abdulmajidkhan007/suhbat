@@ -79,6 +79,7 @@ standart 15m); refresh token — body'da, bir martalik (rotatsiya).
 | POST  | `/chats/:id/members`   | `{ userIds }` — owner/admin; guruhda ≤ 200 a'zo         |
 | DELETE| `/chats/:id/members/:uid` | a'zoni chiqarish (admin faqat oddiy a'zoni)          |
 | PATCH | `/chats/:id/members/:uid` | `{ role: 'admin' \| 'member' }` — faqat owner          |
+| GET   | `/calls/ice-servers`   | qo'ng'iroq uchun `{ iceServers, ttlSeconds }` — STUN + (sozlangan bo'lsa) TURN |
 | POST  | `/media/upload-url`    | `{ chatId, kind, name, mime, size, durationMs? }` → `{ attachmentId, uploadUrl, headers }` |
 
 Kanalda faqat owner/admin yozadi. Media: `upload-url` → mijoz faylni `uploadUrl` ga
@@ -109,7 +110,25 @@ Ulanish: `io(API_URL, { auth: { token: accessToken } })`. Tiplar — `@suhbat/co
 | ← mijoz   | `presence:update` | `{ userId, online, lastSeenAt }`         |
 
 Access token tugaganda (`exp`) server socketni uzadi; `@suhbat/client` tokenni
-yangilab qayta ulanadi.
+yangilab qayta ulanadi (faol qo'ng'iroq signali o'tayotgan socket — qo'ng'iroq tugagach).
+
+**Qo'ng'iroqlar (1:1, WebRTC)** — sxemalar `@suhbat/core` (`calls.ts`), mijoz mantiqi
+`@suhbat/client` (`CallSession`, `createCallManager`). Media serverdan o'tmaydi.
+
+| Yo'nalish | Event          | Payload |
+|-----------|----------------|---------|
+| → server  | `call:invite`  | `{ callId (mijoz UUID), chatId, media: audio\|video }` → ack `{ callId }` |
+| → server  | `call:ringing` | `{ callId }` — qabul qiluvchi qurilmasi jiringlayapti |
+| → server  | `call:accept` / `call:reject` / `call:cancel` / `call:end` | `{ callId }` → ack |
+| ↔         | `call:offer` / `call:answer` | `{ callId, description: { type, sdp } }` (faqat qo'ng'iroqqa bog'langan ikki socket orasida) |
+| ↔         | `call:ice`     | `{ callId, candidate \| null }` |
+| ← mijoz   | `call:invite`  | `{ callId, chatId, media, from, createdAt }` (qabul qiluvchining hamma qurilmasiga; ulanganda qayta) |
+| ← mijoz   | `call:ringing` / `call:accept` / `call:busy` | `{ callId }` (chaqiruvchiga) |
+| ← mijoz   | `call:end`     | `{ callId, reason, durationMs }` — `hangup\|rejected\|cancelled\|missed\|busy\|disconnected\|answered_elsewhere` |
+
+Faqat 1:1 chat a'zolari, bloklanmagan; bir vaqtda bitta qo'ng'iroq; 45 s javob bo'lmasa `missed`
+(`CALL_RING_TIMEOUT_MS`). Tugaganda chatga tizim xabari (`type: system`): "📞 Qo'ng'iroq, 3:12",
+"Javobsiz/Rad etilgan/Bekor qilingan qo'ng'iroq". Qabul qiluvchi oflayn bo'lsa — push (`data.type = call`).
 
 ## Desktop (Electron)
 

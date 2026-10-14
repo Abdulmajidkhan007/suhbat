@@ -21,6 +21,10 @@ mac:
       arch: [x64, arm64]
   # Imzo/notarizatsiya sertifikatlari yo'q — imzosiz (REJA.md ga qarang).
   identity: null
+  # Qo'ng'iroq va ovozli xabar: macOS mikrofon/kamera ruxsati oynasidagi matn.
+  extendInfo:
+    NSMicrophoneUsageDescription: Suhbat ovozli xabar yozish va qo'ng'iroqlar uchun mikrofondan foydalanadi.
+    NSCameraUsageDescription: Suhbat video qo'ng'iroqlar uchun kameradan foydalanadi.
 win:
   icon: resources/icon.ico
   target:

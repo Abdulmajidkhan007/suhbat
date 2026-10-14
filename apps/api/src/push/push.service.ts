@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PUSH_HIDDEN_BODY, PUSH_HIDDEN_TITLE } from '@suhbat/core';
-import type { ChatType, Message, PushData } from '@suhbat/core';
+import type { CallMedia, ChatType, Message, PushCallData, PushMessageData } from '@suhbat/core';
 import { PrismaService } from '../prisma/prisma.service';
 import { FcmClient } from './fcm.client';
 import type { FcmMessage } from './fcm.client';
@@ -25,6 +25,20 @@ export const previewText = (message: Pick<Message, 'type' | 'content'>): string 
   if (label) return text ? `${label}: ${truncate(text, BODY_MAX)}` : label;
   return truncate(text, BODY_MAX);
 };
+
+/** Kiruvchi qo'ng'iroq bildirishnomasi matni. */
+export const callNotificationBody = (media: CallMedia) =>
+  media === 'video' ? '🎥 Kiruvchi video qo\'ng\'iroq' : '📞 Kiruvchi qo\'ng\'iroq';
+
+export interface IncomingCallPush {
+  callId:     string;
+  chatId:     string;
+  media:      CallMedia;
+  callerName: string;
+  calleeId:   string;
+  /** Shundan keyin yetkazish ma'nosiz (jiringlash tugagan). */
+  ttlSeconds: number;
+}
 
 export interface PushContext {
   chatType:   ChatType;
@@ -80,6 +94,40 @@ export class PushService {
     }
   }
 
+  /**
+   * Oflayn qabul qiluvchiga kiruvchi qo'ng'iroq haqida push. `data.type = 'call'` —
+   * bosilganda ilova ochiladi, socket ulanadi va server hali jiringlayotgan qo'ng'iroqni
+   * (`call:invite`) qayta yuboradi. Ko'rinadigan bildirishnoma bilan (data-only emas):
+   * data-only xabarni ilova fonda o'zi ko'rsata olmaydi (notifee/CallKit yo'q).
+   */
+  async notifyIncomingCall(call: IncomingCallPush): Promise<void> {
+    if (!this.fcm.enabled) return;
+    try {
+      const user = await this.prisma.user.findUnique({
+        where:  { id: call.calleeId },
+        select: { notificationPreview: true, devices: { select: { token: true } } },
+      });
+      if (!user || user.devices.length === 0) return;
+      const data: PushCallData = { type: 'call', callId: call.callId, chatId: call.chatId, media: call.media };
+      const message: FcmMessage = {
+        notification: user.notificationPreview
+          ? { title: call.callerName, body: callNotificationBody(call.media) }
+          : { title: PUSH_HIDDEN_TITLE, body: callNotificationBody(call.media) },
+        data,
+        threadId:   call.callId,
+        channelId:  'calls',
+        ttlSeconds: call.ttlSeconds,
+      };
+      const dead: string[] = [];
+      await runLimited(user.devices, this.concurrency, async (d) => {
+        if ((await this.fcm.send(d.token, message)) === 'invalid') dead.push(d.token);
+      });
+      if (dead.length > 0) await this.prisma.deviceToken.deleteMany({ where: { token: { in: dead } } });
+    } catch (e) {
+      this.logger.error('push (qo\'ng\'iroq)', e as Error);
+    }
+  }
+
   private async deliver(message: Message, recipientIds: string[]): Promise<void> {
     if (recipientIds.length === 0) return;
     const [chat, sender] = await Promise.all([
@@ -89,7 +137,7 @@ export class PushService {
     if (!chat || !sender) return;
 
     const shown = buildNotification({ chatType: chat.type, chatTitle: chat.title, senderName: sender.displayName }, message);
-    const data: PushData = { type: 'message', chatId: message.chatId, messageId: message.id };
+    const data: PushMessageData = { type: 'message', chatId: message.chatId, messageId: message.id };
     const payload = (preview: boolean): FcmMessage => ({
       notification: preview ? shown : { title: PUSH_HIDDEN_TITLE, body: PUSH_HIDDEN_BODY },
       data,

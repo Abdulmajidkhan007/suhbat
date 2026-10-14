@@ -1,5 +1,6 @@
 import { ActivityIndicator, StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { CallOverlay } from './calls/CallOverlay';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationProvider, useNavigation } from './navigation/Navigator';
 import { PushNotifications } from './push/PushNotifications';
@@ -32,6 +33,7 @@ const Root = () => {
       <NavigationProvider>
         <Screens />
         <PushNotifications />
+        <CallOverlay />
       </NavigationProvider>
     </ChatStoreProvider>
   );

@@ -8,6 +8,7 @@ import CampaignIcon from '@mui/icons-material/Campaign';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AvatarWithStatus from '../common/AvatarWithStatus';
 import StatusBadge from '../common/StatusBadge';
+import type { CallMedia } from '@suhbat/core';
 import { Chat } from '../../types';
 
 interface Props {
@@ -18,6 +19,10 @@ interface Props {
   showMenuButton:  boolean;
   /** Guruh/kanal ma'lumotlari va boshqaruvi. */
   onOpenInfo?:     () => void;
+  /** 1:1 chatda ovozli/video qo'ng'iroq. Berilmasa tugmalar yo'q. */
+  onStartCall?:    (media: CallMedia) => void;
+  /** Boshqa qo'ng'iroq davom etmoqda. */
+  callDisabled?:   boolean;
 }
 
 const ChatHeader: React.FC<Props> = ({
@@ -27,6 +32,8 @@ const ChatHeader: React.FC<Props> = ({
   onMenuClick,
   showMenuButton,
   onOpenInfo,
+  onStartCall,
+  callDisabled = false,
 }) => {
   const isDirect  = chat.type === 'direct';
   const isChannel = chat.type === 'channel';
@@ -101,17 +108,33 @@ const ChatHeader: React.FC<Props> = ({
             </IconButton>
           </Tooltip>
         )}
-        {isDirect && (
+        {isDirect && onStartCall && (
           <>
-            <Tooltip title="Ovozli qo'ng'iroq (tez kunda)">
-              <IconButton size="small" sx={{ color: 'text.secondary' }}>
-                <CallOutlinedIcon fontSize="small" />
-              </IconButton>
+            <Tooltip title="Ovozli qo'ng'iroq">
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => onStartCall('audio')}
+                  disabled={callDisabled}
+                  sx={{ color: 'text.secondary' }}
+                  aria-label="Ovozli qo'ng'iroq"
+                >
+                  <CallOutlinedIcon fontSize="small" />
+                </IconButton>
+              </span>
             </Tooltip>
-            <Tooltip title="Video qo'ng'iroq (tez kunda)">
-              <IconButton size="small" sx={{ color: 'text.secondary' }}>
-                <VideocamOutlinedIcon fontSize="small" />
-              </IconButton>
+            <Tooltip title="Video qo'ng'iroq">
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => onStartCall('video')}
+                  disabled={callDisabled}
+                  sx={{ color: 'text.secondary' }}
+                  aria-label="Video qo'ng'iroq"
+                >
+                  <VideocamOutlinedIcon fontSize="small" />
+                </IconButton>
+              </span>
             </Tooltip>
           </>
         )}

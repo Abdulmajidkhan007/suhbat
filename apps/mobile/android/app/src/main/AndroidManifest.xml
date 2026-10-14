@@ -3,6 +3,17 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Android 13+: bildirishnoma ko'rsatish uchun ruxsat (ilova ichida so'raladi) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Qo'ng'iroqlar (WebRTC): mikrofon, kamera (ilova ichida so'raladi), audio yo'nalishi,
+         Android 12+ bluetooth quloqchin. Kamerasiz qurilmalarda ham o'rnatiladi. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <application
       android:name=".MainApplication"

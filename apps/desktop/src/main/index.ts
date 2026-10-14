@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { APP_ORIGIN, APP_SCHEME, CONTENT_SECURITY_POLICY, resolveAppFile } from './app-protocol';
 import { IPC } from './ipc-channels';
+import { isMediaPermissionAllowed } from './permissions';
 import { createTokenVault, isTokenPair } from './secure-token-store';
 import type { BlobFile, Cipher } from './secure-token-store';
 
@@ -64,10 +65,15 @@ function registerAppProtocol() {
 }
 
 function hardenSession() {
-  // Faqat mikrofon (ovozli xabar) — o'z sahifamiz uchun; boshqasi rad.
-  session.defaultSession.setPermissionRequestHandler((wc, permission, callback) => {
-    callback(permission === 'media' && isOwnPage(wc.getURL()));
+  // Faqat mikrofon va kamera (ovozli xabar, qo'ng'iroq) — o'z sahifamiz uchun; boshqasi rad.
+  session.defaultSession.setPermissionRequestHandler((wc, permission, callback, details) => {
+    const mediaTypes = 'mediaTypes' in details ? details.mediaTypes : undefined;
+    callback(isMediaPermissionAllowed(permission, isOwnPage(wc.getURL()), mediaTypes));
   });
+  // Sinxron tekshiruvlar (masalan, `enumerateDevices` qurilma nomlari uchun) — xuddi shu qoida.
+  session.defaultSession.setPermissionCheckHandler((wc, permission) =>
+    isMediaPermissionAllowed(permission, wc !== null && isOwnPage(wc.getURL())),
+  );
 }
 
 function createWindow() {

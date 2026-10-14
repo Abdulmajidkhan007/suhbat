@@ -30,3 +30,16 @@ jest.mock('@react-native-firebase/messaging', () => ({
   getInitialNotification:      jest.fn(async () => null),
   setBackgroundMessageHandler: jest.fn(),
 }));
+
+// react-native-webrtc native moduli testlarda yo'q: oddiy o'rinbosarlar (qo'ng'iroq mantiqi
+// `@suhbat/client` da soxta peer bilan sinaladi, bu yerda — faqat UI).
+jest.mock('react-native-webrtc', () => {
+  const { View } = require('react-native');
+  const RTCView = (props) => require('react').createElement(View, { testID: 'rtc-view', ...props });
+  return {
+    RTCView,
+    RTCPeerConnection: jest.fn(),
+    MediaStream:       jest.fn(),
+    mediaDevices:      { getUserMedia: jest.fn() },
+  };
+});

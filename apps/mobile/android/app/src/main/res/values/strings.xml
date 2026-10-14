@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Suhbat</string>
     <string name="notification_channel_messages">Xabarlar</string>
+    <string name="notification_channel_calls">Qo\'ng\'iroqlar</string>
 </resources>

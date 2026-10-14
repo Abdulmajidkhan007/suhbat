@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-14 (v0.1.1: API URL himoyasi, ilova ikonkasi — PR ko'rib chiqishda)
+> Oxirgi yangilanish: 2026-10-14 (4b: 1:1 ovozli/video qo'ng'iroqlar — PR #11 ko'rib chiqishda)
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -234,6 +234,74 @@
   teg'ida quriladi), iOS build'da AppIcon (CI ios job Debug simulyator), haqiqiy `GOOGLE_SERVICES_JSON` bilan
   release, haqiqiy keystore.
 
+### 4b-faza (1:1 qo'ng'iroqlar, WebRTC) — nima qilindi
+- **Kontrakt (`@suhbat/core` `calls.ts`):** `call:invite|ringing|accept|reject|cancel|end|offer|answer|ice|busy`
+  zod sxemalari, tugash sabablari (`hangup|rejected|cancelled|missed|busy|disconnected|answered_elsewhere`),
+  `IceServersResponse`, `callSummaryText` / `formatCallDuration`. `callId` — mijoz UUID'i (ack kelmasdan oldingi
+  voqealarni ham taniydi). `PushData` — `message | call` (discriminated union).
+- **API (`apps/api/src/calls`):** `CallsGateway` (o'sha Socket.IO server, auth — `ChatGateway` middleware'i),
+  `CallRegistry` — **xotirada, bitta API nusxasi** (ko'p nusxa uchun Redis — keyin). Qoidalar: faqat 1:1 chat
+  a'zolari, bloklangan bo'lsa 403 matni; foydalanuvchi bir vaqtda bitta qo'ng'iroqda (qabul qiluvchi band —
+  `call:busy`, o'zi band — ack xatosi); `CALL_RING_TIMEOUT_MS` (45 s) javob bo'lmasa `missed`; qabul qilingach
+  boshqa qurilmalarga `answered_elsewhere`; signal (offer/answer/ice) faqat qo'ng'iroqqa bog'langan ikki socket
+  orasida (qabul qilinmagan qo'ng'iroqda — yo'q); bog'langan socket uzilsa — `cancelled` (jiringlayotganda) yoki
+  `disconnected`. `call:invite` cheklovi 10/daqiqa (`CALL_INVITE_LIMIT`). Socket qayta ulanganda (masalan push
+  bosilib) jiringlayotgan qo'ng'iroq `call:invite` bilan qayta yuboriladi.
+  Faol qo'ng'iroq socket'i access token tugaganda **uzilmaydi** (`ConnectionHoldService`; har 5 s qayta
+  tekshiriladi, qo'ng'iroq tugagach uziladi) — aks holda har 15 daqiqada qo'ng'iroq uzilardi. Bu — ongli
+  murosa: shu socket token muddatidan keyin ham qo'ng'iroq davomida ochiq qoladi.
+  Tugaganda chatga **tizim xabari** (`type: system`, yuboruvchi — chaqiruvchi): "📞 Qo'ng'iroq, 3:12",
+  "🎥 Video qo'ng'iroq, …", "Javobsiz" (missed/busy), "Rad etilgan", "Bekor qilingan". Davomiylik —
+  server vaqti, qabul qilingandan (media ulangandan emas). Tizim xabari tahrirlanmaydi, push yubormaydi.
+- **Push:** qabul qiluvchi oflayn bo'lsa `PushService.notifyIncomingCall` — `data: { type: 'call', callId,
+  chatId, media }`, Android kanali `calls`, `ttl` = jiringlash vaqti (Android `ttl`, APNs `apns-expiration`),
+  preview o'chiq bo'lsa ism yashiriladi. **Data-only emas** (vazifada data-only so'ralgan edi): notifee/CallKit
+  yo'qligi sababli data-only xabarni ilova fonda ko'rsata olmaydi — foydalanuvchi hech narsa ko'rmasdi.
+  Shuning uchun `notification + data`; CallKit/ConnectionService qo'shilganda data-only'ga o'tiladi.
+- **ICE:** `GET /calls/ice-servers` (auth, `no-store`): STUN (`STUN_URLS`, standart Google) + TURN
+  (`TURN_URLS` + `TURN_USERNAME/TURN_CREDENTIAL` yoki `TURN_SECRET` → coturn REST credential,
+  `TURN_TTL_SECONDS` standart 12 soat). Egasi uchun variantlar — `QADAMLAR.md` 13. **TURN hali sozlanmagan.**
+- **`@suhbat/client`:** `CallSession` — holat mashinasi `idle → calling/ringing → connecting → connected → ended`,
+  offer/answer/ICE (remote description'gacha ICE navbati), mikrofon/kamera o'chirish, kamerani almashtirish
+  (adapter bersa), ICE `disconnected` → "Aloqa tiklanmoqda…", `failed` → tugatish. `RTCPeerConnection`,
+  `getUserMedia` va socket **adapter orqali injeksiya** qilinadi. `createCallManager` — joriy sessiya, socket
+  voqealarini yo'naltirish, tugagan ekranni 1.5 s ushlab turish. `callStatusText`, `isSilentEnd` — veb/mobil umumiy.
+- **Veb/desktop:** brauzer adapterlari (`services/webrtc.ts`), chat sarlavhasida 📞/🎥 (faqat 1:1, band bo'lsa
+  o'chiq), kiruvchi oyna (qabul/rad), qo'ng'iroq ekrani (MUI, mobil kenglikda to'liq ekran; masofadagi video
+  + o'z kamerasi PiP, mikrofon/kamera, taymer, tugatish), tizim xabari markazda. Vebda kamerani almashtirish yo'q.
+  `getUserMedia` faqat HTTPS/localhost'da — aks holda tushunarli xato.
+  Electron: `setPermissionRequestHandler` — faqat o'z sahifasiga va faqat `media` (audio/video), +
+  `setPermissionCheckHandler`; macOS `extendInfo` — `NSMicrophoneUsageDescription`, `NSCameraUsageDescription`.
+- **Mobil:** `react-native-webrtc` 124.0.8 (adapterlar `src/calls/nativeWebrtc.ts`; kutubxona event-target
+  tiplarini nashr qilmagani uchun `on*` xususiyatlari bilan), Android ruxsatlari (`RECORD_AUDIO`, `CAMERA`,
+  `MODIFY_AUDIO_SETTINGS`, `BLUETOOTH_CONNECT` ixtiyoriy; kamera `required=false`), `calls` kanali
+  (`MainApplication.kt`), iOS Info.plist matnlari. Kiruvchi/chiquvchi ekran (`CallOverlay`, `RTCView`),
+  Android "orqaga" qo'ng'iroq paytida ekrandan chiqarmaydi; foreground'da qo'ng'iroq push'i banner emas.
+- **Tekshirildi (lokal):** `turbo run lint typecheck test build` yashil (core 42, client 40, api unit 73,
+  web 46, desktop 10, mobil 31). API e2e 32 (lokal Postgres 16), shundan `calls.e2e-spec.ts` 8 ta — ikki/uch
+  socket mijoz bilan: invite → ringing → accept → offer/answer/ice → end (+ ikkinchi qurilmaga
+  `answered_elsewhere`, begona socket signal yubora olmasligi, tizim xabari), rad/bekor, busy, timeout (+ oflayn
+  push va qayta ulanganda invite qayta kelishi), uzilish, ruxsatsiz (guruh, a'zo emas, bloklangan, validatsiya,
+  begona accept/end), token tugaganda socket uzilmasligi, `/calls/ice-servers`.
+  **Brauzerda (Playwright, Chromium, soxta kamera/mikrofon, lokal API + `vite preview`, ikki foydalanuvchi):**
+  video qo'ng'iroq haqiqatan ulandi — ikkala tomonda masofadagi `<video>` kadrlar oldi (480×270, trek'lar
+  `live`), taymer, tugatish, tizim xabari "🎥 Video qo'ng'iroq, 0:03"; ovozli qo'ng'iroqni rad etish; mobil
+  kenglik (390 px). Bu bitta mashinada (localhost, host ICE nomzodlari) — NAT/TURN orqali emas.
+  `react-native bundle` (android) lokal.
+  CI (PR #11) yashil: check (API e2e — MinIO bilan), api-image, web-image, desktop-package, Mobile android
+  (debug + release APK, `react-native-webrtc` bilan) va ios (simulyator, `JitsiWebRTC` pod bilan) — faqat build.
+- **Tekshirilmagan:** haqiqiy qurilmada (Android/iOS) qo'ng'iroq — ilova hech qachon qurilmada ishga
+  tushirilmagan; turli tarmoqlar (NAT, mobil internet), TURN (sozlanmagan); Electron oynasida qo'ng'iroq va macOS
+  ruxsat oynasi; Safari/Firefox; haqiqiy FCM bilan qo'ng'iroq push'i; uzoq qo'ng'iroq. **Haqiqiy media oqimi
+  CI'da sinalmaydi** (CI faqat signal e2e, unit va build).
+- **Cheklovlar / keyin:** CallKit (iOS) / ConnectionService (Android) — tizim qo'ng'iroq ekrani, qulflangan
+  ekranda jiringlash, data-only push; karnay/quloqchin almashtirish (`react-native-incall-manager`), fonda
+  davom ettirish (iOS `UIBackgroundModes audio/voip`); jiringlash ovozi (veb ham, mobil ham — hozir ovozsiz,
+  faqat ekran); ICE restart va socket qisqa uzilganda qayta tiklash (hozir bog'langan socket uzilsa qo'ng'iroq
+  tugaydi); bir nechta API nusxasi (registr va presence — Redis); guruh qo'ng'iroqlari (SFU kerak);
+  qo'ng'iroqlar tarixi alohida jadvalda emas (faqat tizim xabari); Cloudflare TURN credential'ini avtomatik
+  yaratish.
+
 ### 1-fazada nima tekshirildi
 - `npx turbo run lint typecheck test build` — yashil (core 16, client 13,
   api 20, web 18 unit test).
@@ -408,29 +476,23 @@ packages/
 **4. Bildirishnomalar va qo'ng'iroqlar**
 - **4a (push) — PR ko'rib chiqishda (2026-10-13):** API + mobil (FCM HTTP v1, iOS ham FCM orqali),
   preview sozlamasi, bloklash. Qurilmada sinalmagan; Web Push — keyin. Yuqorida "4-faza".
-- 4b: WebRTC qo'ng'iroqlar.
+- **4b (1:1 qo'ng'iroqlar) — PR #11 ko'rib chiqishda (2026-10-14):** signal (Socket.IO), ICE/TURN env,
+  `CallSession`, veb/desktop va mobil UI. Qurilmada va NAT/TURN orqali sinalmagan. Yuqorida "4b-faza".
 
 ## Keyingi sessiya uchun
-Repo: `suhbat`. "CLAUDE.md va docs/REJA.md ni o'qi, 4-fazani bajar (push bildirishnomalar):
-1. **API:** qurilma tokenlari (`DeviceToken`: userId, platform `android|ios|web`, token, updatedAt;
-   `POST/DELETE /devices`, logout'da o'chirish). Xabar kelganda **onlayn bo'lmagan** (yoki chatni
-   ochmagan) a'zolarga push: FCM HTTP v1 (Android, iOS ham FCM orqali yoki APNs to'g'ridan-to'g'ri —
-   qarorni REJA'ga yoz). Kalitlar faqat env'da (`.env.example` namunasi), yaroqsiz token javobida o'chirish,
-   kanalda katta auditoriya uchun navbat/batch. Matn ko'rinishi (preview) sozlamasi — maxfiylik.
-2. **Mobil:** `@react-native-firebase/messaging` (yoki `@notifee` bilan) — ruxsat so'rash (Android 13+
-   `POST_NOTIFICATIONS`, iOS), tokenni ro'yxatdan o'tkazish/yangilash, foreground'da in-app ko'rsatish,
-   bildirishnomani bosganda shu chatni ochish. `google-services.json` / `GoogleService-Info.plist`
-   **repoga tushmaydi** — CI secret'dan yoziladi, lokal uchun namuna/README.
-3. **Veb/desktop (ixtiyoriy):** Web Push (service worker) — keyin ham bo'lishi mumkin.
-4. Mobil 3b qoldiqlari (agar vaqt bo'lsa): haqiqiy emulyatorda sinash (CI'da Android emulyator
-   smoke testi — `reactivecircus/android-emulator-runner`), release APK imzolash (keystore secret),
-   media yuborish (rasm/fayl tanlash), xabarni tahrirlash/o'chirish UI.
-Keyin (4b): WebRTC qo'ng'iroqlar (signal Socket.IO orqali, TURN server — coturn)."
+4b (qo'ng'iroqlar) PR #11 da. Merge'dan keyin taklif etiladigan navbat:
+1. **Egasi:** TURN tanlash va sozlash (`QADAMLAR.md` 13) — busiz mobil internet/NAT ortida qo'ng'iroq
+   ulanmasligi mumkin. Keyin ikki xil tarmoqda va haqiqiy telefonda sinash.
+2. **4c (qo'ng'iroq sifati):** jiringlash ovozi (veb + mobil), karnay/quloqchin (`react-native-incall-manager`),
+   CallKit / ConnectionService (qulflangan ekranda jiringlash, data-only push), socket qisqa uzilganda va
+   tarmoq almashganda qo'ng'iroqni tiklash (ICE restart + `call:resume`).
+3. Mobil 3b qoldiqlari: CI'da Android emulyator smoke testi, media yuborish, tahrirlash/o'chirish UI.
+4. Redis (registr, presence, rate limit — ko'p API nusxasi).
 
 ### Deploy'dan keyingi navbat (tekshiruvchi tartibi, 2026-10-13)
 1. **4-faza:** push — PR'da (qolgan: egasi Firebase'ni sozlaydi — `QADAMLAR.md` 12; `release.yml` ga
    `GOOGLE_SERVICES_JSON` env'ini qo'shish; haqiqiy qurilmada sinash; mobil/veb bloklash UI va preview
-   sozlamasi UI; Web Push). Keyin WebRTC qo'ng'iroqlar.
+   sozlamasi UI; Web Push). 4b qo'ng'iroqlar — PR #11.
 2. **Mobil:** media yuborish, xabarni tahrirlash/o'chirish, guruh boshqaruvi + haqiqiy qurilmada sinov.
 3. **Do'konlar:** Play Store uchun doimiy keystore; iOS release / App Store.
 4. **Desktop:** ikonkalar, kod imzosi (Apple/Windows), avto-yangilanish.
