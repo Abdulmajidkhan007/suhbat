@@ -15,6 +15,7 @@ model User {
   passwordHash String   @map("password_hash")
   displayName  String   @map("display_name")
   photoUrl     String?  @map("photo_url")
+  bio          String?
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   // Oxirgi marta onlayn bo'lgan vaqt (oxirgi WebSocket ulanishi uzilganda yoziladi)

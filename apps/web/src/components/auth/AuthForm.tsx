@@ -77,7 +77,7 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
 
         {mode === 'signup' && (
           <TextField
-            label="Full name"
+            label="Ism"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             fullWidth
@@ -98,7 +98,7 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
         )}
 
         <TextField
-          label="Email address"
+          label="Email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -120,7 +120,7 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
         />
 
         <TextField
-          label="Password"
+          label="Parol"
           type={showPass ? 'text' : 'password'}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -142,7 +142,7 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
                     size="small"
                     onClick={() => setShowPass((p) => !p)}
                     edge="end"
-                    aria-label={showPass ? 'Hide password' : 'Show password'}
+                    aria-label={showPass ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
                   >
                     {showPass ? (
                       <VisibilityOffIcon fontSize="small" />
@@ -163,7 +163,7 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
           loading={loading}
           size="large"
         >
-          {mode === 'login' ? 'Sign in' : 'Create account'}
+          {mode === 'login' ? 'Kirish' : 'Ro\'yxatdan o\'tish'}
         </LoadingButton>
 
         <Divider sx={{ my: 0.5 }}>
@@ -171,7 +171,7 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
         </Divider>
 
         <Typography variant="body2" align="center" color="text.secondary">
-          {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+          {mode === 'login' ? "Hisobingiz yo'qmi? " : 'Hisobingiz bormi? '}
           <button
             type="button"
             onClick={onToggle}
@@ -182,7 +182,7 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
               variant="body2"
               sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer', textDecoration: 'underline' }}
             >
-              {mode === 'login' ? 'Sign up' : 'Sign in'}
+              {mode === 'login' ? 'Ro\'yxatdan o\'tish' : 'Kirish'}
             </Typography>
           </button>
         </Typography>

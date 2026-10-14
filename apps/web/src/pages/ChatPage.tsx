@@ -1,14 +1,13 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, IconButton } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
+import { Box } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme, useMediaQuery } from '@mui/material';
 import toast from 'react-hot-toast';
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { setActiveChat } from '../features/chats/chatsSlice';
-import { setSidebarOpen } from '../features/ui/uiSlice';
+import { setActivePanel } from '../features/ui/uiSlice';
 import { signOut } from '../features/auth/authSlice';
 import { canModerateMessages, canWrite } from '@suhbat/core';
 import type { CallMedia } from '@suhbat/core';
@@ -81,10 +80,18 @@ const ChatPage: React.FC = () => {
     (id: string) => {
       dispatch(setActiveChat(id));
       navigate(`/${id}`);
-      if (isMobile) dispatch(setSidebarOpen(false));
+      dispatch(setActivePanel('chats'));
     },
-    [dispatch, navigate, isMobile],
+    [dispatch, navigate],
   );
+
+  // Orqaga: ro'yxatga. Ro'yxatdan kelgan bo'lsak brauzer tarixida bitta qadam orqaga (tarix
+  // ikkilanmaydi), to'g'ridan-to'g'ri havoladan ochilgan bo'lsa — `/`.
+  const handleBack = useCallback(() => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) navigate(-1);
+    else navigate('/', { replace: true });
+  }, [navigate]);
 
   const handleSignOut = useCallback(async () => {
     callManager.hangup();
@@ -197,8 +204,7 @@ const ChatPage: React.FC = () => {
               chat={activeChat}
               currentUid={user.uid}
               isOnline={isOnline(otherParticipantId)}
-              onMenuClick={() => dispatch(setSidebarOpen(true))}
-              showMenuButton={isMobile}
+              onBack={isMobile ? handleBack : undefined}
               onOpenInfo={() => setInfoOpen(true)}
               onStartCall={otherParticipant ? handleStartCall : undefined}
               callDisabled={inCall}
@@ -236,13 +242,6 @@ const ChatPage: React.FC = () => {
             animate={{ opacity: 1 }}
             className="flex-1 flex flex-col h-full"
           >
-            {isMobile && (
-              <Box className="p-2">
-                <IconButton onClick={() => dispatch(setSidebarOpen(true))} aria-label="Open sidebar">
-                  <MenuIcon />
-                </IconButton>
-              </Box>
-            )}
             <Box className="flex-1 flex items-center justify-center">
               <EmptyState
                 icon={<ForumOutlinedIcon sx={{ fontSize: 56, opacity: 0.3 }} />}
@@ -259,7 +258,7 @@ const ChatPage: React.FC = () => {
 
   return (
     <>
-      <AppShell sidebar={sidebar} main={main} />
+      <AppShell sidebar={sidebar} main={main} mobileView={chatId && activeChat ? 'chat' : 'list'} />
       <CallOverlay />
       <NewChatDialog
         open={newChatOpen}

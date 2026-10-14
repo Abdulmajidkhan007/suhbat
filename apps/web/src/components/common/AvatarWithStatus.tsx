@@ -44,7 +44,7 @@ const AvatarWithStatus: React.FC<Props> = ({
               isOnline ? 'bg-green-500' : 'bg-gray-400'
             }`}
             style={{ width: size * 0.28, height: size * 0.28 }}
-            aria-label={isOnline ? 'Online' : 'Offline'}
+            aria-label={isOnline ? 'onlayn' : 'oflayn'}
           />
         )}
       </div>

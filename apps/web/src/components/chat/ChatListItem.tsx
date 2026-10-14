@@ -6,6 +6,7 @@ import CampaignIcon from '@mui/icons-material/Campaign';
 import AvatarWithStatus from '../common/AvatarWithStatus';
 import { Chat } from '../../types';
 import { formatChatTime, truncate } from '../../utils/formatters';
+import { subscriberCount } from '../../utils/members';
 
 interface Props {
   chat:       Chat;
@@ -52,9 +53,10 @@ const ChatListItem: React.FC<Props> = memo(({ chat, isActive, currentUid, isOnli
     </Avatar>
   );
 
-  const memberLabel = isGroup || isChannel
-    ? `${chat.memberCount ?? chat.participants.length} a'zo`
-    : null;
+  const total       = chat.memberCount ?? chat.participants.length;
+  const memberLabel = isChannel
+    ? `${subscriberCount(total, Object.values(chat.participantDetails))} obunachi`
+    : isGroup ? `${total} a'zo` : null;
 
   return (
     <motion.button

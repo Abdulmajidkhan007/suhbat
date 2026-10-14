@@ -1,6 +1,6 @@
 import React from 'react';
 import { IconButton, Typography, Tooltip, Box, Avatar, Chip } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined';
 import CallOutlinedIcon from '@mui/icons-material/CallOutlined';
 import GroupIcon from '@mui/icons-material/Group';
@@ -10,13 +10,14 @@ import AvatarWithStatus from '../common/AvatarWithStatus';
 import StatusBadge from '../common/StatusBadge';
 import type { CallMedia } from '@suhbat/core';
 import { Chat } from '../../types';
+import { subscriberCount } from '../../utils/members';
 
 interface Props {
   chat:            Chat;
   currentUid:      string;
   isOnline:        boolean;
-  onMenuClick:     () => void;
-  showMenuButton:  boolean;
+  /** Kichik ekranda: suhbatlar ro'yxatiga qaytish. */
+  onBack?:         () => void;
   /** Guruh/kanal ma'lumotlari va boshqaruvi. */
   onOpenInfo?:     () => void;
   /** 1:1 chatda ovozli/video qo'ng'iroq. Berilmasa tugmalar yo'q. */
@@ -29,8 +30,7 @@ const ChatHeader: React.FC<Props> = ({
   chat,
   currentUid,
   isOnline,
-  onMenuClick,
-  showMenuButton,
+  onBack,
   onOpenInfo,
   onStartCall,
   callDisabled = false,
@@ -43,6 +43,7 @@ const ChatHeader: React.FC<Props> = ({
   const displayUid  = isDirect ? (other?.uid ?? chat.id) : chat.id;
 
   const memberCount = chat.memberCount ?? chat.participants.length;
+  const subscribers = subscriberCount(memberCount, Object.values(chat.participantDetails));
 
   return (
     <Box
@@ -55,9 +56,9 @@ const ChatHeader: React.FC<Props> = ({
         flexShrink:  0,
       }}
     >
-      {showMenuButton && (
-        <IconButton onClick={onMenuClick} size="small" edge="start" aria-label="Open sidebar">
-          <MenuIcon />
+      {onBack && (
+        <IconButton onClick={onBack} size="small" edge="start" aria-label="Orqaga">
+          <ArrowBackIcon />
         </IconButton>
       )}
 
@@ -92,10 +93,10 @@ const ChatHeader: React.FC<Props> = ({
           )}
         </div>
         {isDirect ? (
-          <StatusBadge isOnline={isOnline} size="small" />
+          <StatusBadge isOnline={isOnline} lastSeen={other?.lastSeen} size="small" />
         ) : (
           <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.72rem' }}>
-            {memberCount} {isChannel ? 'obunachi' : 'a\'zo'}
+            {isChannel ? `${subscribers} obunachi` : `${memberCount} a'zo`}
           </Typography>
         )}
       </div>

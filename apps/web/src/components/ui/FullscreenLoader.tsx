@@ -6,7 +6,7 @@ interface Props {
   message?: string;
 }
 
-const FullscreenLoader: React.FC<Props> = ({ message = 'Loading…' }) => (
+const FullscreenLoader: React.FC<Props> = ({ message = 'Yuklanmoqda…' }) => (
   <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}

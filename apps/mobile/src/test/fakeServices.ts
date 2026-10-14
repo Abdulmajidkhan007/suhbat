@@ -29,6 +29,10 @@ export const createFakeServices = (api: Partial<ApiClient> = {}, push: PushPlatf
     getChat:          jest.fn(async () => { throw new Error('topilmadi'); }),
     listMessages:     jest.fn(async () => ({ items: [], nextCursor: null })),
     searchUsers:      jest.fn(async () => []),
+    searchPublicChannels: jest.fn(async () => []),
+    createDirectChat: jest.fn(async () => { throw new Error('createDirectChat mock kerak'); }),
+    joinChannel:      jest.fn(async () => { throw new Error('joinChannel mock kerak'); }),
+    updateProfile:    jest.fn(async () => ME),
     registerDevice:   jest.fn(async () => undefined),
     ...api,
   };

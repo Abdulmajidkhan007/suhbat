@@ -10,7 +10,7 @@ interface Props {
 }
 
 const ErrorState: React.FC<Props> = ({
-  message = 'Something went wrong.',
+  message = 'Xatolik yuz berdi.',
   onRetry,
   compact = false,
 }) => (
@@ -31,7 +31,7 @@ const ErrorState: React.FC<Props> = ({
         onClick={onRetry}
         sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, mt: 0.5 }}
       >
-        Retry
+        Qayta urinish
       </Button>
     )}
   </motion.div>

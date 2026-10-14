@@ -7,6 +7,7 @@ export interface AppUser {
   displayName: string;
   photoURL:    string | null;
   phoneNumber?: string | null;
+  bio?:        string | null;
   createdAt:   number;
   lastSeen:    number;
   isOnline:    boolean;
@@ -115,7 +116,6 @@ export interface ThemeState {
 }
 
 export interface UIState {
-  sidebarOpen:   boolean;
   composerHeight: number;
   activePanel:   'chats' | 'settings' | 'profile';
 }

@@ -102,7 +102,7 @@ const Sidebar: React.FC<Props> = ({
                     size="small"
                     onClick={onSignOut}
                     sx={{ color: 'text.secondary' }}
-                    aria-label="Sign out"
+                    aria-label="Chiqish"
                   >
                     <LogoutIcon fontSize="small" />
                   </IconButton>

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CallRegistry } from './call-registry';
 import type { ActiveCall, NewCall } from './call-registry';
 
-const caller = { id: 'u-ali', displayName: 'Ali', photoUrl: null, createdAt: new Date(0).toISOString() };
+const caller = { id: 'u-ali', displayName: 'Ali', photoUrl: null, bio: null, createdAt: new Date(0).toISOString() };
 const call = (over: Partial<NewCall> = {}): NewCall => ({
   id:           'call-1',
   chatId:       'chat-1',

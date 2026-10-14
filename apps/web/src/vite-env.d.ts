@@ -7,3 +7,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** `apps/web/package.json` versiyasi (vite `define`). */
+declare const __APP_VERSION__: string;

@@ -19,6 +19,7 @@ export const toPublicUser = (u: UserRow): PublicUser => ({
   id:          u.id,
   displayName: u.displayName,
   photoUrl:    u.photoUrl,
+  bio:         u.bio,
   createdAt:   u.createdAt.toISOString(),
 });
 

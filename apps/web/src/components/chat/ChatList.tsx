@@ -1,12 +1,22 @@
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Box } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
+import toast from 'react-hot-toast';
+import type { PublicChannel } from '@suhbat/core';
 import ChatListItem from './ChatListItem';
 import SearchInput from '../common/SearchInput';
 import { ChatListSkeleton } from '../ui/SkeletonLoader';
 import ErrorState from '../ui/ErrorState';
 import EmptyState from '../ui/EmptyState';
-import { Chat } from '../../types';
+import GlobalSearchResults, { SectionTitle } from './GlobalSearchResults';
+import ChannelPreviewDialog from './ChannelPreviewDialog';
+import { api } from '../../services/api';
+import { toChat } from '../../services/apiMappers';
+import { upsertChat } from '../../features/chats/chatsSlice';
+import { useAppDispatch } from '../../app/hooks';
+import { useGlobalSearch } from '../../hooks/useGlobalSearch';
+import { errorText } from '../../utils/errors';
+import { AppUser, Chat } from '../../types';
 import InboxIcon from '@mui/icons-material/Inbox';
 
 interface Props {
@@ -30,7 +40,12 @@ const ChatList: React.FC<Props> = ({
   onSelectChat,
   onRetry,
 }) => {
+  const dispatch = useAppDispatch();
   const [searchQuery, setSearchQuery] = useState('');
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  const [previewChannel, setPreviewChannel] = useState<PublicChannel | null>(null);
+  const search = useGlobalSearch(searchQuery);
+  const searching = search.active;
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return chats;
@@ -43,6 +58,25 @@ const ChatList: React.FC<Props> = ({
     });
   }, [chats, searchQuery, currentUid]);
 
+  const openUser = useCallback(async (user: AppUser) => {
+    setPendingUserId(user.uid);
+    try {
+      const chat = await api.createDirectChat(user.uid);
+      dispatch(upsertChat(toChat(chat, currentUid)));
+      setSearchQuery('');
+      onSelectChat(chat.id);
+    } catch (e) {
+      toast.error(errorText(e, 'Suhbatni boshlab bo\'lmadi. Qayta urinib ko\'ring.'));
+    } finally {
+      setPendingUserId(null);
+    }
+  }, [currentUid, dispatch, onSelectChat]);
+
+  const openChat = useCallback((id: string) => {
+    setSearchQuery('');
+    onSelectChat(id);
+  }, [onSelectChat]);
+
   const getOnlineStatus = (chat: Chat): boolean => {
     if (chat.type !== 'direct') return false;
     const other = Object.values(chat.participantDetails).find((p) => p.uid !== currentUid);
@@ -52,7 +86,7 @@ const ChatList: React.FC<Props> = ({
   return (
     <Box className="flex flex-col h-full">
       <div className="px-3 py-2">
-        <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Suhbatlarni qidirish…" />
+        <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Qidirish" />
       </div>
 
       <Box className="flex-1 overflow-y-auto px-2 pb-2" sx={{ scrollbarWidth: 'thin' }}>
@@ -60,36 +94,65 @@ const ChatList: React.FC<Props> = ({
 
         {!loading && error && <ErrorState message={error} onRetry={onRetry} compact />}
 
-        {!loading && !error && filtered.length === 0 && (
+        {!loading && !error && !searching && filtered.length === 0 && (
           <EmptyState
             icon={<InboxIcon sx={{ fontSize: 40 }} />}
-            title={searchQuery ? 'Topilmadi' : 'Suhbatlar yo\'q'}
-            description={searchQuery ? 'Boshqacha qidirib ko\'ring.' : 'Yangi suhbat boshlang.'}
+            title="Suhbatlar yo'q"
+            description="Yangi suhbat boshlang yoki qidiruvdan foydalaning."
           />
         )}
 
-        {!loading && !error && (
-          <AnimatePresence initial={false}>
-            {filtered.map((chat, idx) => (
-              <motion.div
-                key={chat.id}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{    opacity: 0, x: -12 }}
-                transition={{ delay: idx * 0.03, duration: 0.2 }}
-              >
-                <ChatListItem
-                  chat={chat}
-                  isActive={chat.id === activeChatId}
-                  currentUid={currentUid}
-                  isOnline={getOnlineStatus(chat)}
-                  onClick={() => onSelectChat(chat.id)}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
+        {!loading && !error && filtered.length > 0 && (
+          <section aria-label="Suhbatlar">
+            {searching && <SectionTitle>Suhbatlar</SectionTitle>}
+            <AnimatePresence initial={false}>
+              {filtered.map((chat, idx) => (
+                <motion.div
+                  key={chat.id}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{    opacity: 0, x: -12 }}
+                  transition={{ delay: searching ? 0 : idx * 0.03, duration: 0.2 }}
+                >
+                  <ChatListItem
+                    chat={chat}
+                    isActive={chat.id === activeChatId}
+                    currentUid={currentUid}
+                    isOnline={getOnlineStatus(chat)}
+                    onClick={() => openChat(chat.id)}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </section>
+        )}
+
+        {searching && (
+          <GlobalSearchResults
+            loading={search.loading}
+            users={search.users}
+            channels={search.channels}
+            usersError={search.usersError}
+            channelsError={search.channelsError}
+            pendingUserId={pendingUserId}
+            onPickUser={(u) => void openUser(u)}
+            onPickChannel={setPreviewChannel}
+            onRetry={search.retry}
+          />
+        )}
+
+        {searching && !search.loading && !loading && !error
+          && filtered.length === 0 && search.users.length === 0 && search.channels.length === 0
+          && !search.usersError && !search.channelsError && (
+          <EmptyState
+            icon={<InboxIcon sx={{ fontSize: 40 }} />}
+            title="Topilmadi"
+            description="Boshqacha qidirib ko'ring."
+          />
         )}
       </Box>
+
+      <ChannelPreviewDialog channel={previewChannel} onClose={() => setPreviewChannel(null)} onOpenChat={openChat} />
     </Box>
   );
 };

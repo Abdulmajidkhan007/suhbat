@@ -4,7 +4,7 @@ import { memoryTokenStorage } from './tokens.js';
 
 const user = {
   id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', email: 'ali@test.uz', displayName: 'Ali',
-  photoUrl: null, createdAt: '2026-10-11T10:00:00.000Z',
+  photoUrl: null, bio: null, createdAt: '2026-10-11T10:00:00.000Z',
 };
 const json = (status: number, body?: unknown) =>
   new Response(body === undefined ? '' : JSON.stringify(body), { status });

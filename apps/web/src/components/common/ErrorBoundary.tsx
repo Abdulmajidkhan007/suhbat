@@ -28,17 +28,17 @@ class ErrorBoundary extends React.Component<Props, State> {
         >
           <BugReportOutlinedIcon sx={{ fontSize: 56, opacity: 0.3 }} />
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Something went wrong
+            Nimadir xato ketdi
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 360 }}>
-            {this.state.error?.message ?? 'An unexpected error occurred.'}
+            {this.state.error?.message ?? 'Kutilmagan xatolik yuz berdi.'}
           </Typography>
           <Button
             variant="contained"
             onClick={this.handleReset}
             sx={{ borderRadius: '10px', mt: 1 }}
           >
-            Try again
+            Qayta urinish
           </Button>
         </Box>
       );

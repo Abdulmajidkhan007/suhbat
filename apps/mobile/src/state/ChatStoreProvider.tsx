@@ -17,6 +17,8 @@ interface ChatStore {
   setTyping:     (chatId: string, isTyping: boolean) => void;
   markRead:      (chatId: string, messageId: string) => void;
   openDirect:    (userId: string) => Promise<ChatSummary>;
+  /** Ochiq kanalga obuna bo'lish. */
+  joinChannel:   (chatId: string) => Promise<ChatSummary>;
   setActiveChat: (chatId: string | null) => void;
 }
 
@@ -106,6 +108,12 @@ export const ChatStoreProvider = ({ children }: { children: ReactNode }) => {
     return chat;
   }, [api]);
 
+  const joinChannel = useCallback(async (chatId: string) => {
+    const chat = await api.joinChannel(chatId);
+    dispatch({ type: 'chat/upserted', chat });
+    return chat;
+  }, [api]);
+
   const setActiveChat = useCallback((chatId: string | null) => {
     activeChatRef.current = chatId;
   }, []);
@@ -159,8 +167,8 @@ export const ChatStoreProvider = ({ children }: { children: ReactNode }) => {
   }, [socket, me.id, refreshChats, loadMessages, upsertFromServer]);
 
   const value = useMemo<ChatStore>(
-    () => ({ state, refreshChats, loadMessages, sendText, resend, setTyping, markRead, openDirect, setActiveChat }),
-    [state, refreshChats, loadMessages, sendText, resend, setTyping, markRead, openDirect, setActiveChat],
+    () => ({ state, refreshChats, loadMessages, sendText, resend, setTyping, markRead, openDirect, joinChannel, setActiveChat }),
+    [state, refreshChats, loadMessages, sendText, resend, setTyping, markRead, openDirect, joinChannel, setActiveChat],
   );
   return <ChatStoreContext.Provider value={value}>{children}</ChatStoreContext.Provider>;
 };

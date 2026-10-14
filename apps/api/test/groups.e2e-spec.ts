@@ -91,7 +91,7 @@ describe('Guruh, kanal, media (e2e)', () => {
     const byName = (await get('ali', `/users/search?q=vali%20${stamp}`)) as Record<string, unknown>[];
     expect(byName).toHaveLength(1);
     expect(byName[0]).not.toHaveProperty('email');
-    expect(Object.keys(byName[0]).sort()).toEqual(['createdAt', 'displayName', 'id', 'photoUrl']);
+    expect(Object.keys(byName[0]).sort()).toEqual(['bio', 'createdAt', 'displayName', 'id', 'photoUrl']);
     expect(hasEmail(await get('ali', '/users/search?q=a'))).toBe(false);
     // To'liq email bilan topilganda ham javobda email yo'q
     const byEmail = (await get('ali', `/users/search?q=${encodeURIComponent(emailOf('vali'))}`)) as Record<string, unknown>[];
@@ -194,6 +194,55 @@ describe('Guruh, kanal, media (e2e)', () => {
     await ali.deleteChat(group.id);
     expect(await deleted).toEqual({ chatId: group.id });
     await expect(vali.getChat(group.id)).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('kanal: "Obunachi qo\'shish" bilan qo\'shilgan oddiy a\'zo — rol `member`, ega/adminlar ro\'yxatiga tushmaydi', async () => {
+    const { ali, hasan } = api;
+    const ch = await ali.createChannel({ title: `Rollar ${stamp}`, isPublic: false });
+    const withHasan = await ali.addMembers(ch.id, [user.hasan.id]);
+    expect(withHasan.memberCount).toBe(2);
+
+    // Obunachi o'z ko'rinishida: ega (`owner`) + o'zi (`member`, `myRole` uchun). UI faqat `owner/admin`ni
+    // "Ega va adminlar"da ko'rsatadi, obunachilar soni = memberCount − bular.
+    const asHasan = await hasan.getChat(ch.id);
+    expect(asHasan.memberCount).toBe(2);
+    const roles = Object.fromEntries(asHasan.members.map((m) => [m.user.id, m.role]));
+    expect(roles).toEqual({ [user.ali.id]: 'owner', [user.hasan.id]: 'member' });
+
+    // Ega ko'rinishida: faqat o'zi (obunachi API javobiga tushmaydi — kanal katta bo'lishi mumkin)
+    const asAli = await ali.getChat(ch.id);
+    expect(asAli.members.map((m) => [m.user.id, m.role])).toEqual([[user.ali.id, 'owner']]);
+    expect(asAli.memberCount).toBe(2);
+    await ali.deleteChat(ch.id);
+  });
+
+  it('PATCH /users/me: ism va bio, validatsiya, boshqalar yangilangan profilni ko\'radi', async () => {
+    const { ali, vali } = api;
+    const base = `Profil ${stamp}`;
+    const updated = await ali.updateProfile({ displayName: `  ${base}  `, bio: '  Dasturchi  ' });
+    expect(updated).toMatchObject({ id: user.ali.id, email: emailOf('ali'), displayName: base, bio: 'Dasturchi' });
+    expect((await ali.me()).bio).toBe('Dasturchi');
+
+    // Faqat berilgan maydon o'zgaradi; bo'sh bio — o'chiriladi
+    expect((await ali.updateProfile({ displayName: `${base} 2` })).bio).toBe('Dasturchi');
+    expect((await ali.updateProfile({ bio: '' })).bio).toBeNull();
+    expect((await ali.me()).displayName).toBe(`${base} 2`);
+
+    // Boshqa foydalanuvchi qidiruvda yangi ismni ko'radi, email yo'q
+    const [found] = await vali.searchUsers(`${base} 2`);
+    expect(found).toMatchObject({ id: user.ali.id, displayName: `${base} 2`, bio: null });
+    expect(found).not.toHaveProperty('email');
+
+    // Validatsiya
+    await expect(ali.updateProfile({ displayName: '   ' })).rejects.toMatchObject({ status: 400 });
+    await expect(ali.updateProfile({ displayName: 'x'.repeat(65) })).rejects.toMatchObject({ status: 400 });
+    await expect(ali.updateProfile({ bio: 'x'.repeat(201) })).rejects.toMatchObject({ status: 400 });
+    await expect(ali.updateProfile({})).rejects.toMatchObject({ status: 400 });
+    expect((await ali.me()).displayName).toBe(`${base} 2`);
+
+    // Tokensiz — 401
+    await expect(mkApi().updateProfile({ displayName: 'Begona' })).rejects.toMatchObject({ status: 401 });
+    await ali.updateProfile({ displayName: user.ali.displayName });
   });
 
   it('kanal: faqat owner/admin yozadi, ochiq kanal qidiruvi, obuna/chiqish', async () => {

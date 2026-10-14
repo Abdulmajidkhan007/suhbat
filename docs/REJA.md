@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-14 (4b: 1:1 ovozli/video qo'ng'iroqlar — PR #11 ko'rib chiqishda)
+> Oxirgi yangilanish: 2026-10-14 (egasining veb sinovidan keyingi tuzatishlar: global qidiruv, profil, mobil joylashuv — pastdagi "v0.1.2 tuzatishlari")
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -29,7 +29,7 @@
   (optimistik, ack), "yozmoqda", onlayn/oflayn, yuborildi/o'qildi
   (bitta/ikki belgi), o'qilmaganlar soni, eskiroq xabarlarni yuklash,
   qayta ulanganda qayta yuklash.
-  Google/telefon bilan kirish, profilni tahrirlash — "tez orada".
+  Google/telefon bilan kirish — "tez orada". Profil tahriri — v0.1.2 (pastda).
 - **2-faza (guruh, kanal, media)** — API:
   - `Chat` + `description`, `isPublic`; `Message` + `deletedAt` (soft-delete);
     `Attachment` (S3 kaliti, MIME, hajm, davomiylik). Migratsiya
@@ -97,7 +97,8 @@
   Sozlash: `apps/api/.env.example`.
 - "Yozmoqda" qabul qiluvchida 6 soniyada o'chadi; yuboruvchi har 3 soniyada
   yangilaydi.
-- Profil tahrirlash API'si yo'q.
+- Profil: faqat ism va bio (`PATCH /users/me`); avatar yuklash yo'q (S3 sozlanmagan). Ism/bio o'zgarsa boshqa foydalanuvchilar
+  ochiq chatlarda eski ismni sahifa/ro'yxat yangilanguncha ko'radi (WS voqeasi yo'q).
 - **Email faqat o'zi uchun:** `PublicUser` (id, displayName, photoUrl, createdAt) —
   qidiruv, chat a'zolari, WS voqealari; `User` (email bilan) faqat `/auth/me` va
   login/register/refresh javoblarida. Xom HTTP/WS javoblarida email yo'qligi e2e
@@ -302,6 +303,43 @@
   qo'ng'iroqlar tarixi alohida jadvalda emas (faqat tizim xabari); Cloudflare TURN credential'ini avtomatik
   yaratish.
 
+### v0.1.2 — egasining veb sinovidan keyingi tuzatishlar (2026-10-14)
+Egasi veb versiyani telefonda ikki hisob bilan sinadi; topilgan 7 ta bug:
+1. **Global qidiruv** (asosiy bug). Qidiruv faqat mavjud suhbatlarni filtrlardi. Endi (veb + desktop + mobil) bitta
+   qidiruv maydoni "Qidirish": bo'limlar **Suhbatlar** (mavjud, nom bo'yicha), **Foydalanuvchilar** (`GET /users/search`),
+   **Ochiq kanallar** (`GET /chats/public`). Debounce 300 ms, yuklanish ko'rsatkichi, har bo'lim uchun alohida xato +
+   "Qayta urinish" (bittasi yiqilsa ikkinchisi ko'rinadi), eskirgan javoblar tashlanadi. Foydalanuvchi → `POST /chats/direct`
+   (idempotent) va chat ochiladi; kanal → ko'rinish oynasi (nom, tavsif, obunachilar) va "Obuna bo'lish"/"Ochish"
+   (mobilda `Alert` tasdig'i). Hook: `apps/web/src/hooks/useGlobalSearch.ts`, `apps/mobile/src/hooks/useGlobalSearch.ts`.
+   Eski "Yangi suhbat" va "Ochiq kanallarni qidirish" dialoglari qoldi.
+2. **Kanal ma'lumotida rollar.** Sabab (API emas, UI): kanal API'si `members`da owner/adminlar **va so'rayotgan foydalanuvchining
+   o'zini** (rol `member`) qaytaradi — `myRole` shunga tayanadi (kontrakt, e2e'da bor). UI esa `participantDetails`ning hammasini
+   "Ega va adminlar"da ko'rsatardi, shuning uchun oddiy obunachi ("Owner" ismli) o'zini shu ro'yxatda ko'rardi.
+   Tuzatish: `utils/members.ts` — `listedMembers` (kanalda faqat owner/admin; guruhda hamma) va `subscriberCount`
+   (= `memberCount` − ega/adminlar); obunachilar soni chat sarlavhasi, ro'yxat va info oynasida alohida. API o'zgarmadi.
+3. **Sozlamalar:** "React · NestJS · Socket.IO" olib tashlandi → "Suhbat v{versiya}" (vite `define` `__APP_VERSION__`,
+   `apps/web/package.json` dan). Butun veb UI o'zbekchalashtirildi (Sozlamalar, Profil, Ko'rinish, Yorug'/Qorong'i,
+   onlayn/oflayn va "bugun 14:20 da bo'lgan", kirish/ro'yxatdan o'tish formasi, validatsiya, 404, xato ekranlari, aria-label'lar).
+4. **Profil tahriri:** `User.bio` (migratsiya `*_user_bio`, `PublicUser.bio` nullable), `PATCH /users/me`
+   `{ displayName?, bio? }` (trim; ism 1–64; bio ≤ 200, bo'sh/`null` — o'chiradi; kamida bitta maydon; zod `UpdateProfileInputSchema`),
+   javob — `User`. Veb Sozlamalar paneli va mobil `ProfileScreen` ("Profil" tugmasi ro'yxat sarlavhasida).
+   **Avatar yuklash — keyinga qoldirildi** (S3 hali sozlanmagan).
+5. **Vaqt/sana:** 24 soatlik "14:20", "Kecha", hafta kuni o'zbekcha (`date-fns/locale/uz`), eski sana "05.01.2026".
+   (Mobil `formatTime` avvaldan 24 soatlik edi.)
+6. **Mobil brauzer joylashuvi:** `<md` ekranda drawer (+ kulrang backdrop chizig'i) olib tashlandi — ro'yxat to'liq kenglikda
+   alohida ko'rinish, chat ochilganda ro'yxat yashiriladi, sarlavhada "Orqaga" (brauzer tarixi bo'yicha), pastda
+   "Xabarlar / Sozlamalar" navigatsiyasi; balandlik `100dvh`. `AppShell` `mobileView: 'list' | 'chat'` oladi, `uiSlice.sidebarOpen` olib tashlandi.
+7. **Kanal info "Qo'shish" tugmasi:** tanlangan qator to'q rangda belgilanadi + belgi (checkbox, `role="checkbox"`
+   `aria-checked`), tugma tanlangach `contained` va "Qo'shish (N)". Eslatma: jsdom'da eski kodda ham tugma tanlashdan keyin
+   faollashardi — telefondagi "kulrang" holatni aynan qayta ko'ra olmadim; sabab ehtimol faqat ko'rinishda (tanlov deyarli
+   sezilmasdi, tugma `outlined` edi). Ko'rinish tuzatildi, holat testlari qo'shildi.
+- **Testlar:** web 73 (yangi: ChatList qidiruv 8, ChatInfoDialog 4, SettingsPanel 3, AppShell 3, ChatHeader 2, members 4,
+  formatters), core 44, mobil 39 (yangi `SearchProfile.test.tsx` 8), API e2e 34 (yangi: kanal rollari, `PATCH /users/me`).
+  `turbo run lint typecheck test` yashil. Haqiqiy Chromium (Playwright, 390×780, lokal API + `vite preview`): ro'yxat 390 px
+  (gorizontal skroll yo'q), qidiruv bo'limlari, kanalga obuna, chat to'liq ekran, "Orqaga", sozlamalarda texnologiya yozuvi yo'q, profil saqlandi.
+- **Tekshirilmadi:** haqiqiy telefon brauzeri (iOS Safari/Android Chrome) — faqat Chromium emulyatsiyasi; Railway deploy;
+  desktop (Electron) oynasida qo'lda; mobil ilova qurilmada (faqat jest). Ism o'zgarishi boshqalarga real vaqtda yetmaydi.
+
 ### 1-fazada nima tekshirildi
 - `npx turbo run lint typecheck test build` — yashil (core 16, client 13,
   api 20, web 18 unit test).
@@ -497,6 +535,6 @@ packages/
 3. **Do'konlar:** Play Store uchun doimiy keystore; iOS release / App Store.
 4. **Desktop:** ikonkalar, kod imzosi (Apple/Windows), avto-yangilanish.
 5. **Redis:** ko'p API nusxasi, presence va rate limit.
-6. **Profil tahrirlash** (`PATCH /users/me`), veb code-splitting.
+6. **Profil avatari** (S3 sozlangach), veb code-splitting.
 
 Boshqa ixtiyoriy: egalikni o'tkazish, kanal ban ro'yxati.

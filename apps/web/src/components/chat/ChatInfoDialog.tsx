@@ -20,6 +20,7 @@ import { fetchChat } from '../../features/realtime/realtimeThunks';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { AppUser, Chat, UserRole } from '../../types';
 import { errorText } from '../../utils/errors';
+import { listedMembers, subscriberCount } from '../../utils/members';
 
 interface Props {
   chat:    Chat;
@@ -108,8 +109,10 @@ const ChatInfoDialog: React.FC<Props> = ({ chat, open, onClose, onLeft }) => {
     onLeft();
   }, confirm === 'delete' ? 'Chatni o\'chirib bo\'lmadi.' : 'Chatdan chiqib bo\'lmadi.');
 
-  const members = Object.values(chat.participantDetails);
-  const memberCount = chat.memberCount ?? members.length;
+  const allMembers  = Object.values(chat.participantDetails);
+  const members     = listedMembers(chat.type, allMembers);
+  const memberCount = chat.memberCount ?? allMembers.length;
+  const subscribers = subscriberCount(memberCount, allMembers);
 
   return (
     <>
@@ -121,7 +124,7 @@ const ChatInfoDialog: React.FC<Props> = ({ chat, open, onClose, onLeft }) => {
           <Box className="min-w-0">
             <Typography variant="subtitle1" noWrap sx={{ fontWeight: 700 }}>{chat.name}</Typography>
             <Typography variant="caption" color="text.secondary">
-              {memberCount} {isChannel ? 'obunachi' : 'a\'zo'}{isChannel && chat.isPublic ? ' · ochiq kanal' : ''}
+              {isChannel ? `${subscribers} obunachi` : `${memberCount} a'zo`}{isChannel && chat.isPublic ? ' · ochiq kanal' : ''}
             </Typography>
           </Box>
         </DialogTitle>
@@ -199,7 +202,7 @@ const ChatInfoDialog: React.FC<Props> = ({ chat, open, onClose, onLeft }) => {
               <Typography variant="overline" color="text.secondary">{isChannel ? 'Obunachi qo\'shish' : 'A\'zo qo\'shish'}</Typography>
               <UserPicker selected={adding} onChange={setAdding} excludeIds={chat.participants} maxHeight={160} />
               <Box className="flex justify-end">
-                <Button variant="outlined" size="small" disabled={adding.length === 0 || busy} onClick={() => void addMembers()} sx={{ textTransform: 'none' }}>
+                <Button variant="contained" size="small" disabled={adding.length === 0 || busy} onClick={() => void addMembers()} sx={{ textTransform: 'none' }}>
                   Qo'shish{adding.length > 0 ? ` (${adding.length})` : ''}
                 </Button>
               </Box>
