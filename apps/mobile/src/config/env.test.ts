@@ -9,4 +9,10 @@ describe('API manzili', () => {
   it('oxiridagi / olib tashlanadi', () => {
     expect(normalizeApiUrl(' https://api.suhbat.uz// ')).toBe('https://api.suhbat.uz');
   });
+
+  it("sxemasiz host (repo o'zgaruvchisida https:// unutilgan) — https:// qo'shiladi", () => {
+    expect(normalizeApiUrl('suhbatapi-production.up.railway.app')).toBe(
+      'https://suhbatapi-production.up.railway.app',
+    );
+  });
 });

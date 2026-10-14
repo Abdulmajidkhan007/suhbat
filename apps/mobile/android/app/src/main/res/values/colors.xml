@@ -1,0 +1,4 @@
+<resources>
+    <!-- Brend rangi (assets/brand/icon.svg, packages/ui-tokens primary bilan bir xil). -->
+    <color name="brand_primary">#3B82F6</color>
+</resources>

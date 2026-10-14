@@ -3,6 +3,8 @@ productName: suhbat
 copyright: suhbat
 directories:
   output: release
+  # Ikonkalar (scripts/gen-icons.mjs, manba assets/brand/icon.svg). `build/` .gitignore'da — shuning uchun `resources/`.
+  buildResources: resources
 files:
   - dist/main/**
   - dist/preload/**
@@ -12,6 +14,7 @@ extraResources:
   - from: ../web/dist
     to: web
 mac:
+  icon: resources/icon.icns
   category: public.app-category.social-networking
   target:
     - target: dmg
@@ -19,6 +22,7 @@ mac:
   # Imzo/notarizatsiya sertifikatlari yo'q — imzosiz (REJA.md ga qarang).
   identity: null
 win:
+  icon: resources/icon.ico
   target:
     - target: nsis
       arch: [x64]
@@ -26,6 +30,7 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
 linux:
+  icon: resources/icon.png
   # Faqat CI'da qadoqlashni tekshirish uchun (`--dir`); tarqatilmaydi.
   target: dir
   executableName: suhbat

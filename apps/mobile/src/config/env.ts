@@ -1,3 +1,4 @@
+import { normalizeApiUrl } from '@suhbat/client';
 import { Platform } from 'react-native';
 
 // Babel plagini (`babel/inline-api-url.js`) build vaqtida satrga almashtiradi.
@@ -5,8 +6,8 @@ declare const process: { env: { SUHBAT_API_URL?: string } };
 
 const DEV_PORT = 4000;
 
-/** Oxiridagi `/` olib tashlanadi — `@suhbat/client` shuni kutadi. */
-export const normalizeApiUrl = (url: string): string => url.trim().replace(/\/+$/, '');
+/** Oxiridagi `/` olib tashlanadi, sxemasiz hostga `https://` qo'shiladi (`@suhbat/client`). */
+export { normalizeApiUrl };
 
 /**
  * Standart (dev) manzil: Android emulyatorda host mashina `10.0.2.2`,

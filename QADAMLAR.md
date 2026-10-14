@@ -97,24 +97,85 @@ Busiz ham hammasi ishlaydi, faqat **rasm/fayl/ovoz yuborish** ishlamaydi.
 ## 8. GitHub: API manzili
 
 GitHub repo → **Settings → Secrets and variables → Actions → Variables → New repository variable**:
-- Nomi `SUHBAT_API_URL`, qiymati — API manzili (oxirida `/` siz).
+- Nomi `SUHBAT_API_URL`
+- Qiymati — API manzili **to'liq**, `https://` bilan boshlanib, oxirida `/` **siz**:
 
-Desktop va Android ilovalar shu manzilga ulanadigan qilib quriladi. **Bu bo'lmasa release build ataylab yiqiladi.**
+| | Qiymat |
+|---|---|
+| ✅ To'g'ri | `https://suhbatapi-production.up.railway.app` |
+| ❌ Noto'g'ri | `suhbatapi-production.up.railway.app` (`https://` yo'q — telefonda "Tarmoq xatosi") |
+| ❌ Noto'g'ri | `https://suhbatapi-production.up.railway.app/` (oxirida `/`) |
+| ❌ Noto'g'ri | `http://...` (Android release faqat `https://` bilan ishlaydi) |
 
-## 9. (Ixtiyoriy) Android imzosi
+Desktop va Android ilovalar shu manzilga ulanadigan qilib quriladi (manzil ilova ichiga qotadi —
+o'zgartirsangiz, yangi release kerak). Qiymat bo'sh yoki `https://` siz bo'lsa **release build ataylab
+yiqiladi** va Actions logida sababi yoziladi.
+
+## 9. (Ixtiyoriy) Android imzosi — telefonda, Termux bilan
 
 Bo'lmasa APK vaqtinchalik kalit bilan imzolanadi (fayl nomi `...-sinov-uchun-debug-imzo.apk`) —
-sinash uchun yetadi, do'kon yoki doimiy tarqatish uchun yaramaydi. Haqiqiy kalit (bir marta):
+sinash uchun yetadi, lekin **har release'da kalit boshqa**: yangi versiyani o'rnatish uchun eskisini
+o'chirish kerak bo'ladi. Doimiy kalit bir marta yaratiladi va keyin hamma release shu kalit bilan
+imzolanadi.
+
+> ⚠️ **Muhim:**
+> - Keystore fayli va parollarni **hech qachon** chatga (shu jumladan Claude'ga), repoga, issue/PR'ga
+>   yubormang va skrinshot qilmang. Ular faqat GitHub **Secrets** ga kiritiladi.
+> - Keystore'ning **zaxira nusxasini** saqlang (masalan, shifrlangan arxivda bulutga + kompyuterga) va
+>   parollarni parol menejeriga yozib qo'ying. Kalit yoki parol yo'qolsa, o'rnatilgan ilovani **yangilab
+>   bo'lmaydi** — hamma foydalanuvchi uni o'chirib qayta o'rnatishi kerak bo'ladi (Play Market'ga
+>   chiqqandan keyin esa umuman yangilab bo'lmaydi).
+
+### 9.1. Termux'ni o'rnatish
+Termux'ni **F-Droid** dan o'rnating (https://f-droid.org/packages/com.termux/). Play Market'dagi
+versiyasi eskirgan va paketlar o'rnatilmasligi mumkin.
+
+### 9.2. Kalit yaratish
+Termux'ni oching va buyruqlarni birma-bir kiriting:
 ```bash
+pkg update -y
+pkg install -y openjdk-17
+termux-setup-storage            # telefon xotirasiga ruxsat so'raydi — "Ruxsat berish"
+cd ~
 keytool -genkeypair -v -keystore suhbat-release.keystore -alias suhbat \
   -keyalg RSA -keysize 2048 -validity 10000
-base64 -w0 suhbat-release.keystore      # macOS: base64 -i suhbat-release.keystore
 ```
-**Keystore faylini va parolni xavfsiz joyda saqlang** (yo'qolsa, o'rnatilgan ilovani yangilab bo'lmaydi).
-Repoga **qo'shmang**. GitHub → **Settings → Secrets and variables → Actions → Secrets** ga 4 ta qo'shing
-(to'rttasi ham shart):
-`ANDROID_KEYSTORE_BASE64` (yuqoridagi base64 matni), `ANDROID_KEYSTORE_PASSWORD`,
-`ANDROID_KEY_ALIAS` (`suhbat`), `ANDROID_KEY_PASSWORD`.
+`keytool` so'raydi:
+1. **Keystore paroli** (kamida 6 belgi) — ikki marta. Bu `ANDROID_KEYSTORE_PASSWORD`.
+2. Ism, tashkilot, shahar, mamlakat (`UZ`) — ixtiyoriy, Enter bosib o'tsa ham bo'ladi; oxirida `yes`.
+
+Kalit paroli alohida so'ralmaydi (PKCS12 formatida u keystore paroli bilan bir xil) —
+`ANDROID_KEY_PASSWORD` ham shu parol.
+
+Kompyuterda bo'lsangiz ham xuddi shu `keytool` buyrug'i (JDK 17+ kerak); macOS'da base64: `base64 -i suhbat-release.keystore`.
+
+### 9.3. base64 matnini olish
+```bash
+base64 -w0 suhbat-release.keystore > suhbat-release.keystore.b64
+cp suhbat-release.keystore suhbat-release.keystore.b64 ~/storage/downloads/
+```
+Endi telefonning **Downloads** papkasida ikki fayl bor: `suhbat-release.keystore` (zaxiralang!) va
+`suhbat-release.keystore.b64` (bir qatorli matn). `.b64` faylni matn muharririda oching va **butun
+matnni** nusxalang (yoki Termux'da `cat suhbat-release.keystore.b64` — uzun bitta qator).
+
+### 9.4. GitHub secret'lari
+GitHub → repo → **Settings → Secrets and variables → Actions → Secrets → New repository secret**.
+To'rttasi ham shart (bittasi yo'q bo'lsa vaqtinchalik kalit ishlatiladi):
+
+| Nomi | Qiymati |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `.b64` fayldagi butun matn |
+| `ANDROID_KEYSTORE_PASSWORD` | 9.2 dagi keystore paroli |
+| `ANDROID_KEY_ALIAS` | `suhbat` |
+| `ANDROID_KEY_PASSWORD` | keystore paroli bilan bir xil |
+
+### 9.5. Tozalash
+Secret'larni saqlagach, `.b64` faylini o'chiring (keystore'ning o'zi zaxirada qolsin):
+```bash
+rm ~/suhbat-release.keystore.b64 ~/storage/downloads/suhbat-release.keystore.b64
+```
+Keyingi release'da APK nomi `suhbat-vX.Y.Z.apk` bo'ladi (`sinov-uchun` so'zisiz). Vaqtinchalik kalit
+bilan imzolangan eski APK o'rnatilgan bo'lsa, birinchi marta uni o'chirib, yangisini o'rnating.
 
 ## 10. Birinchi release (`v0.1.0`)
 

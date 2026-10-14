@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-13 (4-faza: push bildirishnomalar — PR ko'rib chiqishda)
+> Oxirgi yangilanish: 2026-10-14 (v0.1.1: API URL himoyasi, ilova ikonkasi — PR ko'rib chiqishda)
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -193,13 +193,43 @@
   aniq sabab ko'rinmadi); job boshida keraksiz SDK'lar o'chiriladi va `--max-workers=3` — shundan keyin yashil.
 - **Tekshirilmagan:** haqiqiy FCM (Google'ga so'rov — faqat soxta), **haqiqiy qurilma/emulyatorda push
   qabul qilish**, iOS APNs/entitlement, iOS native build (static frameworks) — faqat CI'da quriladi.
-  `release.yml` ga `GOOGLE_SERVICES_JSON` ulanmagan (boshqa ishchi ish olib bormoqda) — release APK'da push o'chiq.
+  `release.yml` ga `GOOGLE_SERVICES_JSON` v0.1.1 da ulandi (secret bo'lsa push bilan; haqiqiy secret bilan sinalmagan).
 - **Cheklovlar:** "onlayn" — bitta API nusxasi xotirasidagi presence (ko'p nusxada Redis kerak); socket ulangan,
   lekin ilova fonda bo'lsa (iOS socket'ni tez uzadi, Android ba'zan saqlaydi) push kelmasligi mumkin; chat ochiq
   bo'lishidan qat'i nazar oflayn a'zoga har xabarga push (mute/sozlama yo'q); push navbati xotirada
   (API qayta ishga tushsa yuborilmagan push yo'qoladi, qayta urinish yo'q); token egasini almashtirish (upsert)
   tokenni bilgan har kim uchun ochiq. Xabar o'qilganda bildirishnoma qurilmadan olib tashlanmaydi.
 - **Web Push — keyin** (service worker + VAPID/FCM web; `platform: 'web'` API'da tayyor).
+
+### v0.1.1 (2026-10-14) — v0.1.0 sinovidan keyingi tuzatishlar
+- **Muammo (egasi telefonda):** ro'yxatdan o'tishda "Tarmoq xatosi" — `SUHBAT_API_URL` `https://` siz edi
+  (`suhbatapi-production.up.railway.app`), ilova so'rovni nisbiy manzilga yuborgan. Ikonka — shablondagi yashil robot.
+- **API URL:** `normalizeApiUrl` endi `@suhbat/client` da (veb va mobil umumiy): trim, oxiridagi `/`, sxemasiz
+  hostga `https://` (unit test: client 3, mobil 1). Veb `VITE_API_URL` bo'sh satr bo'lsa ham standartga tushadi.
+  `scripts/check-api-url.sh` — release'da desktop va android job'lari bo'sh/sxemasiz/bo'sh joyli qiymatda yiqiladi,
+  android uchun faqat `https://` (`https-only`). CI `check` job skriptni yaxshi/yomon qiymatlar bilan sinaydi.
+  `mobile.yml` `SUHBAT_API_URL` ishlatmaydi (standart dev manzillar) — u yerda URL tekshiruvi yo'q.
+- **Cleartext:** RN Gradle plagini release'da `usesCleartextTraffic=false`, debug'da `true` qiladi
+  (`AgpConfiguratorUtils.kt`); endi `scripts/verify-apk.sh` buni release APK manifestidan (`aapt2 dump xmltree`) tekshiradi.
+- **Ikonka:** manba `assets/brand/icon.svg` (+ adaptive qatlamlar `icon-background.svg`, `icon-foreground.svg`),
+  generatsiya `npm run icons` (`scripts/gen-icons.mjs`, `sharp` root devDependency; ICO/ICNS o'zimiz yozamiz —
+  ichida PNG). Natijalar commit qilingan: Android `mipmap-*` (ic_launcher, _round, _foreground, _background) +
+  `mipmap-anydpi-v26`, iOS `AppIcon.appiconset` (alfa'siz), desktop `apps/desktop/resources/icon.{png,icns,ico}`
+  (`build/` .gitignore'da bo'lgani uchun `resources/`; electron-builder `buildResources` va `mac/win/linux.icon`),
+  veb favicon.ico/icon.svg/logo192/512/apple-touch-icon/maskable + manifest (`theme_color` #3B82F6).
+  Android 12+ ishga tushish ekrani foni `@color/brand_primary` (`values-v31/styles.xml`); Android 11 va pastda
+  oq/qora fon o'zgarmadi; iOS LaunchScreen o'zgarmadi.
+  `scripts/verify-apk.sh` (mobile.yml va release.yml): JS bundle, `mipmap/ic_launcher(_round)` adaptive,
+  foreground/background resurslari APK'da, cleartext o'chiq.
+- **release.yml android:** `GOOGLE_SERVICES_JSON` env (Gradle faylni yozadi), yo'q bo'lsa `::warning`;
+  diskda joy bo'shatish va `--max-workers=3` (mobile.yml dagi kabi). Release matni `CHANGELOG.md` dagi teg bo'limidan.
+- **QADAMLAR.md:** 8 — `SUHBAT_API_URL` to'g'ri/noto'g'ri misollar; 9 — Termux bilan keystore (openjdk-17, keytool,
+  base64, 4 secret), maxfiylik va zaxira ogohlantirishi.
+- **Tekshirildi (lokal):** `turbo run lint typecheck test build` yashil; ikonkalar ko'zda (kontakt varag'i);
+  ICNS/ICO Pillow bilan o'qildi (11 va 7 o'lcham); `check-api-url.sh` qo'lda. CI natijasi — PR'da.
+- **Tekshirilmadi:** ikonka haqiqiy telefon/launcher'da, macOS dmg / Windows exe ichidagi ikonka (faqat release
+  teg'ida quriladi), iOS build'da AppIcon (CI ios job Debug simulyator), haqiqiy `GOOGLE_SERVICES_JSON` bilan
+  release, haqiqiy keystore.
 
 ### 1-fazada nima tekshirildi
 - `npx turbo run lint typecheck test build` — yashil (core 16, client 13,
@@ -268,7 +298,7 @@
 - **Tekshirilmadi:** macOS dmg va Windows nsis build'lari (Linux konteynerda yo'q — faqat
   tag'da CI), haqiqiy `safeStorage` shifrlash aylanishi (konteynerda kalit ombori yo'q:
   Linux'da `set` jim o'tkazib yuboriladi), release workflow (na tag bilan, na `workflow_dispatch` bilan haqiqiy ishga tushirilmagan; faqat actionlint o'tdi; mavjud release'ga `upload --clobber` yo'li ham sinalmagan),
-  desktop ↔ jonli API (CORS `suhbat://app`), ikonkalar (standart Electron ikonkasi), MinIO bilan
+  desktop ↔ jonli API (CORS `suhbat://app`), ikonkalar (v0.1.1 da qo'shildi), MinIO bilan
   tozalash e2e (soxta S3 bilan o'tgan).
 
 ### 3b-fazada nima qilindi (mobil)
