@@ -1,4 +1,4 @@
-import { HttpException, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import {
@@ -31,32 +31,31 @@ import type { Server, Socket } from 'socket.io';
 import type { ZodType } from 'zod';
 import type { JwtPayload } from '../auth/auth.service';
 import { RateLimiter } from '../common/rate-limiter';
+import { runWithAck } from '../common/ws-ack';
 import { PushService } from '../push/push.service';
 import { ChatsService } from './chats.service';
 import type { MemberChange } from './chats.service';
+import { ConnectionHoldService } from './connection-hold.service';
 import { PresenceService } from './presence.service';
 
-interface SocketData {
+export interface SocketData {
   userId: string;
   /** Access tokenning tugash vaqti (UNIX soniya); ulanish shu paytda uziladi. */
   exp?:   number;
 }
-type ChatServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
-type ChatSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+export type ChatServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+export type ChatSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
-const userRoom = (userId: string) => `user:${userId}`;
+export const userRoom = (userId: string) => `user:${userId}`;
 const rooms = (ids: string[]) => ids.map(userRoom);
 
 /** `setTimeout` chegarasi (~24.8 kun); undan uzoq tokenlar uchun taymer qayta quriladi. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
+/** Token tugagan, lekin socket band (qo'ng'iroq) — shuncha vaqtdan keyin qayta tekshiriladi. */
+const HOLD_RECHECK_MS = 5_000;
 
 /** `message:send` ack xatosi: juda tez-tez yuborilmoqda. */
 export const RATE_LIMITED = 'Juda tez-tez yuboryapsiz, biroz kuting';
-
-const errorText = (e: unknown): string => {
-  if (e instanceof HttpException) return e.message;
-  return 'Kutilmagan xato';
-};
 
 /**
  * Real vaqt: xabar, "yozmoqda", o'qildi, onlayn. Har socket `user:<id>`
@@ -78,6 +77,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     private readonly chats: ChatsService,
     private readonly presence: PresenceService,
     private readonly push: PushService,
+    private readonly holds: ConnectionHoldService,
     config: ConfigService,
   ) {
     const positive = (key: string, fallback: number) => {
@@ -280,17 +280,30 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     this.server.to(rooms(change.recipientIds)).emit(WsEvent.ChatMember, change.event);
   }
 
-  /** Token tugaganda ulanishni uzadi; mijoz yangi token bilan qayta ulanadi (`@suhbat/client`). */
+  /**
+   * Token tugaganda ulanishni uzadi; mijoz yangi token bilan qayta ulanadi (`@suhbat/client`).
+   * Socket faol qo'ng'iroqda bo'lsa uzish qo'ng'iroq tugaguncha kechiktiriladi.
+   */
   private scheduleExpiry(socket: ChatSocket) {
     const { exp } = socket.data;
     if (exp === undefined) return;
     const wait = Math.max(0, exp * 1000 - Date.now());
     const timer = setTimeout(() => {
       if (wait > MAX_TIMER_MS) return this.scheduleExpiry(socket);
+      if (this.holds.isHeld(socket.id)) return this.recheckExpiry(socket);
       socket.disconnect(true);
     }, Math.min(wait, MAX_TIMER_MS));
     timer.unref();
     this.clearExpiry(socket);
+    this.expiryTimers.set(socket.id, timer);
+  }
+
+  private recheckExpiry(socket: ChatSocket) {
+    const timer = setTimeout(() => {
+      if (this.holds.isHeld(socket.id)) return this.recheckExpiry(socket);
+      socket.disconnect(true);
+    }, HOLD_RECHECK_MS);
+    timer.unref();
     this.expiryTimers.set(socket.id, timer);
   }
 
@@ -300,14 +313,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     this.expiryTimers.delete(socket.id);
   }
 
-  private async handle<P, R>(schema: ZodType<P>, body: unknown, fn: (p: P) => Promise<R>): Promise<WsAck<R>> {
-    const parsed = schema.safeParse(body);
-    if (!parsed.success) return { ok: false, error: 'Validation failed' };
-    try {
-      return { ok: true, data: await fn(parsed.data) };
-    } catch (e) {
-      if (!(e instanceof HttpException)) this.logger.error('ws handler', e as Error);
-      return { ok: false, error: errorText(e) };
-    }
+  private handle<P, R>(schema: ZodType<P>, body: unknown, fn: (p: P) => Promise<R>): Promise<WsAck<R>> {
+    return runWithAck(this.logger, schema, body, fn);
   }
 }

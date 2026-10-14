@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
+import { CallsModule } from './calls/calls.module';
 import { ChatsModule } from './chats/chats.module';
 import { throttleOptions } from './common/throttle';
 import { HealthModule } from './health/health.module';
@@ -18,6 +19,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     UsersModule,
     ChatsModule,
+    CallsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

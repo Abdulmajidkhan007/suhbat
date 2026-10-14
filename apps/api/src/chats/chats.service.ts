@@ -17,11 +17,13 @@ import type {
   MessagesQuery,
   PublicChannel,
   PublicChannelsQuery,
+  PublicUser,
   UpdateChatInput,
   WsChatMember,
   WsChatMemberAction,
   WsChatUpdated,
 } from '@suhbat/core';
+import { toPublicUser } from '../auth/auth.service';
 import { Prisma } from '../generated/prisma/client';
 import type { Attachment as AttachmentRow, Message as MessageRow } from '../generated/prisma/client';
 import { MediaService } from '../media/media.service';
@@ -213,6 +215,21 @@ export class ChatsService {
     return access;
   }
 
+  /**
+   * Qo'ng'iroq: faqat 1:1 chat a'zosi, hech biri bloklamagan bo'lsa.
+   * Qaytaradi — ikkinchi a'zoning (qabul qiluvchining) id'si.
+   */
+  async callPeer(chatId: string, me: string): Promise<string> {
+    const access = await this.access(chatId, me);
+    if (access.type !== 'direct') throw new BadRequestException('Qo\'ng\'iroq faqat 1:1 chatda mumkin');
+    const other = access.memberIds.find((id) => id !== me);
+    if (!other) throw new NotFoundException('Chat topilmadi');
+    if (await this.isBlockedBetween(me, other)) {
+      throw new ForbiddenException('Bu foydalanuvchiga qo\'ng\'iroq qilib bo\'lmaydi (bloklangan)');
+    }
+    return other;
+  }
+
   /** Ikki tomondan biri ikkinchisini bloklaganmi. */
   private async isBlockedBetween(a: string, b: string): Promise<boolean> {
     const n = await this.prisma.userBlock.count({
@@ -389,6 +406,28 @@ export class ChatsService {
     return { message: await this.present(row, attachment), memberIds: access.memberIds };
   }
 
+  /**
+   * Tizim xabari (masalan, qo'ng'iroq natijasi). Huquq tekshirilmaydi — chaqiruvchi
+   * (server ichidagi mantiq) javobgar. Yuboruvchi uchun o'qilgan hisoblanadi.
+   */
+  async createSystemMessage(
+    chatId: string,
+    senderId: string,
+    content: string,
+  ): Promise<{ message: Message; memberIds: string[] }> {
+    const row = await this.prisma.$transaction(async (tx) => {
+      const message = await tx.message.create({ data: { chatId, senderId, content, type: 'system' } });
+      await tx.chat.update({ where: { id: chatId }, data: { lastMessageAt: message.createdAt } });
+      await tx.chatMember.updateMany({
+        where: { chatId, userId: senderId },
+        data:  { lastReadAt: message.createdAt },
+      });
+      return message;
+    });
+    const members = await this.prisma.chatMember.findMany({ where: { chatId }, select: { userId: true } });
+    return { message: await this.present(row, null), memberIds: members.map((m) => m.userId) };
+  }
+
   /** Faqat o'z matnli xabari (kanalda — yozish huquqi saqlanib qolgan bo'lsa). */
   async editMessage(
     chatId: string,
@@ -472,6 +511,10 @@ export class ChatsService {
       select: { id: true, lastSeenAt: true },
     });
     return new Map(rows.map((r) => [r.id, r.lastSeenAt!.toISOString()]));
+  }
+
+  async publicUser(id: string): Promise<PublicUser> {
+    return toPublicUser(await this.prisma.user.findUniqueOrThrow({ where: { id } }));
   }
 
   async touchLastSeen(userId: string, at: Date): Promise<void> {

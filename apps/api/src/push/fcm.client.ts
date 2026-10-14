@@ -21,7 +21,35 @@ export interface FcmMessage {
   data:         Record<string, string>;
   /** Bir chatning bildirishnomalari bitta guruhga (Android `tag`, iOS `thread-id`). */
   threadId:     string;
+  /** Android kanali (ilovada yaratilgan): standart `messages`, qo'ng'iroq — `calls`. */
+  channelId?:   string;
+  /** Shuncha soniyadan keyin yetkazilmagan bo'lsa tashlab yuboriladi (eskirgan qo'ng'iroq kelmasin). */
+  ttlSeconds?:  number;
 }
+
+/** FCM HTTP v1 so'rov tanasi (`message`) — alohida, test qilish oson bo'lishi uchun. */
+export const buildFcmPayload = (token: string, message: FcmMessage, nowMs = Date.now()) => {
+  const ttl = message.ttlSeconds;
+  return {
+    message: {
+      token,
+      notification: message.notification,
+      data:         message.data,
+      android:      {
+        priority:     'HIGH',
+        ...(ttl !== undefined ? { ttl: `${ttl}s` } : {}),
+        notification: { channel_id: message.channelId ?? 'messages', tag: message.threadId, sound: 'default' },
+      },
+      apns: {
+        headers: {
+          'apns-priority': '10',
+          ...(ttl !== undefined ? { 'apns-expiration': String(Math.floor(nowMs / 1000) + ttl) } : {}),
+        },
+        payload: { aps: { 'sound': 'default', 'thread-id': message.threadId } },
+      },
+    },
+  };
+};
 
 /**
  * `ok` — yuborildi; `invalid` — token endi yaroqsiz (o'chirilishi kerak);
@@ -112,21 +140,7 @@ export class FcmClient {
   async send(token: string, message: FcmMessage): Promise<FcmResult> {
     const account = this.account;
     if (!account) return 'error';
-    const body = JSON.stringify({
-      message: {
-        token,
-        notification: message.notification,
-        data:         message.data,
-        android:      {
-          priority:     'HIGH',
-          notification: { channel_id: 'messages', tag: message.threadId, sound: 'default' },
-        },
-        apns: {
-          headers: { 'apns-priority': '10' },
-          payload: { aps: { 'sound': 'default', 'thread-id': message.threadId } },
-        },
-      },
-    });
+    const body = JSON.stringify(buildFcmPayload(token, message));
     const url = `https://fcm.googleapis.com/v1/projects/${encodeURIComponent(account.project_id)}/messages:send`;
     try {
       let res = await this.post(url, body, await this.getAccessToken(account));

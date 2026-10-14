@@ -5,12 +5,14 @@ import { PushModule } from '../push/push.module';
 import { ChatGateway } from './chat.gateway';
 import { ChatsController } from './chats.controller';
 import { ChatsService } from './chats.service';
+import { ConnectionHoldService } from './connection-hold.service';
 import { MediaController } from './media.controller';
 import { PresenceService } from './presence.service';
 
 @Module({
   imports:     [AuthModule, MediaModule, PushModule],
   controllers: [ChatsController, MediaController],
-  providers:   [ChatsService, PresenceService, ChatGateway],
+  providers:   [ChatsService, PresenceService, ConnectionHoldService, ChatGateway],
+  exports:     [ChatsService, PresenceService, ConnectionHoldService, ChatGateway],
 })
 export class ChatsModule {}
