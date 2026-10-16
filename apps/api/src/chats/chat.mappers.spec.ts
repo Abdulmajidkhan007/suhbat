@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { toSelfUser } from '../auth/auth.service';
-import { decodeCursor, encodeCursor, toChatMember } from './chat.mappers';
+import { decodeCursor, encodeCursor, toChatMember, toReply, truncate } from './chat.mappers';
 import { directKeyOf } from './chats.service';
 
 describe('kursor', () => {
@@ -38,5 +38,28 @@ describe('foydalanuvchi ko\'rinishlari', () => {
     expect(member.user).not.toHaveProperty('passwordHash');
     expect(toSelfUser(row).email).toBe('ali@test.uz');
     expect(toSelfUser(row)).not.toHaveProperty('passwordHash');
+  });
+});
+
+describe('javob (replyTo) ko\'rinishi', () => {
+  const base = {
+    id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', chatId: '7f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f',
+    senderId: '8f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', type: 'text' as const, content: 'salom',
+    createdAt: new Date(), editedAt: null, deletedAt: null, replyToId: null, attachment: null,
+  };
+
+  it('qisqartirish UTF-16 chegarasida, emoji o\'rtasidan kesmaydi', () => {
+    expect(truncate('abc', 5)).toBe('abc');
+    expect(truncate('😀😀😀', 5)).toBe('😀😀');
+    expect(truncate('😀😀😀', 5).length).toBeLessThanOrEqual(5);
+  });
+
+  it('tirik xabar — matn va biriktirma turi; o\'chirilgan — yashirin', () => {
+    expect(toReply({ ...base, attachment: { kind: 'image' } })).toEqual({
+      id: base.id, senderId: base.senderId, content: 'salom', kind: 'image', deleted: false,
+    });
+    expect(toReply({ ...base, content: '', deletedAt: new Date(), attachment: { kind: 'image' } })).toEqual({
+      id: base.id, senderId: base.senderId, content: '', kind: null, deleted: true,
+    });
   });
 });

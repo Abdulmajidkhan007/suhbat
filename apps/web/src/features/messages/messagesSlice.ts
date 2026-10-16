@@ -86,7 +86,12 @@ const messagesSlice = createSlice({
     messageDeleted(state, action: PayloadAction<{ chatId: string; messageId: string }>) {
       const { chatId, messageId } = action.payload;
       const list = state.messagesByChatId[chatId];
-      if (list) state.messagesByChatId[chatId] = list.filter((m) => m.id !== messageId);
+      if (!list) return;
+      state.messagesByChatId[chatId] = list.filter((m) => m.id !== messageId);
+      // Unga berilgan javoblarda — "O'chirilgan xabar".
+      for (const m of state.messagesByChatId[chatId]) {
+        if (m.replyTo?.id === messageId) m.replyTo = { ...m.replyTo, content: '', kind: null, deleted: true };
+      }
     },
     markMessageFailed(state, action: PayloadAction<{ chatId: string; tempId: string }>) {
       const msg = state.messagesByChatId[action.payload.chatId]?.find((m) => m.id === action.payload.tempId);

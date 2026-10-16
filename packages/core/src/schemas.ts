@@ -63,6 +63,24 @@ export const AttachmentSchema = z.object({
 });
 export type Attachment = z.infer<typeof AttachmentSchema>;
 
+/** Javob qilingan xabar uchun sarlavha matni shu uzunlikdan qisqartiriladi. */
+export const REPLY_PREVIEW_MAX = 200;
+
+/**
+ * Javob berilgan (asl) xabarning qisqa ko'rinishi — to'liq xabar emas. Asl xabar o'chirilgan bo'lsa
+ * `deleted: true`, matn bo'sh (mijoz "O'chirilgan xabar" deb ko'rsatadi).
+ */
+export const MessageReplySchema = z.object({
+  id:         z.uuid(),
+  senderId:   z.uuid(),
+  /** Matn boshi (≤ REPLY_PREVIEW_MAX); biriktirmali xabarda izoh bo'lishi mumkin. */
+  content:    z.string().max(REPLY_PREVIEW_MAX),
+  /** Biriktirma turi (matnsiz rasm/ovoz uchun "🖼 Rasm" kabi ko'rsatish). */
+  kind:       AttachmentKindSchema.nullable(),
+  deleted:    z.boolean(),
+});
+export type MessageReply = z.infer<typeof MessageReplySchema>;
+
 export const MessageSchema = z.object({
   id:         z.uuid(),
   chatId:     z.uuid(),
@@ -73,6 +91,8 @@ export const MessageSchema = z.object({
   attachment: AttachmentSchema.nullable(),
   createdAt:  isoDate,
   editedAt:   isoDate.nullable(),
+  /** Javob bo'lsa — asl xabar; javob emas — null. Eski server javobida maydon yo'q bo'lishi mumkin. */
+  replyTo:    MessageReplySchema.nullish(),
 });
 export type Message = z.infer<typeof MessageSchema>;
 
@@ -364,6 +384,8 @@ export const MessageBodySchema = z.object({
   content:      MessageContentSchema,
   /** `POST /media/upload-url` + yuklashdan keyin; matn o'rniga/bilan yuboriladi. */
   attachmentId: z.uuid().optional(),
+  /** Shu chatdagi (o'chirilmagan) xabarga javob. */
+  replyToId:    z.uuid().optional(),
   /** Mijoz tomonidagi vaqtinchalik id (optimistik xabarni almashtirish uchun). */
   clientId:     z.string().min(1).max(64).optional(),
 });

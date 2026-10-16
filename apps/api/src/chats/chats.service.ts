@@ -29,6 +29,13 @@ import type { Attachment as AttachmentRow, Message as MessageRow } from '../gene
 import { MediaService } from '../media/media.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { decodeCursor, encodeCursor, toChatMember, toMessage, toSummary } from './chat.mappers';
+import type { ReplyRow } from './chat.mappers';
+
+/** Xabar bilan birga: biriktirma va javob berilgan xabar (uning biriktirma turi bilan). */
+const messageInclude = {
+  attachment: true,
+  replyTo:    { include: { attachment: { select: { kind: true } } } },
+} satisfies Prisma.MessageInclude;
 
 const summaryInclude = (me: string) =>
   ({
@@ -44,7 +51,7 @@ const summaryInclude = (me: string) =>
       where:   { deletedAt: null },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take:    1,
-      include: { attachment: true },
+      include: messageInclude,
     },
     _count: { select: { members: true } },
   }) satisfies Prisma.ChatInclude;
@@ -365,12 +372,12 @@ export class ChatsService {
       where:   { chatId, deletedAt: null, ...cursorWhere },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take:    query.limit + 1,
-      include: { attachment: true },
+      include: messageInclude,
     });
     const hasMore = rows.length > query.limit;
     const page = hasMore ? rows.slice(0, query.limit) : rows;
     return {
-      items:      await Promise.all(page.reverse().map((r) => this.present(r, r.attachment))),
+      items:      await Promise.all(page.reverse().map((r) => this.present(r, r.attachment, r.replyTo))),
       nextCursor: hasMore ? encodeCursor(page[0]) : null,
     };
   }
@@ -380,12 +387,14 @@ export class ChatsService {
     me: string,
     content: string,
     attachmentId?: string,
+    replyToId?: string,
   ): Promise<{ message: Message; memberIds: string[] }> {
     const access = await this.assertCanWrite(chatId, me);
+    const replyTo = replyToId ? await this.requireReplyTarget(chatId, replyToId) : null;
     const attachment = attachmentId ? await this.media.requireReady(attachmentId, me, chatId) : null;
     const row = await this.prisma.$transaction(async (tx) => {
       const message = await tx.message.create({
-        data: { chatId, senderId: me, content, type: attachment?.kind ?? 'text' },
+        data: { chatId, senderId: me, content, type: attachment?.kind ?? 'text', replyToId: replyTo?.id ?? null },
       });
       if (attachment) {
         // Bir biriktirma ikki xabarga biriktirilmasligi uchun shartli yangilash.
@@ -403,7 +412,20 @@ export class ChatsService {
       });
       return message;
     });
-    return { message: await this.present(row, attachment), memberIds: access.memberIds };
+    return { message: await this.present(row, attachment, replyTo), memberIds: access.memberIds };
+  }
+
+  /**
+   * Javob faqat shu chatdagi tirik (o'chirilmagan, tizim xabari bo'lmagan) xabarga. Boshqa chat
+   * xabari id'si — 400 (begona chat xabari borligini ham oshkor qilmaydi).
+   */
+  private async requireReplyTarget(chatId: string, replyToId: string): Promise<ReplyRow> {
+    const target = await this.prisma.message.findFirst({
+      where:   { id: replyToId, chatId, deletedAt: null, type: { not: 'system' } },
+      include: { attachment: { select: { kind: true } } },
+    });
+    if (!target) throw new BadRequestException('Javob berilayotgan xabar bu suhbatda topilmadi');
+    return target;
   }
 
   /**
@@ -441,10 +463,11 @@ export class ChatsService {
     if (found.type !== 'text') throw new BadRequestException('Faqat matnli xabar tahrirlanadi');
     if (!canWrite(access.type, access.role)) throw new ForbiddenException('Kanalda faqat adminlar yozishi mumkin');
     const row = await this.prisma.message.update({
-      where: { id: messageId },
-      data:  { content, editedAt: new Date() },
+      where:   { id: messageId },
+      data:    { content, editedAt: new Date() },
+      include: { replyTo: { include: { attachment: { select: { kind: true } } } } },
     });
-    return { message: await this.present(row, null), memberIds: access.memberIds };
+    return { message: await this.present(row, null, row.replyTo), memberIds: access.memberIds };
   }
 
   /**
@@ -575,12 +598,14 @@ export class ChatsService {
     };
   }
 
-  private present(m: MessageRow, attachment: AttachmentRow | null): Promise<Message> {
-    return (attachment ? this.media.toDto(attachment) : Promise.resolve(null)).then((a) => toMessage(m, a));
+  private present(m: MessageRow, attachment: AttachmentRow | null, replyTo: ReplyRow | null = null): Promise<Message> {
+    return (attachment ? this.media.toDto(attachment) : Promise.resolve(null)).then((a) => toMessage(m, a, replyTo));
   }
 
-  private async presentLast(m: (MessageRow & { attachment: AttachmentRow | null }) | undefined): Promise<Message | null> {
-    return m ? this.present(m, m.attachment) : null;
+  private async presentLast(
+    m: (MessageRow & { attachment: AttachmentRow | null; replyTo: ReplyRow | null }) | undefined,
+  ): Promise<Message | null> {
+    return m ? this.present(m, m.attachment, m.replyTo) : null;
   }
 
   private async unreadCounts(me: string, chatId?: string): Promise<Map<string, number>> {

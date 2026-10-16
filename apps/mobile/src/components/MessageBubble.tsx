@@ -9,6 +9,7 @@ import { useStyles, useTheme } from '../theme/ThemeProvider';
 import type { Palette } from '../theme/ThemeProvider';
 import { avatarColor, formatTime, messagePreview } from '../utils/format';
 import { Icon } from './icon/Icon';
+import { ReplyQuote } from './ReplyQuote';
 import { StatusTick } from './StatusTick';
 import type { TickState } from './StatusTick';
 
@@ -21,12 +22,20 @@ interface Props {
   tail?:        boolean;
   onRetry?:     (message: LocalMessage) => void;
   onLongPress?: (message: LocalMessage) => void;
+  /** Javob berilgan xabar muallifining ismi (`message.replyTo` bo'lsa). */
+  replyName?:   string;
+  /** Javob blokini bosish — asl xabarga o'tish. */
+  onReplyPress?: (messageId: string) => void;
+  /** Asl xabarga o'tilganda qisqa yoritish. */
+  highlighted?: boolean;
 }
 
 export const tickState = (message: LocalMessage, status: MessageStatus): TickState =>
   message.local ?? status;
 
-export const MessageBubble = memo(({ message, own, status, senderName, tail = true, onRetry, onLongPress }: Props) => {
+export const MessageBubble = memo(({
+  message, own, status, senderName, tail = true, onRetry, onLongPress, replyName, onReplyPress, highlighted = false,
+}: Props) => {
   const styles = useStyles(createStyles);
   const { palette } = useTheme();
   const failed = message.local === 'failed';
@@ -52,6 +61,7 @@ export const MessageBubble = memo(({ message, own, status, senderName, tail = tr
   const tick = tickState(message, status);
   const label = [
     own ? t('common.you') : senderName,
+    message.replyTo ? t('reply.to', { name: replyName ?? t('reply.unknownSender') }) : null,
     attachment ? messagePreview({ ...message, content: '' }) : null,
     message.content,
     message.editedAt ? t('chat.edited') : null,
@@ -60,7 +70,7 @@ export const MessageBubble = memo(({ message, own, status, senderName, tail = tr
   ].filter(Boolean).join(', ');
 
   return (
-    <View style={[styles.row, own && styles.rowOwn, !tail && styles.rowGrouped]}>
+    <View style={[styles.row, own && styles.rowOwn, !tail && styles.rowGrouped, highlighted && styles.highlighted]}>
       <Pressable
         onPress={onPress}
         onLongPress={onLongPress ? () => onLongPress(message) : undefined}
@@ -80,6 +90,14 @@ export const MessageBubble = memo(({ message, own, status, senderName, tail = tr
       >
         {senderName && !own ? (
           <Text style={[styles.sender, { color: avatarColor(message.senderId) }]} numberOfLines={1}>{senderName}</Text>
+        ) : null}
+        {message.replyTo ? (
+          <ReplyQuote
+            reply={message.replyTo}
+            name={replyName ?? t('reply.unknownSender')}
+            textColor={own ? palette.bubbleOwnText : palette.bubbleOtherText}
+            onPress={onReplyPress}
+          />
         ) : null}
         {attachment ? (
           <View style={styles.attachment}>
@@ -120,6 +138,7 @@ const createStyles = (p: Palette) => StyleSheet.create({
   row:        { flexDirection: 'row', paddingHorizontal: space.sm, marginTop: space.xs },
   rowGrouped: { marginTop: 2 },
   rowOwn:     { justifyContent: 'flex-end' },
+  highlighted: { backgroundColor: `${p.primary}33` },
   bubble:     { maxWidth: '82%', minWidth: 72, borderRadius: radii.bubble, paddingHorizontal: space.md, paddingTop: 6, paddingBottom: 6 },
   own:        { backgroundColor: p.bubbleOwn },
   other:      { backgroundColor: p.bubbleOther },

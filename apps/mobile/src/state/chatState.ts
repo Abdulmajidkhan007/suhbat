@@ -3,8 +3,10 @@ import type { ChatMember, ChatSummary, Message, MessagePage } from '@suhbat/core
 
 /** Optimistik xabar: server tasdiqlaguncha `pending`, xato bo'lsa `failed`. */
 export interface LocalMessage extends Message {
-  clientId?: string;
-  local?:    'pending' | 'failed';
+  clientId?:  string;
+  local?:     'pending' | 'failed';
+  /** Optimistik javob: qayta yuborishda kerak (serverdan kelgan xabarda `replyTo.id`). */
+  replyToId?: string;
 }
 
 export interface ChatMessages {
@@ -176,13 +178,13 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
     case 'message/deleted': {
       const prev = state.messages[action.chatId];
       if (!prev) return state;
-      return {
-        ...state,
-        messages: {
-          ...state.messages,
-          [action.chatId]: { ...prev, items: prev.items.filter((m) => m.id !== action.messageId) },
-        },
-      };
+      // O'chirilgan xabarga berilgan javoblarda — "O'chirilgan xabar".
+      const items = prev.items
+        .filter((m) => m.id !== action.messageId)
+        .map((m) => (m.replyTo?.id === action.messageId
+          ? { ...m, replyTo: { ...m.replyTo, content: '', kind: null, deleted: true } }
+          : m));
+      return { ...state, messages: { ...state.messages, [action.chatId]: { ...prev, items } } };
     }
 
     case 'message/discarded': {

@@ -1,4 +1,5 @@
-import type { ChatRole, ChatSummary, CreateChannelInput, CreateGroupInput, UpdateChatInput } from '@suhbat/core';
+import { REPLY_PREVIEW_MAX } from '@suhbat/core';
+import type { ChatRole, ChatSummary, CreateChannelInput, CreateGroupInput, MessageReply, UpdateChatInput } from '@suhbat/core';
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { chatReducer, initialChatState } from './chatState';
@@ -12,7 +13,8 @@ interface ChatStore {
   state:         ChatState;
   refreshChats:  () => Promise<void>;
   loadMessages:  (chatId: string, older?: boolean) => Promise<void>;
-  sendText:      (chatId: string, text: string) => Promise<void>;
+  /** `replyTo` — javob berilayotgan xabar (shu chatdan). */
+  sendText:      (chatId: string, text: string, replyTo?: LocalMessage) => Promise<void>;
   resend:        (message: LocalMessage) => Promise<void>;
   setTyping:     (chatId: string, isTyping: boolean) => void;
   markRead:      (chatId: string, messageId: string) => void;
@@ -41,6 +43,24 @@ interface ChatStore {
 }
 
 const ChatStoreContext = createContext<ChatStore | null>(null);
+
+/** Optimistik xabar uchun javob ko'rinishi (server ham xuddi shunday qaytaradi). */
+const replyPreview = (m: LocalMessage): MessageReply => ({
+  id:       m.id,
+  senderId: m.senderId,
+  content:  truncateText(m.content, REPLY_PREVIEW_MAX),
+  kind:     m.attachment?.kind ?? null,
+  deleted:  false,
+});
+
+const truncateText = (text: string, max: number): string => {
+  let out = '';
+  for (const ch of text) {
+    if (out.length + ch.length > max) break;
+    out += ch;
+  }
+  return out;
+};
 
 const newClientId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -75,17 +95,18 @@ export const ChatStoreProvider = ({ children }: { children: ReactNode }) => {
   const deliver = useCallback(async (message: LocalMessage) => {
     const clientId = message.clientId ?? newClientId();
     try {
-      const payload = { chatId: message.chatId, content: message.content, clientId };
+      const replyToId = message.replyToId;
+      const payload = { chatId: message.chatId, content: message.content, clientId, ...(replyToId ? { replyToId } : {}) };
       const saved = socket.isConnected()
         ? await socket.sendMessage(payload)
-        : await api.sendMessage(message.chatId, { content: message.content, clientId });
+        : await api.sendMessage(message.chatId, { content: message.content, clientId, ...(replyToId ? { replyToId } : {}) });
       dispatch({ type: 'message/received', message: saved, clientId, myId: me.id, activeChatId: activeChatRef.current });
     } catch {
       dispatch({ type: 'message/local', chatId: message.chatId, clientId, local: 'failed' });
     }
   }, [api, socket, me.id]);
 
-  const sendText = useCallback(async (chatId: string, text: string) => {
+  const sendText = useCallback(async (chatId: string, text: string, replyTo?: LocalMessage) => {
     const content = text.trim();
     if (!content) return;
     const clientId = newClientId();
@@ -100,6 +121,7 @@ export const ChatStoreProvider = ({ children }: { children: ReactNode }) => {
       editedAt:   null,
       clientId,
       local:      'pending',
+      ...(replyTo ? { replyToId: replyTo.id, replyTo: replyPreview(replyTo) } : {}),
     };
     dispatch({ type: 'message/optimistic', message: optimistic });
     await deliver(optimistic);

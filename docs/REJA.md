@@ -303,6 +303,27 @@
   qo'ng'iroqlar tarixi alohida jadvalda emas (faqat tizim xabari); Cloudflare TURN credential'ini avtomatik
   yaratish.
 
+### Javob berish (reply) — 2026-10-16
+- **API:** `Message.replyToId` (nullable FK → `messages.id`, `ON DELETE SET NULL`, indeks; migratsiya `*_message_reply`).
+  `POST /chats/:id/messages` va WS `message:send` da `replyToId?`. Faqat **shu chatdagi tirik** (o'chirilmagan, tizim emas)
+  xabarga — aks holda 400 "Javob berilayotgan xabar bu suhbatda topilmadi" (begona chat xabari borligini oshkor qilmaydi).
+  Javob qaytarishda `Message.replyTo` = `{ id, senderId, content (≤200, emoji o'rtasidan kesilmaydi), kind, deleted }`;
+  asl xabar keyin o'chirilsa (soft-delete) — `deleted: true`, matn va tur yashirin. Tarix, oxirgi xabar, tahrir va ack'da ham.
+- **Core:** `MessageReplySchema`, `REPLY_PREVIEW_MAX`, `MessageSchema.replyTo` — `nullish` (eski server javobini ham o'qiydi),
+  `MessageBodySchema.replyToId`.
+- **Mobil:** uzun bosish → "Javob berish" (yozish huquqi bo'lsa), composer ustida "Javob: Ism" paneli (✕), pufakda javob bloki
+  (muallif rangi, matn boshi yoki "O'chirilgan xabar"); bosilsa asl xabarga o'tadi va qisqa yoritiladi, yuklanmagan bo'lsa — izoh.
+  `message:deleted` kelganda javob bloklari "O'chirilgan xabar" bo'ladi. Qayta yuborishda `replyToId` saqlanadi.
+- **Veb:** xabar menyusida "Javob berish", composer'da panel (✕/Escape), pufakda blok (o'z ko'k pufagida oq tus), bosilsa
+  `scrollIntoView` + yoritish, yuklanmagan bo'lsa toast; chat almashganda panel yopiladi.
+- **Testlar:** API e2e 48 (yangi: javob — WS/REST, boshqa chat/mavjud emas/yaroqsiz id/o'chirilgan → 400, o'chirilganda `deleted`,
+  tahrirdan keyin saqlanadi, tarix va `lastMessage`), api unit (mapper: qisqartirish, o'chirilgan), core (sxema),
+  mobil jest (`Reply.test.tsx` 3), veb (MessageBubble 3, messagesSlice 1, MessageComposer 1).
+  Brauzerda (Playwright, lokal API + `vite preview`, ikki foydalanuvchi, 1280 va 390 px): javob → ikkinchi tomonda blok →
+  asl xabar o'chirilgach "O'chirilgan xabar".
+- **Cheklov:** sahifaga yuklanmagan (eski) asl xabarga avtomatik o'tish yo'q — foydalanuvchi "Eskiroq xabarlar"ni yuklaydi.
+  Haqiqiy telefonda sinalmagan. `CHANGELOG.md` `## v0.3.0` da qayd etilgan.
+
 ### Mobil dizayn yangilanishi — "Pulse UI" uslubi (2026-10-16)
 - **Namuna:** egasining `uzbek-tg` reposi (bare RN, Telegram mijozi) — faqat UI/UX g'oyalari va rang/tipografiya qiymatlari olindi;
   kod suhbat arxitekturasiga qayta yozildi (TDLib, mock ma'lumotlar, zustand, react-navigation, reanimated olib kelinmadi).

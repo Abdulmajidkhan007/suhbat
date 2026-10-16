@@ -35,6 +35,7 @@ import { errorText } from '../utils/errors';
 import EmptyState from '../components/ui/EmptyState';
 
 import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
+import type { Message } from '../types';
 
 const ChatPage: React.FC = () => {
   const dispatch   = useAppDispatch();
@@ -54,6 +55,10 @@ const ChatPage: React.FC = () => {
   const [infoOpen, setInfoOpen]       = useState(false);
   const [deleteId, setDeleteId]       = useState<string | null>(null);
   const [signOutOpen, setSignOutOpen] = useState(false);
+  const [replyTo, setReplyTo]         = useState<Message | null>(null);
+  // Boshqa chatga o'tilganda javob paneli yopiladi.
+  const activeChatId = activeChat?.id;
+  useEffect(() => setReplyTo(null), [activeChatId]);
   const [deleting, setDeleting]       = useState(false);
 
   useRealtime(true);
@@ -227,9 +232,22 @@ const ChatPage: React.FC = () => {
                 onResend={(id) => void resendMessage(id)}
                 onDiscard={discardMessage}
                 showSenders={activeChat.type === 'group'}
+                onReply={canWrite(activeChat.type, activeChat.myRole) ? setReplyTo : undefined}
+                nameOf={(uid) => activeChat.participantDetails[uid]?.displayName
+                  ?? (activeChat.type === 'channel' ? activeChat.name : 'Noma\'lum')}
               />
               <MessageComposer
-                onSend={sendMessage}
+                onSend={(text) => {
+                  void sendMessage(text, replyTo);
+                  setReplyTo(null);
+                }}
+                replying={replyTo ? {
+                  name: replyTo.senderId === user.uid
+                    ? 'Siz'
+                    : activeChat.participantDetails[replyTo.senderId]?.displayName ?? replyTo.senderName,
+                  text: replyTo.content || (replyTo.attachment ? `📎 ${replyTo.attachment.name}` : ''),
+                } : null}
+                onCancelReply={() => setReplyTo(null)}
                 onTyping={setTyping}
                 onAttach={handleAttach}
                 onVoice={handleVoice}

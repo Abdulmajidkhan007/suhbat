@@ -147,13 +147,19 @@ model Message {
   editedAt  DateTime?   @map("edited_at") @db.Timestamptz(3)
   /// Soft-delete: qator qoladi, tarix/oxirgi xabar/o'qilmagan sonidan chiqariladi.
   deletedAt DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  /// Javob: shu chatdagi boshqa xabar. Xabarlar soft-delete bo'lgani uchun odatda qator qoladi;
+  /// qator haqiqatan o'chsa (chat o'chirilganda) — null.
+  replyToId String?     @map("reply_to_id") @db.Uuid
 
   chat       Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
   sender     User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
   attachment Attachment?
+  replyTo    Message?    @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies    Message[]   @relation("MessageReply")
 
   // Tarix: keyset pagination — (created_at, id) bo'yicha kamayish tartibida.
   @@index([chatId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([replyToId])
   @@map("messages")
 }
 

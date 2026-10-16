@@ -44,6 +44,7 @@ export const toMessage = (m: ApiMessage, chat?: Pick<Chat, 'participantDetails'>
     createdAt:   ms(m.createdAt),
     updatedAt:   ms(m.editedAt ?? m.createdAt),
     editedAt:    toMillis(m.editedAt),
+    replyTo:     m.replyTo ?? null,
   };
 };
 

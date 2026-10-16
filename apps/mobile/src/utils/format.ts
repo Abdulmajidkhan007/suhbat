@@ -1,4 +1,4 @@
-import type { ChatSummary, Message } from '@suhbat/core';
+import type { ChatSummary, Message, MessageReply } from '@suhbat/core';
 import { t } from '../i18n';
 import { AVATAR_COLORS } from '../theme/colors';
 
@@ -112,4 +112,16 @@ export const formatCount = (n: number): string => {
   if (n < 1000) return String(n);
   if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0).replace('.', ',').replace(/,0$/, '')}K`;
   return `${(n / 1_000_000).toFixed(1).replace('.', ',').replace(/,0$/, '')}M`;
+};
+
+/** Javob blokidagi matn: o'chirilgan → "O'chirilgan xabar", matnsiz biriktirma → turi. */
+export const replyText = (r: MessageReply): string => {
+  if (r.deleted) return t('reply.deleted');
+  if (r.content) return r.content.replace(/\s+/g, ' ');
+  switch (r.kind) {
+    case 'image': return '🖼 Rasm';
+    case 'voice': return '🎤 Ovozli xabar';
+    case 'file':  return '📎 Fayl';
+    default:      return '';
+  }
 };
