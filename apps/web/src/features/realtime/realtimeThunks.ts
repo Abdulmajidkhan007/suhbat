@@ -28,6 +28,7 @@ import {
 } from '../chats/chatsSlice';
 import { clearMessages, messageDeleted, messageReceived, messageUpdated } from '../messages/messagesSlice';
 import { setPresence, updateUserPresence } from '../presence/presenceSlice';
+import { errorText } from '../../utils/errors';
 
 type Thunk<R = void> = (dispatch: AppDispatch, getState: () => RootState) => R;
 
@@ -41,7 +42,7 @@ export const fetchChats = (): Thunk<Promise<void>> => async (dispatch, getState)
     const chats = await api.listChats();
     dispatch(setChats(chats.map((c) => toChat(c, me))));
   } catch (e) {
-    dispatch(setChatsError((e as Error).message || 'Suhbatlarni yuklab bo\'lmadi'));
+    dispatch(setChatsError(errorText(e, 'Suhbatlarni yuklab bo\'lmadi.')));
   }
 };
 

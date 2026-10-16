@@ -1,9 +1,10 @@
-import { app, BrowserWindow, ipcMain, net, protocol, safeStorage, session, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme, net, protocol, safeStorage, session, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { APP_ORIGIN, APP_SCHEME, CONTENT_SECURITY_POLICY, resolveAppFile } from './app-protocol';
 import { IPC } from './ipc-channels';
+import { buildMenuTemplate } from './menu';
 import { isMediaPermissionAllowed } from './permissions';
 import { createTokenVault, isTokenPair } from './secure-token-store';
 import type { BlobFile, Cipher } from './secure-token-store';
@@ -82,8 +83,10 @@ function createWindow() {
     height:    800,
     minWidth:  360,
     minHeight: 480,
-    title:     'suhbat',
+    title:     'Suhbat',
     show:      false,
+    // Yuklanguncha oq "miltillash" bo'lmasin (veb fonlari bilan bir xil).
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f1117' : '#f1f5f9',
     webPreferences: {
       preload:          path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -121,6 +124,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate(process.platform, app.getName(), !app.isPackaged)));
     registerIpc();
     registerAppProtocol();
     hardenSession();

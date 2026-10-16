@@ -31,7 +31,9 @@ class ErrorBoundary extends React.Component<Props, State> {
             Nimadir xato ketdi
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 360 }}>
-            {this.state.error?.message ?? 'Kutilmagan xatolik yuz berdi.'}
+            Kutilmagan xatolik yuz berdi. Sahifani qayta yuklab ko'ring.
+            {/* Texnik tafsilot faqat ishlab chiqishda (foydalanuvchiga inglizcha stack ko'rinmasin). */}
+            {import.meta.env.DEV && this.state.error ? ` (${this.state.error.message})` : null}
           </Typography>
           <Button
             variant="contained"

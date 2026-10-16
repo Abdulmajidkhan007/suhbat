@@ -303,6 +303,28 @@
   qo'ng'iroqlar tarixi alohida jadvalda emas (faqat tizim xabari); Cloudflare TURN credential'ini avtomatik
   yaratish.
 
+### Kamchiliklar auditi — veb va desktop (2026-10-16)
+- **Qanday tekshirildi:** jonli sayt (Railway) Playwright/Chromium bilan, 390 px (telefon) va 1280 px, yorug'/qorong'i;
+  ikki test hisob ochildi (`claude-audit-a-65329334@example.com`, `claude-audit-b-…`, ism "Audit a/b 65329334") va
+  ular orasida sinov xabarlari yuborildi. Tuzatishlar lokal API (Postgres 16) + `vite preview` bilan qayta ko'rildi.
+- **Topildi va tuzatildi (veb):** bo'sh chatda composer ekran o'rtasida "suzib" turardi (bo'sh/yuklanish/xato holati maydonni
+  to'ldirmasdi); oflayn/qayta ulanish holati umuman ko'rsatilmasdi → "Internet yo'q" / "Ulanmoqda…" yorlig'i (1,5 s kechikish bilan);
+  yuborilmagan xabarda faqat "!" → "Yuborilmadi" + "Qayta yuborish" / "O'chirish"; havolalar bosilmasdi → faqat http(s) havolalar
+  (`noopener noreferrer`, Electron'da tizim brauzerida); begona xabarni nusxalab bo'lmasdi → "Nusxa olish" menyusi; 1:1 chatda
+  har xabar ustida suhbatdosh ismi va avatari (guruh uslubi) → faqat guruhda; OS qorong'i rejimi e'tiborsiz edi → tanlov yo'q bo'lsa
+  tizimga ergashadi (`localStorage` yopiq bo'lsa ham yiqilmaydi, yaroqsiz qiymat e'tiborsiz); tab "Xabarlar" / sarlavha "Suhbatlar"
+  nomuvofiq → "Suhbatlar"; "Chiqish" tugmasi tasdiqsiz edi → tasdiq oynasi; xabar/suhbat yuklash xatosida server/brauzerning xom
+  matni (masalan, inglizcha) chiqishi mumkin edi → `errorText` (o'zbekcha zaxira matn); crash ekranida xom `error.message` → faqat
+  dev rejimda; sahifa sarlavhasi "suhbat" → "Suhbat".
+- **Topildi va tuzatildi (desktop):** Electron standart menyusi inglizcha (File/Edit/View/Window/Help, "Toggle Developer Tools") →
+  o'zbekcha menyu (`src/main/menu.ts`; macOS'da Cmd+C/V uchun "Tahrirlash" role'lari; dasturchi vositalari faqat dev'da);
+  oyna sarlavhasi "Suhbat"; yuklanguncha oq fon "miltillashi" → `backgroundColor` rejimga mos.
+- **Mobil:** shu turdagi kamchiliklar (ulanish holati, bo'sh/xato holatlari, accessibility label'lari, uzun matn) — dizayn PR'ida.
+- **Topildi, tuzatilmadi:** kirish sahifasida "or" (inglizcha) — login/register ekranlari parallel auth ishchisining sohasi.
+  `UploadUrlInputSchema` da fayl nomi 255 belgidan uzun bo'lsa zod'ning inglizcha xabari chiqishi mumkin (kam uchraydi).
+- **Testlar:** veb 85 (yangi: linkify 3, MessageBubble 4, ConnectionBanner 3, themeSlice 2), desktop 12 (yangi: menyu 2).
+- **Tekshirilmadi:** haqiqiy telefon brauzeri (faqat Chromium emulyatsiyasi), Electron oynasida menyu (faqat unit), Safari/Firefox.
+
 ### v0.1.2 — egasining veb sinovidan keyingi tuzatishlar (2026-10-14)
 Egasi veb versiyani telefonda ikki hisob bilan sinadi; topilgan 7 ta bug:
 1. **Global qidiruv** (asosiy bug). Qidiruv faqat mavjud suhbatlarni filtrlardi. Endi (veb + desktop + mobil) bitta
