@@ -17,9 +17,9 @@ export interface ValidationResult {
   message: string;
 }
 
-export const validateSignIn = (email: string, password: string): ValidationResult => {
-  if (!email.trim())         return { valid: false, message: 'Email kiriting.' };
-  if (!isValidEmail(email))  return { valid: false, message: 'Email manzili noto\'g\'ri.' };
+/** Kirish: email YOKI username — formatni server tekshiradi. */
+export const validateSignIn = (login: string, password: string): ValidationResult => {
+  if (!login.trim())         return { valid: false, message: 'Email yoki username kiriting.' };
   if (!password)             return { valid: false, message: 'Parol kiriting.' };
   return { valid: true, message: '' };
 };

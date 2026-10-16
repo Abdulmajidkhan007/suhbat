@@ -4,7 +4,7 @@ import { memoryTokenStorage } from './tokens.js';
 
 const user = {
   id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', email: 'ali@test.uz', displayName: 'Ali',
-  photoUrl: null, bio: null, createdAt: '2026-10-11T10:00:00.000Z',
+  username: 'ali_v', photoUrl: null, bio: null, createdAt: '2026-10-11T10:00:00.000Z',
 };
 const json = (status: number, body?: unknown) =>
   new Response(body === undefined ? '' : JSON.stringify(body), { status });
@@ -21,11 +21,34 @@ const auth = (init: RequestInit) => (init.headers as Record<string, string>).Aut
 describe('createApiClient', () => {
   it('login tokenlarni saqlaydi va userni qaytaradi', async () => {
     const { api, storage, fetch } = setup(() => json(200, { accessToken: 'A', refreshToken: 'R', user }), null as never);
-    await expect(api.login({ email: 'ali@test.uz', password: 'x' })).resolves.toEqual(user);
+    await expect(api.login({ login: 'ali_v', password: 'x' })).resolves.toEqual(user);
     expect(await storage.get()).toEqual({ accessToken: 'A', refreshToken: 'R' });
     const [url, init] = fetch.mock.calls[0];
     expect(url).toBe('http://api/auth/login');
     expect(init?.method).toBe('POST');
+  });
+
+  it('forgotPassword / resetPassword / checkUsername — tokensiz', async () => {
+    const { api, fetch } = setup((url) => {
+      if (url.endsWith('/auth/forgot-password')) return json(200, { message: 'ok' });
+      if (url.endsWith('/auth/reset-password')) return new Response(null, { status: 204 });
+      return json(200, { username: 'ali_v', available: false, reason: 'Bu username band' });
+    }, null as never);
+    await expect(api.forgotPassword('ali_v')).resolves.toEqual({ message: 'ok' });
+    await expect(api.resetPassword('tok', 'yangi-parol')).resolves.toBeUndefined();
+    await expect(api.checkUsername('@Ali V')).resolves.toMatchObject({ available: false });
+    const [[u1, i1], [u2, i2], [u3, i3]] = fetch.mock.calls;
+    expect(u1).toBe('http://api/auth/forgot-password');
+    expect(JSON.parse(i1!.body as string)).toEqual({ emailOrUsername: 'ali_v' });
+    expect(u2).toBe('http://api/auth/reset-password');
+    expect(JSON.parse(i2!.body as string)).toEqual({ token: 'tok', newPassword: 'yangi-parol' });
+    expect(u3).toBe('http://api/users/username-available?u=%40Ali%20V');
+    for (const init of [i1, i2, i3]) expect(auth(init!)).toBeUndefined();
+  });
+
+  it('forgotPassword 503 — ApiError server matni bilan', async () => {
+    const { api } = setup(() => json(503, { message: 'Email yuborish hozircha sozlanmagan' }), null as never);
+    await expect(api.forgotPassword('a@b.uz')).rejects.toMatchObject({ status: 503, message: 'Email yuborish hozircha sozlanmagan' });
   });
 
   it('Bearer token yuboradi va query yig\'adi', async () => {

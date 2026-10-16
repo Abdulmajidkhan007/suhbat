@@ -1,15 +1,18 @@
-import { BIO_MAX, DISPLAY_NAME_MAX, UpdateProfileInputSchema } from '@suhbat/core';
+import { ApiError } from '@suhbat/client';
+import { BIO_MAX, DISPLAY_NAME_MAX, normalizeUsername, UpdateProfileInputSchema } from '@suhbat/core';
 import type { Palette } from '@suhbat/ui-tokens';
 import { fontSize, radius, spacing } from '@suhbat/ui-tokens';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { UsernameInput } from '../components/UsernameInput';
+import { usernameAcceptable, useUsernameCheck } from '../hooks/useUsernameCheck';
 import { useNavigation } from '../navigation/Navigator';
 import { useCurrentUser, useSession } from '../state/SessionProvider';
 import { useStyles, useTheme } from '../theme/ThemeProvider';
 
-/** Profilni tahrirlash: ism va "men haqimda". Avatar yuklash — keyinroq (S3 sozlanmagan). */
+/** Profilni tahrirlash: ism, username va "men haqimda". Avatar yuklash — keyinroq (S3 sozlanmagan). */
 export const ProfileScreen = () => {
   const styles = useStyles(createStyles);
   const { palette } = useTheme();
@@ -18,13 +21,19 @@ export const ProfileScreen = () => {
   const { back } = useNavigation();
   const [name, setName] = useState(me.displayName);
   const [bio, setBio] = useState(me.bio ?? '');
+  const [username, setUsername] = useState(me.username ?? '');
+  const usernameCheck = useUsernameCheck(username, me.username);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
-  const parsed = UpdateProfileInputSchema.safeParse({ displayName: name, bio });
-  const dirty = name.trim() !== me.displayName || bio.trim() !== (me.bio ?? '');
+  const usernameChanged = normalizeUsername(username) !== (me.username ?? '');
+  // Username faqat o'zgarganda yuboriladi; bo'sh — olib tashlash.
+  const parsed = UpdateProfileInputSchema.safeParse({
+    displayName: name, bio, ...(usernameChanged ? { username: normalizeUsername(username) || null } : {}),
+  });
+  const dirty = name.trim() !== me.displayName || bio.trim() !== (me.bio ?? '') || usernameChanged;
   const nameError = name.trim().length === 0 ? 'Ism bo\'sh bo\'lmasin' : null;
-  const canSave = parsed.success && dirty && !saving;
+  const canSave = parsed.success && dirty && usernameAcceptable(usernameCheck) && !saving;
 
   const save = async () => {
     if (!parsed.success) return;
@@ -33,8 +42,9 @@ export const ProfileScreen = () => {
     try {
       updateUser(await api.updateProfile(parsed.data));
       setMessage({ text: 'Profil saqlandi', ok: true });
-    } catch {
-      setMessage({ text: 'Profilni saqlab bo\'lmadi. Qayta urinib ko\'ring.', ok: false });
+    } catch (e) {
+      const text = e instanceof ApiError && e.status === 409 ? e.message : 'Profilni saqlab bo\'lmadi. Qayta urinib ko\'ring.';
+      setMessage({ text, ok: false });
     } finally {
       setSaving(false);
     }
@@ -57,6 +67,9 @@ export const ProfileScreen = () => {
           accessibilityLabel="Ism"
         />
         {nameError ? <Text style={styles.error}>{nameError}</Text> : null}
+
+        <Text style={styles.label}>Username</Text>
+        <UsernameInput value={username} onChange={setUsername} check={usernameCheck} editable={!saving} inputStyle={styles.input} />
 
         <Text style={styles.label}>Men haqimda</Text>
         <TextInput

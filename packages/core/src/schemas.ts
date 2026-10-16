@@ -1,15 +1,20 @@
 import { z } from 'zod';
+import { UsernameSchema } from './username.js';
 
 // API kontrakti: vaqtlar JSON'da ISO 8601 satr ko'rinishida.
 const isoDate = z.iso.datetime({ offset: true });
 
 export const DISPLAY_NAME_MAX = 64;
 export const BIO_MAX = 200;
+export const PASSWORD_MIN = 8;
+export const PASSWORD_MAX = 128;
 
 /** Boshqa foydalanuvchilar uchun ko'rinish: **email yo'q** (sizib chiqmasligi uchun). */
 export const PublicUserSchema = z.object({
   id:          z.uuid(),
   displayName: z.string().min(1).max(64),
+  /** Ochiq `@username` (kichik harfda) yoki o'rnatilmagan. Eski server javobida yo'q bo'lsa — `null`. */
+  username:    z.string().nullable().default(null),
   photoUrl:    z.url().nullable(),
   /** Qisqa "o'zim haqimda" matni (ixtiyoriy). */
   bio:         z.string().max(BIO_MAX).nullable(),
@@ -72,18 +77,68 @@ export const MessageSchema = z.object({
 export type Message = z.infer<typeof MessageSchema>;
 
 // --- Auth ---
+const EmailInputSchema = z.string().trim().pipe(z.email('Email manzili noto\'g\'ri')).transform((e) => e.toLowerCase());
+const PasswordSchema = z.string().min(PASSWORD_MIN, `Parol kamida ${PASSWORD_MIN} belgi bo'lsin`).max(PASSWORD_MAX);
+
 export const RegisterInputSchema = z.object({
-  email:       z.email().transform((e) => e.toLowerCase()),
-  password:    z.string().min(8).max(128),
+  email:       EmailInputSchema,
+  password:    PasswordSchema,
   displayName: z.string().trim().min(1).max(64),
+  /** Ixtiyoriy — keyin profilda o'rnatish mumkin. */
+  username:    UsernameSchema.optional(),
 });
 export type RegisterInput = z.infer<typeof RegisterInputSchema>;
 
-export const LoginInputSchema = z.object({
-  email:    z.email().transform((e) => e.toLowerCase()),
-  password: z.string().min(1).max(128),
-});
+const LoginIdentifierSchema = z.string().trim().min(1, 'Email yoki username kiriting').max(254);
+
+/**
+ * Kirish: `login` — email YOKI username (`@` bilan ham). `email` — eski mijozlar
+ * (v0.2.0 gacha) uchun; ikkalasi ham `login` ga keltiriladi.
+ */
+export const LoginInputSchema = z
+  .object({
+    login:    LoginIdentifierSchema.optional(),
+    email:    LoginIdentifierSchema.optional(),
+    password: z.string().min(1).max(PASSWORD_MAX),
+  })
+  .transform((v, ctx) => {
+    const login = v.login ?? v.email;
+    if (!login) {
+      ctx.addIssue({ code: 'custom', path: ['login'], message: 'Email yoki username kiriting' });
+      return z.NEVER;
+    }
+    return { login, password: v.password };
+  });
 export type LoginInput = z.infer<typeof LoginInputSchema>;
+
+/** `POST /auth/forgot-password`: javob doim bir xil (hisob borligi oshkor qilinmaydi). */
+export const ForgotPasswordInputSchema = z.object({
+  emailOrUsername: LoginIdentifierSchema,
+});
+export type ForgotPasswordInput = z.infer<typeof ForgotPasswordInputSchema>;
+
+export const ForgotPasswordResponseSchema = z.object({ message: z.string() });
+export type ForgotPasswordResponse = z.infer<typeof ForgotPasswordResponseSchema>;
+
+/** Tiklash tokeni: 32 bayt base64url (43 belgi). */
+export const ResetPasswordInputSchema = z.object({
+  token:       z.string().trim().min(20).max(128),
+  newPassword: PasswordSchema,
+});
+export type ResetPasswordInput = z.infer<typeof ResetPasswordInputSchema>;
+
+/** `GET /users/username-available?u=` */
+export const UsernameAvailabilityQuerySchema = z.object({ u: z.string().max(64) });
+export type UsernameAvailabilityQuery = z.infer<typeof UsernameAvailabilityQuerySchema>;
+
+export const UsernameAvailabilitySchema = z.object({
+  /** Normallashtirilgan shakl (`@Ali` → `ali`). */
+  username:  z.string(),
+  available: z.boolean(),
+  /** Nega mumkin emas (format, zaxira, band) — `available: false` bo'lsa. */
+  reason:    z.string().nullable(),
+});
+export type UsernameAvailability = z.infer<typeof UsernameAvailabilitySchema>;
 
 export const AuthResponseSchema = z.object({
   accessToken:  z.string(),
@@ -113,8 +168,12 @@ export const UpdateProfileInputSchema = z
   .object({
     displayName: z.string().trim().min(1, 'Ism bo\'sh bo\'lmasin').max(DISPLAY_NAME_MAX).optional(),
     bio:         z.string().trim().max(BIO_MAX).nullable().optional(),
+    /** `null` yoki bo'sh satr — username'ni olib tashlash. */
+    username:    z.union([z.literal(''), z.null(), UsernameSchema]).optional(),
   })
-  .refine((v) => v.displayName !== undefined || v.bio !== undefined, { message: 'O\'zgartirish uchun maydon yo\'q' });
+  .refine((v) => v.displayName !== undefined || v.bio !== undefined || v.username !== undefined, {
+    message: 'O\'zgartirish uchun maydon yo\'q',
+  });
 export type UpdateProfileInput = z.infer<typeof UpdateProfileInputSchema>;
 
 export const UserSearchQuerySchema = z.object({

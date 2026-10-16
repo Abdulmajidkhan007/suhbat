@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { parseLoginIdentifier } from '@suhbat/core';
 import type { AuthResponse, LoginInput, PublicUser, RegisterInput, TokenPair, User } from '@suhbat/core';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -18,6 +19,7 @@ export interface JwtPayload {
 export const toPublicUser = (u: UserRow): PublicUser => ({
   id:          u.id,
   displayName: u.displayName,
+  username:    u.username,
   photoUrl:    u.photoUrl,
   bio:         u.bio,
   createdAt:   u.createdAt.toISOString(),
@@ -26,8 +28,14 @@ export const toPublicUser = (u: UserRow): PublicUser => ({
 /** Faqat foydalanuvchining o'zi uchun (email bilan). */
 export const toSelfUser = (u: UserRow): User => ({ ...toPublicUser(u), email: u.email });
 
-const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
+export const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+export const LOGIN_FAILED_MESSAGE = 'Login yoki parol noto\'g\'ri';
+export const USERNAME_TAKEN_MESSAGE = 'Bu username band';
+
+export const isUniqueViolation = (e: unknown): boolean =>
+  e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002';
 
 @Injectable()
 export class AuthService {
@@ -44,26 +52,37 @@ export class AuthService {
   }
 
   async register(input: RegisterInput): Promise<AuthResponse> {
+    const username = input.username ?? null;
+    if (username && (await this.usernameTaken(username))) throw new ConflictException(USERNAME_TAKEN_MESSAGE);
     const passwordHash = await argon2.hash(input.password);
     try {
       const user = await this.prisma.user.create({
-        data: { email: input.email, passwordHash, displayName: input.displayName },
+        data: { email: input.email, username, passwordHash, displayName: input.displayName },
       });
       return this.issue(user);
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        throw new ConflictException('Bu email bilan hisob mavjud');
+      if (isUniqueViolation(e)) {
+        // Parallel ro'yxatdan o'tish: qaysi maydon to'qnashganini qayta tekshiramiz.
+        throw new ConflictException(username && (await this.usernameTaken(username)) ? USERNAME_TAKEN_MESSAGE : 'Bu email bilan hisob mavjud');
       }
       throw e;
     }
   }
 
+  /** `login` — email yoki username (`@` bilan ham), katta-kichik harf farqsiz. */
   async login(input: LoginInput): Promise<AuthResponse> {
-    const user = await this.prisma.user.findUnique({ where: { email: input.email } });
+    const id = parseLoginIdentifier(input.login);
+    const user = await this.prisma.user.findUnique({
+      where: id.kind === 'email' ? { email: id.value } : { username: id.value },
+    });
     if (!user || !(await argon2.verify(user.passwordHash, input.password))) {
-      throw new UnauthorizedException('Email yoki parol noto\'g\'ri');
+      throw new UnauthorizedException(LOGIN_FAILED_MESSAGE);
     }
     return this.issue(user);
+  }
+
+  async usernameTaken(username: string): Promise<boolean> {
+    return (await this.prisma.user.count({ where: { username } })) > 0;
   }
 
   async me(userId: string): Promise<User> {

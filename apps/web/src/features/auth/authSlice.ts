@@ -1,6 +1,7 @@
 // src/features/auth/authSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { ApiError } from '@suhbat/client';
+import type { LoginInput, RegisterInput } from '@suhbat/core';
 import { api } from '../../services/api';
 import { toAppUser } from '../../services/apiMappers';
 import { AuthState, AppUser } from '../../types';
@@ -14,9 +15,11 @@ const initialState: AuthState = {
 
 const messageOf = (err: unknown): string => {
   if (err instanceof ApiError) {
-    if (err.status === 401) return 'Email yoki parol noto\'g\'ri.';
-    if (err.status === 409) return 'Bu email bilan hisob mavjud.';
+    if (err.status === 401) return 'Login yoki parol noto\'g\'ri.';
+    // Server aniq aytadi: "Bu email bilan hisob mavjud" yoki "Bu username band".
+    if (err.status === 409) return err.message.startsWith('HTTP') ? 'Bu email yoki username band.' : `${err.message}.`;
     if (err.status === 400) return 'Ma\'lumotlar noto\'g\'ri. Parol kamida 8 ta belgi.';
+    if (err.status === 429) return 'Juda ko\'p urinish. Birozdan keyin qayta urinib ko\'ring.';
     return err.message;
   }
   return 'Kutilmagan xato yuz berdi. Qayta urinib ko\'ring.';
@@ -36,9 +39,9 @@ export const restoreSession = createAsyncThunk('auth/restore', async (): Promise
 
 export const signIn = createAsyncThunk(
   'auth/signIn',
-  async ({ email, password }: { email: string; password: string }, { rejectWithValue }) => {
+  async ({ login, password }: LoginInput, { rejectWithValue }) => {
     try {
-      return toAppUser(await api.login({ email, password }));
+      return toAppUser(await api.login({ login, password }));
     } catch (err) {
       return rejectWithValue(messageOf(err));
     }
@@ -47,12 +50,9 @@ export const signIn = createAsyncThunk(
 
 export const signUp = createAsyncThunk(
   'auth/signUp',
-  async (
-    { email, password, displayName }: { email: string; password: string; displayName: string },
-    { rejectWithValue },
-  ) => {
+  async (input: RegisterInput, { rejectWithValue }) => {
     try {
-      return toAppUser(await api.register({ email, password, displayName }));
+      return toAppUser(await api.register(input));
     } catch (err) {
       return rejectWithValue(messageOf(err));
     }

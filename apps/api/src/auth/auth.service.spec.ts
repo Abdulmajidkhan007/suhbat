@@ -11,6 +11,7 @@ const row = (overrides = {}) => ({
   email:        'ali@test.uz',
   passwordHash: '',
   displayName:  'Ali',
+  username:     null,
   photoUrl:     null,
   bio:          null,
   createdAt:    new Date('2026-10-11T10:00:00.000Z'),
@@ -20,7 +21,7 @@ const row = (overrides = {}) => ({
 
 describe('AuthService', () => {
   const prisma = {
-    user:         { create: vi.fn(), findUnique: vi.fn() },
+    user:         { create: vi.fn(), findUnique: vi.fn(), count: vi.fn() },
     refreshToken: { create: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
   };
   const jwt = new JwtService({ secret: 'test-secret' });
@@ -39,7 +40,7 @@ describe('AuthService', () => {
     expect(data.passwordHash).not.toBe('12345678');
     expect(await argon2.verify(data.passwordHash, '12345678')).toBe(true);
     expect(res.user).toEqual({
-      id: row().id, email: 'ali@test.uz', displayName: 'Ali', photoUrl: null, bio: null,
+      id: row().id, email: 'ali@test.uz', displayName: 'Ali', username: null, photoUrl: null, bio: null,
       createdAt: '2026-10-11T10:00:00.000Z',
     });
     expect(res.user).not.toHaveProperty('passwordHash');
@@ -63,15 +64,28 @@ describe('AuthService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('login: to\'g\'ri parol → token, noto\'g\'ri → 401', async () => {
-    prisma.user.findUnique.mockResolvedValue(row({ passwordHash: await argon2.hash('12345678') }));
-    await expect(service.login({ email: 'ali@test.uz', password: '12345678' })).resolves.toHaveProperty('accessToken');
-    await expect(service.login({ email: 'ali@test.uz', password: 'xato' })).rejects.toBeInstanceOf(UnauthorizedException);
+  it('register: band username → 409 (bazaga yozilmaydi)', async () => {
+    prisma.user.count.mockResolvedValue(1);
+    await expect(
+      service.register({ email: 'ali@test.uz', password: '12345678', displayName: 'Ali', username: 'ali_valiyev' }),
+    ).rejects.toThrow('Bu username band');
+    expect(prisma.user.create).not.toHaveBeenCalled();
   });
 
-  it('login: yo\'q foydalanuvchi → 401', async () => {
+  it('login: to\'g\'ri parol → token, noto\'g\'ri → 401', async () => {
+    prisma.user.findUnique.mockResolvedValue(row({ passwordHash: await argon2.hash('12345678') }));
+    await expect(service.login({ login: 'ali@test.uz', password: '12345678' })).resolves.toHaveProperty('accessToken');
+    await expect(service.login({ login: 'ali@test.uz', password: 'xato' })).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('login: email yoki username bo\'yicha qidiradi (kichik harfda)', async () => {
     prisma.user.findUnique.mockResolvedValue(null);
-    await expect(service.login({ email: 'yoq@test.uz', password: 'x' })).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(service.login({ login: 'Ali@Test.uz', password: 'x' })).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(service.login({ login: '@Ali_Valiyev', password: 'x' })).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(service.login({ login: 'ali_valiyev', password: 'x' })).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(prisma.user.findUnique.mock.calls.map((c) => c[0].where)).toEqual([
+      { email: 'ali@test.uz' }, { username: 'ali_valiyev' }, { username: 'ali_valiyev' },
+    ]);
   });
 });
 

@@ -2,6 +2,7 @@ import {
   AuthResponseSchema,
   ChatMemberSchema,
   ChatSummarySchema,
+  ForgotPasswordResponseSchema,
   IceServersResponseSchema,
   MessagePageSchema,
   MessageSchema,
@@ -10,6 +11,7 @@ import {
   PublicUserSchema,
   TokenPairSchema,
   UploadUrlResponseSchema,
+  UsernameAvailabilitySchema,
   UserSchema,
 } from '@suhbat/core';
 import type {
@@ -17,6 +19,7 @@ import type {
   ChatSummary,
   CreateChannelInput,
   CreateGroupInput,
+  ForgotPasswordResponse,
   IceServersResponse,
   LoginInput,
   Message,
@@ -35,6 +38,7 @@ import type {
   UploadUrlInput,
   UploadUrlResponse,
   User,
+  UsernameAvailability,
 } from '@suhbat/core';
 import { z } from 'zod';
 import type { ZodType } from 'zod';
@@ -175,7 +179,20 @@ export const createApiClient = (opts: ApiClientOptions) => {
 
   return {
     register: (input: RegisterInput) => signIn('/auth/register', input),
+    /** `login` — email yoki username. */
     login:    (input: LoginInput) => signIn('/auth/login', input),
+
+    /** Javob hisob bor-yo'qligidan qat'i nazar bir xil; 503 — email sozlanmagan, 429 — ko'p urinish. */
+    forgotPassword: (emailOrUsername: string): Promise<ForgotPasswordResponse> =>
+      request('POST', '/auth/forgot-password', ForgotPasswordResponseSchema, { body: { emailOrUsername } }),
+
+    /** Muvaffaqiyatda barcha qurilmalardagi sessiyalar yopiladi (shu qurilmada ham qayta kirish kerak). */
+    resetPassword: (token: string, newPassword: string): Promise<void> =>
+      request('POST', '/auth/reset-password', null, { body: { token, newPassword } }),
+
+    /** Tokensiz — ro'yxatdan o'tish formasida ham ishlaydi. */
+    checkUsername: (u: string): Promise<UsernameAvailability> =>
+      request('GET', '/users/username-available', UsernameAvailabilitySchema, { query: { u } }),
 
     /**
      * Tokenlar darhol o'chiriladi; serverga xabar berish xatosi e'tiborsiz.
@@ -191,7 +208,7 @@ export const createApiClient = (opts: ApiClientOptions) => {
 
     me: () => authed('GET', '/auth/me', UserSchema),
 
-    /** Profilni tahrirlash (ism, bio); yangilangan `User` qaytadi. */
+    /** Profilni tahrirlash (ism, bio, username); yangilangan `User` qaytadi. */
     updateProfile: (input: UpdateProfileInput): Promise<User> =>
       authed('PATCH', '/users/me', UserSchema, { body: input }),
 

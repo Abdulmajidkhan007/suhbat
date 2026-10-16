@@ -1,12 +1,15 @@
 import { ApiError } from '@suhbat/client';
-import { LoginInputSchema, RegisterInputSchema } from '@suhbat/core';
+import { LoginInputSchema, normalizeUsername, RegisterInputSchema } from '@suhbat/core';
 import type { Palette } from '@suhbat/ui-tokens';
 import { fontSize, radius, spacing } from '@suhbat/ui-tokens';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
+import { UsernameInput } from '../components/UsernameInput';
+import { usernameAcceptable, useUsernameCheck } from '../hooks/useUsernameCheck';
 import { useSession } from '../state/SessionProvider';
+import { ForgotPasswordScreen } from './ForgotPasswordScreen';
 import { useStyles, useTheme } from '../theme/ThemeProvider';
 
 type Mode = 'login' | 'register';
@@ -14,7 +17,15 @@ type Mode = 'login' | 'register';
 const errorText = (e: unknown): string =>
   e instanceof ApiError ? e.message : 'Kutilmagan xato. Qayta urinib ko\'ring.';
 
+/** Kirish/ro'yxatdan o'tish va "Parolni unutdim" (tizimga kirmagan holat). */
 export const AuthScreen = ({ expired = false }: { expired?: boolean }) => {
+  const [forgot, setForgot] = useState<{ value: string } | null>(null);
+  const closeForgot = useCallback(() => setForgot(null), []);
+  if (forgot) return <ForgotPasswordScreen onBack={closeForgot} initialValue={forgot.value} />;
+  return <AuthForm expired={expired} onForgot={(value) => setForgot({ value })} />;
+};
+
+const AuthForm = ({ expired, onForgot }: { expired: boolean; onForgot: (value: string) => void }) => {
   const styles = useStyles(createStyles);
   const { palette } = useTheme();
   const { login, register } = useSession();
@@ -22,6 +33,8 @@ export const AuthScreen = ({ expired = false }: { expired?: boolean }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
+  const usernameCheck = useUsernameCheck(mode === 'register' ? username : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(expired ? 'Sessiya tugadi. Qayta kiring.' : null);
 
@@ -44,10 +57,14 @@ export const AuthScreen = ({ expired = false }: { expired?: boolean }) => {
 
   const submit = async () => {
     if (mode === 'login') {
-      const input = LoginInputSchema.safeParse({ email, password });
+      const input = LoginInputSchema.safeParse({ login: email, password });
       return input.success ? run(() => login(input.data)) : invalid();
     }
-    const input = RegisterInputSchema.safeParse({ email, password, displayName });
+    if (!usernameAcceptable(usernameCheck)) {
+      return setError('message' in usernameCheck ? usernameCheck.message : 'Username tekshirilmoqda, biroz kuting');
+    }
+    const normalized = normalizeUsername(username);
+    const input = RegisterInputSchema.safeParse({ email, password, displayName, ...(normalized ? { username: normalized } : {}) });
     return input.success ? run(() => register(input.data)) : invalid();
   };
 
@@ -63,11 +80,26 @@ export const AuthScreen = ({ expired = false }: { expired?: boolean }) => {
             <TextInput {...inputProps} placeholder="Ism" value={displayName} onChangeText={setDisplayName}
               autoComplete="name" accessibilityLabel="Ism" />
           )}
-          <TextInput {...inputProps} placeholder="Email" value={email} onChangeText={setEmail}
-            autoCapitalize="none" autoComplete="email" keyboardType="email-address" accessibilityLabel="Email" />
+          {mode === 'login' ? (
+            <TextInput {...inputProps} placeholder="Email yoki username" value={email} onChangeText={setEmail}
+              autoCapitalize="none" autoCorrect={false} autoComplete="username" accessibilityLabel="Email yoki username" />
+          ) : (
+            <>
+              <TextInput {...inputProps} placeholder="Email" value={email} onChangeText={setEmail}
+                autoCapitalize="none" autoComplete="email" keyboardType="email-address" accessibilityLabel="Email" />
+              <UsernameInput value={username} onChange={setUsername} check={usernameCheck} optional editable={!busy}
+                inputStyle={styles.input} />
+            </>
+          )}
           <TextInput {...inputProps} placeholder="Parol" value={password} onChangeText={setPassword}
             secureTextEntry autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             accessibilityLabel="Parol" onSubmitEditing={submit} />
+          {mode === 'login' && (
+            <Pressable onPress={() => onForgot(email.trim())} disabled={busy}
+              accessibilityRole="button" style={styles.forgot}>
+              <Text style={styles.switch}>Parolni unutdim?</Text>
+            </Pressable>
+          )}
           {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}
           <Pressable style={[styles.button, busy && styles.buttonBusy]} onPress={submit} disabled={busy}
             accessibilityRole="button">
@@ -99,4 +131,5 @@ const createStyles = (p: Palette) => StyleSheet.create({
   buttonBusy: { opacity: 0.7 },
   buttonText: { color: '#ffffff', fontSize: fontSize.md, fontWeight: '700' },
   switch:     { color: p.primary, fontSize: fontSize.sm, textAlign: 'center' },
+  forgot:     { alignSelf: 'flex-end' },
 });
