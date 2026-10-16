@@ -13,7 +13,7 @@
   - REST: `/auth/register|login|refresh|logout|me`, `/users/search`,
     `/chats` (ro'yxat + `unreadCount`), `POST /chats/direct` (idempotent),
     `/chats/:id`, `/chats/:id/messages` (keyset pagination, `before` kursor;
-    `POST` — REST zaxira). Ro'yxat jadvali — `README.md`.
+    `POST` — REST zaxira). Ro'yxat jadvali — [`API.md`](API.md).
   - Socket.IO gateway (JWT `handshake.auth.token`): `message:send` (ack),
     `typing`, `message:read`, `presence:state` / `presence:update`.
     Voqealar `user:<id>` xonalariga yuboriladi.
@@ -302,6 +302,13 @@
   tugaydi); bir nechta API nusxasi (registr va presence — Redis); guruh qo'ng'iroqlari (SFU kerak);
   qo'ng'iroqlar tarixi alohida jadvalda emas (faqat tizim xabari); Cloudflare TURN credential'ini avtomatik
   yaratish.
+
+### README — loyiha vitrinasi (2026-10-16)
+- Repo public bo'ldi; `README.md` endi loyiha haqida: nima, imkoniyatlar, platformalar va yuklab olish (veb, Releases),
+  holat (beta), texnologiyalar, hujjatlar jadvali, hissa qo'shish, litsenziya (hali tanlanmagan — `LICENSE` fayli yo'q).
+- Texnik qism ko'chdi: `docs/DEVELOPMENT.md` (tuzilish, ishga tushirish, tekshiruvlar, env, desktop/mobil build),
+  `docs/API.md` (REST, WebSocket, qo'ng'iroq signallari). Ichki havolalar yangilandi (`apps/mobile/README.md`, REJA); nisbiy
+  havolalar skript bilan tekshirildi. Skrinshot bo'limi yo'q (hozircha tayyor skrinshot yo'q).
 
 ### Javob berish (reply) — 2026-10-16
 - **API:** `Message.replyToId` (nullable FK → `messages.id`, `ON DELETE SET NULL`, indeks; migratsiya `*_message_reply`).

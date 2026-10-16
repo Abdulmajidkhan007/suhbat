@@ -1,6 +1,6 @@
 # Suhbat — mobil ilova
 
-Ishga tushirish va umumiy ma'lumot — ildizdagi [`README.md`](../../README.md) ("Mobil" bo'limi).
+Ishga tushirish va build — [`docs/DEVELOPMENT.md`](../../docs/DEVELOPMENT.md#mobil-react-native-cli) ("Mobil" bo'limi); loyiha haqida — [`README.md`](../../README.md).
 
 ## Dizayn ("Pulse UI" uslubi) va tuzilma
 
