@@ -303,6 +303,35 @@
   qo'ng'iroqlar tarixi alohida jadvalda emas (faqat tizim xabari); Cloudflare TURN credential'ini avtomatik
   yaratish.
 
+### Mobil dizayn yangilanishi — "Pulse UI" uslubi (2026-10-16)
+- **Namuna:** egasining `uzbek-tg` reposi (bare RN, Telegram mijozi) — faqat UI/UX g'oyalari va rang/tipografiya qiymatlari olindi;
+  kod suhbat arxitekturasiga qayta yozildi (TDLib, mock ma'lumotlar, zustand, react-navigation, reanimated olib kelinmadi).
+  uzbek-tg'dagi `LICENSE` — Expo shablonining MIT matni; kalit/token yo'q. Ikonkalar — Ionicons 8 (MIT) SVG yo'llari.
+- **Tema:** yorug'/qorong'i/tizim + 7 ta asosiy rang (Ko'k, Yashil, To'q sariq, Qizil, Binafsha, Feruza, Pushti), tanlov
+  qurilmada saqlanadi (Keychain, tokenlardan alohida `service`). Palitra `@suhbat/ui-tokens` `Palette` ning kengaytmasi —
+  login/register ekrani (boshqa ishchi sohasi) o'zgarmadi va yangi palitrada ishlaydi.
+- **Navigatsiya:** pastki tablar (Suhbatlar / Sozlamalar, o'qilmagan suhbatlar belgisi) + stek; ekran o'tish animatsiyasi
+  (RN `Animated`, native driver). Yangi ekranlar: chat ma'lumotlari, a'zo qo'shish, yangi guruh/kanal, sozlamalar, ko'rinish.
+- **Chat ro'yxati:** avatar (id bo'yicha rang, kanalda ikonka), onlayn nuqta, vaqt (bugun 24h, "Kecha", hafta kuni, "3 mar"),
+  "Siz:"/guruhda yuboruvchi prefiksi, ✓/✓✓ belgisi, o'qilmaganlar, "yozmoqda", bo'sh/yuklanish/xato holatlari, "Ulanmoqda…".
+  Global qidiruv (suhbatlar, foydalanuvchilar, ochiq kanallar) saqlandi, yangi qatorlar bilan. Swipe amallari — **yo'q** (ixtiyoriy edi).
+- **Chat:** pufaklar (dum, guruhda yuboruvchi rangli ismi), sana ajratgichlari, ✓/✓✓/⏱/! ikonkalari, "tahrirlangan",
+  uzun bosish menyusi — nusxa olish, tahrirlash (o'z matni), o'chirish (o'zi yoki guruh/kanal admini, tasdiq bilan),
+  yuborilmagan xabar uchun "Qayta yuborish"/"O'chirish"; xato/bo'sh holatlar; sarlavha bosilsa — chat ma'lumotlari.
+  **"Javob berish" yo'q** — API'da `replyTo` maydoni yo'q (alohida ish: migratsiya + sxema + veb).
+- **Chat ma'lumotlari:** 1:1 — bio, qo'ng'iroq; guruh/kanal — tavsif, ochiq/yopiq, a'zolar (kanalda faqat ega/adminlar),
+  rollar, admin qilish/olish (ega), chiqarish (`canRemove`), a'zo qo'shish, nom/tavsif tahriri, chiqish/o'chirish.
+- **Sozlamalar:** profil kartasi, profil tahriri, ko'rinish (jonli namuna), bildirishnoma matni (`/users/me/notifications`),
+  chiqish (tasdiq), "Suhbat v{versiya}" (`package.json`).
+- **Auth ekranlari (#14 dan keyin):** kirish/ro'yxatdan o'tish, "Parolni unutdim", `UsernameInput` — mantiq o'zgarmadi,
+  faqat uslub Pulse temasiga moslandi (logo, to'ldirilgan maydonlar, tipografiya). Profil tahririda username maydoni saqlandi;
+  qidiruv/yangi suhbat/a'zo qo'shish ro'yxatlarida `@username` ko'rsatiladi.
+- **Qo'ng'iroq ekrani:** mantiq o'zgarmadi; emoji o'rniga vektor ikonkalar, asosiy rang tusidagi fon, yangi tipografiya.
+- **Yangi native kutubxonalar:** `react-native-svg` 15.16, `@react-native-clipboard/clipboard` 1.16, `react-native-haptic-feedback` 3.0.
+- **Testlar:** mobil jest 63 (yangi: format 5, Chat 8 — menyu/tahrir/o'chirish/xato/ulanish, ChatInfo 6 + yangi guruh/kanal 2,
+  Sozlamalar 3 — tema saqlanishi, bildirishnoma). `react-native bundle` (android) lokal.
+- **Tekshirilmadi:** haqiqiy telefon/emulyatorda ko'rinish va animatsiya, haptics, clipboard, iOS'da native build — faqat CI
+  (android/ios job'lari). Skrinshot yo'q (sandboxda Android emulyator yo'q).
 ### v0.3.0 tayyorgarligi — release versiyasi va matni (2026-10-16)
 - **Muammo (v0.2.0 release'ida):** desktop fayllari `suhbat-0.1.0-mac-arm64.dmg` va h.k. (versiya `apps/desktop/package.json`
   dan, u 0.1.0 edi); release matni faqat o'rnatish eslatmalari — `CHANGELOG.md` da `## v0.2.0` bo'limi yo'q edi

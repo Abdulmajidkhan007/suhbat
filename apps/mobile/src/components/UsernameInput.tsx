@@ -1,11 +1,12 @@
 import { USERNAME_MAX } from '@suhbat/core';
-import type { Palette } from '@suhbat/ui-tokens';
-import { fontSize, radius, spacing } from '@suhbat/ui-tokens';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import type { StyleProp, TextStyle } from 'react-native';
 import { usernameHint } from '../hooks/useUsernameCheck';
 import type { UsernameCheck } from '../hooks/useUsernameCheck';
+import { radii, space } from '../theme/metrics';
+import { textStyles } from '../theme/typography';
 import { useStyles, useTheme } from '../theme/ThemeProvider';
+import type { Palette } from '../theme/ThemeProvider';
 
 interface Props {
   value:     string;
@@ -46,11 +47,11 @@ export const UsernameInput = ({ value, onChange, check, optional = false, editab
 };
 
 const createStyles = (p: Palette) => StyleSheet.create({
-  root:  { gap: spacing(1) },
-  row:   { flexDirection: 'row', alignItems: 'center', gap: spacing(2) },
-  at:    { color: p.textSecondary, fontSize: fontSize.md, fontWeight: '700' },
-  input: { flex: 1, borderRadius: radius.md },
-  hint:  { color: p.textSecondary, fontSize: fontSize.xs },
+  root:  { gap: space.xs },
+  row:   { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  at:    { ...textStyles.body, fontSize: 16, color: p.textSecondary, fontWeight: '700' },
+  input: { flex: 1, borderRadius: radii.md },
+  hint:  { ...textStyles.caption, fontSize: 12, color: p.textSecondary },
   bad:   { color: p.danger },
-  ok:    { color: p.primary },
+  ok:    { color: p.success },
 });

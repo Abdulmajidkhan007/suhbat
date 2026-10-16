@@ -1,4 +1,4 @@
-import type { ChatSummary } from '@suhbat/core';
+import type { ChatRole, ChatSummary, CreateChannelInput, CreateGroupInput, UpdateChatInput } from '@suhbat/core';
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { chatReducer, initialChatState } from './chatState';
@@ -20,6 +20,24 @@ interface ChatStore {
   /** Ochiq kanalga obuna bo'lish. */
   joinChannel:   (chatId: string) => Promise<ChatSummary>;
   setActiveChat: (chatId: string | null) => void;
+  /** Chat holatda bo'lmasa serverdan olib qo'yadi (topilmasa — xato). */
+  ensureChat:    (chatId: string) => Promise<void>;
+  /** O'z matnli xabarini tahrirlash. */
+  editMessage:   (chatId: string, messageId: string, content: string) => Promise<void>;
+  /** O'z xabarini (yoki admin sifatida birovnikini) o'chirish. */
+  deleteMessage: (chatId: string, messageId: string) => Promise<void>;
+  /** Xato bilan qolgan (yuborilmagan) xabarni ro'yxatdan olib tashlash. */
+  discardLocal:  (chatId: string, clientId: string) => void;
+  createGroup:   (input: CreateGroupInput) => Promise<ChatSummary>;
+  createChannel: (input: CreateChannelInput) => Promise<ChatSummary>;
+  updateChat:    (chatId: string, input: UpdateChatInput) => Promise<ChatSummary>;
+  addMembers:    (chatId: string, userIds: string[]) => Promise<ChatSummary>;
+  removeMember:  (chatId: string, userId: string) => Promise<void>;
+  setMemberRole: (chatId: string, userId: string, role: Exclude<ChatRole, 'owner'>) => Promise<void>;
+  /** Guruh/kanaldan chiqish. */
+  leaveChat:     (chatId: string) => Promise<void>;
+  /** Guruh/kanalni o'chirish (faqat ega). */
+  deleteChat:    (chatId: string) => Promise<void>;
 }
 
 const ChatStoreContext = createContext<ChatStore | null>(null);
@@ -118,6 +136,61 @@ export const ChatStoreProvider = ({ children }: { children: ReactNode }) => {
     activeChatRef.current = chatId;
   }, []);
 
+  const ensureChat = useCallback(async (chatId: string) => {
+    if (stateRef.current.chats[chatId]) return;
+    dispatch({ type: 'chat/upserted', chat: await api.getChat(chatId) });
+  }, [api]);
+
+  const editMessage = useCallback(async (chatId: string, messageId: string, content: string) => {
+    const message = socket.isConnected()
+      ? await socket.editMessage(chatId, messageId, content)
+      : await api.editMessage(chatId, messageId, content);
+    dispatch({ type: 'message/updated', message });
+  }, [api, socket]);
+
+  const deleteMessage = useCallback(async (chatId: string, messageId: string) => {
+    if (socket.isConnected()) await socket.deleteMessage(chatId, messageId);
+    else await api.deleteMessage(chatId, messageId);
+    dispatch({ type: 'message/deleted', chatId, messageId });
+    upsertFromServer(chatId);
+  }, [api, socket, upsertFromServer]);
+
+  const discardLocal = useCallback((chatId: string, clientId: string) => {
+    dispatch({ type: 'message/discarded', chatId, clientId });
+  }, []);
+
+  const upserted = useCallback((chat: ChatSummary) => {
+    dispatch({ type: 'chat/upserted', chat });
+    return chat;
+  }, []);
+
+  const createGroup = useCallback(async (input: CreateGroupInput) => upserted(await api.createGroup(input)), [api, upserted]);
+  const createChannel = useCallback(async (input: CreateChannelInput) => upserted(await api.createChannel(input)), [api, upserted]);
+  const updateChat = useCallback(
+    async (chatId: string, input: UpdateChatInput) => upserted(await api.updateChat(chatId, input)),
+    [api, upserted],
+  );
+  const addMembers = useCallback(
+    async (chatId: string, userIds: string[]) => upserted(await api.addMembers(chatId, userIds)),
+    [api, upserted],
+  );
+  const removeMember = useCallback(async (chatId: string, userId: string) => {
+    await api.removeMember(chatId, userId);
+    upsertFromServer(chatId);
+  }, [api, upsertFromServer]);
+  const setMemberRole = useCallback(async (chatId: string, userId: string, role: Exclude<ChatRole, 'owner'>) => {
+    await api.setMemberRole(chatId, userId, role);
+    upsertFromServer(chatId);
+  }, [api, upsertFromServer]);
+  const leaveChat = useCallback(async (chatId: string) => {
+    await api.leaveChat(chatId);
+    dispatch({ type: 'chat/removed', chatId });
+  }, [api]);
+  const deleteChat = useCallback(async (chatId: string) => {
+    await api.deleteChat(chatId);
+    dispatch({ type: 'chat/removed', chatId });
+  }, [api]);
+
   // Real vaqt voqealari.
   useEffect(() => {
     const timers = typingTimers.current;
@@ -167,8 +240,16 @@ export const ChatStoreProvider = ({ children }: { children: ReactNode }) => {
   }, [socket, me.id, refreshChats, loadMessages, upsertFromServer]);
 
   const value = useMemo<ChatStore>(
-    () => ({ state, refreshChats, loadMessages, sendText, resend, setTyping, markRead, openDirect, joinChannel, setActiveChat }),
-    [state, refreshChats, loadMessages, sendText, resend, setTyping, markRead, openDirect, joinChannel, setActiveChat],
+    () => ({
+      state, refreshChats, loadMessages, sendText, resend, setTyping, markRead, openDirect, joinChannel, setActiveChat,
+      ensureChat, editMessage, deleteMessage, discardLocal, createGroup, createChannel, updateChat, addMembers, removeMember,
+      setMemberRole, leaveChat, deleteChat,
+    }),
+    [
+      state, refreshChats, loadMessages, sendText, resend, setTyping, markRead, openDirect, joinChannel, setActiveChat,
+      ensureChat, editMessage, deleteMessage, discardLocal, createGroup, createChannel, updateChat, addMembers, removeMember,
+      setMemberRole, leaveChat, deleteChat,
+    ],
   );
   return <ChatStoreContext.Provider value={value}>{children}</ChatStoreContext.Provider>;
 };

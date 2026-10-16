@@ -1,7 +1,5 @@
 import { ApiError } from '@suhbat/client';
 import { LoginInputSchema, normalizeUsername, RegisterInputSchema } from '@suhbat/core';
-import type { Palette } from '@suhbat/ui-tokens';
-import { fontSize, radius, spacing } from '@suhbat/ui-tokens';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
@@ -10,7 +8,11 @@ import { UsernameInput } from '../components/UsernameInput';
 import { usernameAcceptable, useUsernameCheck } from '../hooks/useUsernameCheck';
 import { useSession } from '../state/SessionProvider';
 import { ForgotPasswordScreen } from './ForgotPasswordScreen';
+import { Icon } from '../components/icon/Icon';
+import { radii, shadows, space } from '../theme/metrics';
+import { textStyles } from '../theme/typography';
 import { useStyles, useTheme } from '../theme/ThemeProvider';
+import type { Palette } from '../theme/ThemeProvider';
 
 type Mode = 'login' | 'register';
 
@@ -74,7 +76,10 @@ const AuthForm = ({ expired, onForgot }: { expired: boolean; onForgot: (value: s
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
-          <Text style={styles.brand}>Suhbat</Text>
+          <View style={styles.logo} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <Icon name="chatbubbles" size={40} color={palette.onPrimary} />
+          </View>
+          <Text style={styles.brand} accessibilityRole="header">Suhbat</Text>
           <Text style={styles.subtitle}>{mode === 'login' ? 'Hisobingizga kiring' : 'Yangi hisob yarating'}</Text>
           {mode === 'register' && (
             <TextInput {...inputProps} placeholder="Ism" value={displayName} onChangeText={setDisplayName}
@@ -121,15 +126,16 @@ const AuthForm = ({ expired, onForgot }: { expired: boolean; onForgot: (value: s
 
 const createStyles = (p: Palette) => StyleSheet.create({
   root:       { flex: 1, backgroundColor: p.background },
-  content:    { flexGrow: 1, justifyContent: 'center', padding: spacing(4) },
-  card:       { width: '100%', maxWidth: 420, alignSelf: 'center', gap: spacing(3), padding: spacing(6), borderRadius: radius.lg, backgroundColor: p.surface },
-  brand:      { fontSize: 28, fontWeight: '800', color: p.primary, textAlign: 'center' },
-  subtitle:   { fontSize: fontSize.md, color: p.textSecondary, textAlign: 'center', marginBottom: spacing(2) },
-  input:      { borderWidth: 1, borderColor: p.divider, borderRadius: radius.md, paddingHorizontal: spacing(3), paddingVertical: spacing(3), fontSize: fontSize.md, color: p.textPrimary, backgroundColor: p.background },
-  error:      { color: p.danger, fontSize: fontSize.sm },
-  button:     { backgroundColor: p.primary, borderRadius: radius.md, paddingVertical: spacing(3), alignItems: 'center' },
+  content:    { flexGrow: 1, justifyContent: 'center', padding: space.lg },
+  card:       { ...shadows.sm, width: '100%', maxWidth: 420, alignSelf: 'center', gap: space.md, padding: space.xxl, borderRadius: radii.xl, backgroundColor: p.surface },
+  logo:       { alignSelf: 'center', width: 72, height: 72, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: p.primary, marginBottom: space.xs },
+  brand:      { ...textStyles.title, color: p.textPrimary, textAlign: 'center' },
+  subtitle:   { ...textStyles.body, color: p.textSecondary, textAlign: 'center', marginBottom: space.sm },
+  input:      { ...textStyles.body, fontSize: 16, borderRadius: radii.md, paddingHorizontal: space.md, paddingVertical: space.md, color: p.textPrimary, backgroundColor: p.surfaceHighlight },
+  error:      { ...textStyles.bodySmall, color: p.danger },
+  button:     { minHeight: 48, backgroundColor: p.primary, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center', marginTop: space.xs },
   buttonBusy: { opacity: 0.7 },
-  buttonText: { color: '#ffffff', fontSize: fontSize.md, fontWeight: '700' },
-  switch:     { color: p.primary, fontSize: fontSize.sm, textAlign: 'center' },
+  buttonText: { ...textStyles.button, color: p.onPrimary },
+  switch:     { ...textStyles.bodySmall, color: p.primary, textAlign: 'center', paddingVertical: space.xs },
   forgot:     { alignSelf: 'flex-end' },
 });

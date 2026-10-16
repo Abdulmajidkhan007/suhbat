@@ -1,16 +1,20 @@
 import { ApiError } from '@suhbat/client';
 import { BIO_MAX, DISPLAY_NAME_MAX, normalizeUsername, UpdateProfileInputSchema } from '@suhbat/core';
-import type { Palette } from '@suhbat/ui-tokens';
-import { fontSize, radius, spacing } from '@suhbat/ui-tokens';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
+import { PrimaryButton } from '../components/PrimaryButton';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { UsernameInput } from '../components/UsernameInput';
 import { usernameAcceptable, useUsernameCheck } from '../hooks/useUsernameCheck';
+import { t } from '../i18n';
 import { useNavigation } from '../navigation/Navigator';
 import { useCurrentUser, useSession } from '../state/SessionProvider';
+import { radii, space } from '../theme/metrics';
+import { textStyles } from '../theme/typography';
 import { useStyles, useTheme } from '../theme/ThemeProvider';
+import type { Palette } from '../theme/ThemeProvider';
+import { haptics } from '../utils/haptics';
 
 /** Profilni tahrirlash: ism, username va "men haqimda". Avatar yuklash — keyinroq (S3 sozlanmagan). */
 export const ProfileScreen = () => {
@@ -32,7 +36,7 @@ export const ProfileScreen = () => {
     displayName: name, bio, ...(usernameChanged ? { username: normalizeUsername(username) || null } : {}),
   });
   const dirty = name.trim() !== me.displayName || bio.trim() !== (me.bio ?? '') || usernameChanged;
-  const nameError = name.trim().length === 0 ? 'Ism bo\'sh bo\'lmasin' : null;
+  const nameError = name.trim().length === 0 ? t('profile.nameRequired') : null;
   const canSave = parsed.success && dirty && usernameAcceptable(usernameCheck) && !saving;
 
   const save = async () => {
@@ -41,10 +45,11 @@ export const ProfileScreen = () => {
     setMessage(null);
     try {
       updateUser(await api.updateProfile(parsed.data));
-      setMessage({ text: 'Profil saqlandi', ok: true });
+      haptics.success();
+      setMessage({ text: t('profile.saved'), ok: true });
     } catch (e) {
-      const text = e instanceof ApiError && e.status === 409 ? e.message : 'Profilni saqlab bo\'lmadi. Qayta urinib ko\'ring.';
-      setMessage({ text, ok: false });
+      // 409 — username band (server xabari o'zbekcha).
+      setMessage({ text: e instanceof ApiError && e.status === 409 ? e.message : t('profile.saveError'), ok: false });
     } finally {
       setSaving(false);
     }
@@ -52,65 +57,63 @@ export const ProfileScreen = () => {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader title="Profil" onBack={back} />
+      <ScreenHeader title={t('profile.title')} onBack={back} />
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <View style={styles.avatar}><Avatar name={me.displayName} size={72} /></View>
-        <Text style={styles.email}>{me.email}</Text>
+        <View style={styles.hero}>
+          <Avatar name={name.trim() || me.displayName} seed={me.id} size={96} />
+          <Text style={styles.email}>{me.username ? `@${me.username} · ${me.email}` : me.email}</Text>
+          <Text style={styles.hint}>{t('profile.avatarLater')}</Text>
+        </View>
 
-        <Text style={styles.label}>Ism</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          maxLength={DISPLAY_NAME_MAX}
-          placeholderTextColor={palette.textDisabled}
-          accessibilityLabel="Ism"
-        />
-        {nameError ? <Text style={styles.error}>{nameError}</Text> : null}
+        <View style={styles.card}>
+          <Text style={styles.label}>{t('profile.name')}</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            maxLength={DISPLAY_NAME_MAX}
+            placeholderTextColor={palette.textDisabled}
+            accessibilityLabel={t('profile.name')}
+          />
+          {nameError ? <Text style={styles.error}>{nameError}</Text> : null}
 
-        <Text style={styles.label}>Username</Text>
-        <UsernameInput value={username} onChange={setUsername} check={usernameCheck} editable={!saving} inputStyle={styles.input} />
+          <Text style={styles.label}>{t('profile.username')}</Text>
+          <UsernameInput value={username} onChange={setUsername} check={usernameCheck} editable={!saving} inputStyle={styles.input} />
 
-        <Text style={styles.label}>Men haqimda</Text>
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          value={bio}
-          onChangeText={setBio}
-          maxLength={BIO_MAX}
-          multiline
-          placeholderTextColor={palette.textDisabled}
-          accessibilityLabel="Men haqimda"
-        />
-        <Text style={styles.counter}>{bio.length}/{BIO_MAX}</Text>
+          <Text style={styles.label}>{t('profile.bio')}</Text>
+          <TextInput
+            style={[styles.input, styles.multiline]}
+            value={bio}
+            onChangeText={setBio}
+            maxLength={BIO_MAX}
+            multiline
+            placeholderTextColor={palette.textDisabled}
+            accessibilityLabel={t('profile.bio')}
+          />
+          <Text style={styles.counter}>{bio.length}/{BIO_MAX}</Text>
+        </View>
 
         {message ? <Text style={message.ok ? styles.ok : styles.error} accessibilityRole="alert">{message.text}</Text> : null}
-
-        <Pressable
-          style={[styles.button, !canSave && styles.buttonDisabled]}
-          onPress={() => void save()}
-          disabled={!canSave}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !canSave }}
-        >
-          {saving ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Saqlash</Text>}
-        </Pressable>
+        <PrimaryButton label={t('common.save')} onPress={() => void save()} disabled={!canSave} loading={saving} />
       </ScrollView>
     </View>
   );
 };
 
 const createStyles = (p: Palette) => StyleSheet.create({
-  root:      { flex: 1, backgroundColor: p.surface },
-  body:      { padding: spacing(4), gap: spacing(2) },
-  avatar:    { alignItems: 'center', marginTop: spacing(2) },
-  email:     { textAlign: 'center', color: p.textSecondary, fontSize: fontSize.sm, marginBottom: spacing(3) },
-  label:     { color: p.textSecondary, fontSize: fontSize.sm, fontWeight: '600', marginTop: spacing(2) },
-  input:     { paddingHorizontal: spacing(3), paddingVertical: spacing(2.5), borderRadius: radius.md, backgroundColor: p.background, color: p.textPrimary, fontSize: fontSize.md },
+  root:      { flex: 1, backgroundColor: p.background },
+  body:      { padding: space.lg, gap: space.md },
+  hero:      { alignItems: 'center', gap: space.xs, marginVertical: space.md },
+  email:     { ...textStyles.body, color: p.textSecondary, marginTop: space.sm },
+  hint:      { ...textStyles.caption, color: p.textDisabled },
+  card:      { backgroundColor: p.surface, borderRadius: radii.md, padding: space.lg, gap: space.sm },
+  label:     { ...textStyles.bodySmall, color: p.primary, fontWeight: '600' },
+  input: {
+    ...textStyles.body, fontSize: 16, color: p.textPrimary, backgroundColor: p.surfaceHighlight,
+    borderRadius: radii.md, paddingHorizontal: space.md, paddingVertical: space.sm + 4,
+  },
   multiline: { minHeight: 80, textAlignVertical: 'top' },
-  counter:   { alignSelf: 'flex-end', color: p.textSecondary, fontSize: fontSize.xs },
-  error:     { color: p.danger, fontSize: fontSize.sm },
-  ok:        { color: p.primary, fontSize: fontSize.sm },
-  button:    { marginTop: spacing(3), alignItems: 'center', justifyContent: 'center', minHeight: 44, borderRadius: radius.md, backgroundColor: p.primary },
-  buttonDisabled: { opacity: 0.4 },
-  buttonText: { color: '#ffffff', fontSize: fontSize.md, fontWeight: '700' },
+  counter:   { ...textStyles.caption, alignSelf: 'flex-end', color: p.textSecondary },
+  error:     { ...textStyles.bodySmall, color: p.danger },
+  ok:        { ...textStyles.bodySmall, color: p.success },
 });

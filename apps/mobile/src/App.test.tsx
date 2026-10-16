@@ -57,10 +57,11 @@ describe('App', () => {
       expect.objectContaining({ chatId: CHAT_ID, content: 'salom' }),
     ));
     expect(fake.socket.setTyping).toHaveBeenCalledWith(CHAT_ID, false);
-    expect(await screen.findByText(/✓$/)).toBeTruthy();
+    expect(await screen.findByLabelText('yuborildi')).toBeTruthy();
 
     await act(() => fake.emit('message:read', { chatId: CHAT_ID, userId: PEER.id, lastReadAt: sent.createdAt }));
-    expect(screen.getByText(/✓✓$/)).toBeTruthy();
+    expect(screen.getByLabelText('o\'qildi')).toBeTruthy();
+    expect(screen.queryByLabelText('yuborildi')).toBeNull();
   });
 
   it('kanalda oddiy a\'zo yoza olmaydi', async () => {

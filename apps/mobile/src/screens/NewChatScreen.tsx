@@ -1,84 +1,74 @@
 import type { PublicUser } from '@suhbat/core';
-import type { Palette } from '@suhbat/ui-tokens';
-import { fontSize, radius, spacing } from '@suhbat/ui-tokens';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
+import { EmptyState } from '../components/EmptyState';
+import { ListRow } from '../components/ListRow';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { SearchField } from '../components/SearchField';
+import { useUserSearch } from '../hooks/useUserSearch';
+import { t } from '../i18n';
 import { useNavigation } from '../navigation/Navigator';
 import { useChatStore } from '../state/ChatStoreProvider';
-import { useSession } from '../state/SessionProvider';
+import { space } from '../theme/metrics';
 import { useStyles, useTheme } from '../theme/ThemeProvider';
-
-const SEARCH_DEBOUNCE_MS = 300;
+import type { Palette } from '../theme/ThemeProvider';
 
 export const NewChatScreen = () => {
   const styles = useStyles(createStyles);
   const { palette } = useTheme();
-  const { services: { api } } = useSession();
-  const { openDirect } = useChatStore();
+  const { openDirect, state } = useChatStore();
   const { back, replace } = useNavigation();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<PublicUser[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const q = query.trim();
-    if (!q) {
-      setResults([]);
-      return;
-    }
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      setLoading(true);
-      api.searchUsers(q).then(
-        (users) => { if (!cancelled) { setResults(users); setError(null); } },
-        () => { if (!cancelled) setError('Qidiruvda xato'); },
-      ).finally(() => { if (!cancelled) setLoading(false); });
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [api, query]);
+  const [openError, setOpenError] = useState(false);
+  const search = useUserSearch(query);
 
   const open = async (user: PublicUser) => {
     try {
+      setOpenError(false);
       const chat = await openDirect(user.id);
       replace({ name: 'chat', chatId: chat.id });
     } catch {
-      setError('Chatni ochib bo\'lmadi');
+      setOpenError(true);
     }
   };
 
   return (
     <View style={styles.root}>
-      <ScreenHeader title="Yangi chat" onBack={back} />
-      <TextInput
-        style={styles.input}
+      <ScreenHeader title={t('new.chatTitle')} onBack={back} />
+      <SearchField
         value={query}
         onChangeText={setQuery}
-        placeholder="Ism yoki to'liq email"
-        placeholderTextColor={palette.textDisabled}
-        autoCapitalize="none"
+        placeholder={t('add.placeholder')}
+        label={t('new.searchLabel')}
         autoFocus
-        accessibilityLabel="Foydalanuvchi qidirish"
       />
-      {loading ? <ActivityIndicator style={styles.loader} color={palette.primary} /> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {!query.trim() ? (
+        <View>
+          <ListRow title={t('list.newGroup')} icon="people-outline" iconColor={palette.primary} onPress={() => replace({ name: 'newGroup', kind: 'group' })} />
+          <ListRow title={t('list.newChannel')} icon="megaphone-outline" iconColor={palette.secondary} onPress={() => replace({ name: 'newGroup', kind: 'channel' })} />
+        </View>
+      ) : null}
+      {search.loading ? <ActivityIndicator style={styles.loader} color={palette.primary} accessibilityLabel={t('search.searching')} /> : null}
+      {openError ? <EmptyState error title={t('new.openError')} /> : null}
       <FlatList
-        data={results}
+        data={search.results}
         keyExtractor={(u) => u.id}
         keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
-          <Pressable style={styles.item} onPress={() => void open(item)} accessibilityRole="button">
-            <Avatar name={item.displayName} size={40} />
-            <Text style={styles.name}>{item.displayName}</Text>
-          </Pressable>
+          <ListRow
+            title={item.displayName}
+            subtitle={[item.username ? `@${item.username}` : null, item.bio].filter(Boolean).join(' · ') || undefined}
+            left={<Avatar name={item.displayName} seed={item.id} size={42} online={state.online[item.id] === true} />}
+            onPress={() => void open(item)}
+          />
         )}
         ListEmptyComponent={
-          query.trim() && !loading ? <Text style={styles.empty}>Hech kim topilmadi</Text> : undefined
+          search.error ? (
+            <EmptyState error title={t('new.searchError')} onRetry={search.retry} />
+          ) : query.trim() && !search.loading ? (
+            <EmptyState icon="search" title={t('new.nobody')} body={t('add.hint')} />
+          ) : undefined
         }
       />
     </View>
@@ -87,10 +77,5 @@ export const NewChatScreen = () => {
 
 const createStyles = (p: Palette) => StyleSheet.create({
   root:   { flex: 1, backgroundColor: p.surface },
-  input:  { margin: spacing(3), paddingHorizontal: spacing(3), paddingVertical: spacing(2.5), borderRadius: radius.md, backgroundColor: p.background, color: p.textPrimary, fontSize: fontSize.md },
-  loader: { marginVertical: spacing(2) },
-  item:   { flexDirection: 'row', alignItems: 'center', gap: spacing(3), paddingHorizontal: spacing(4), paddingVertical: spacing(2.5) },
-  name:   { fontSize: fontSize.md, color: p.textPrimary },
-  empty:  { padding: spacing(6), textAlign: 'center', color: p.textSecondary },
-  error:  { paddingHorizontal: spacing(4), color: p.danger },
+  loader: { marginVertical: space.md },
 });

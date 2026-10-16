@@ -36,6 +36,18 @@ export const createFakeServices = (api: Partial<ApiClient> = {}, push: PushPlatf
     joinChannel:      jest.fn(async () => { throw new Error('joinChannel mock kerak'); }),
     updateProfile:    jest.fn(async () => ME),
     registerDevice:   jest.fn(async () => undefined),
+    getNotificationSettings:    jest.fn(async () => ({ preview: true })),
+    updateNotificationSettings: jest.fn(async (input: { preview?: boolean }) => ({ preview: input.preview ?? true })),
+    editMessage:      jest.fn(async () => { throw new Error('editMessage mock kerak'); }),
+    deleteMessage:    jest.fn(async () => ({ deletedAt: new Date().toISOString() })),
+    addMembers:       jest.fn(async () => { throw new Error('addMembers mock kerak'); }),
+    removeMember:     jest.fn(async () => undefined),
+    setMemberRole:    jest.fn(async () => { throw new Error('setMemberRole mock kerak'); }),
+    leaveChat:        jest.fn(async () => undefined),
+    deleteChat:       jest.fn(async () => undefined),
+    createGroup:      jest.fn(async () => { throw new Error('createGroup mock kerak'); }),
+    createChannel:    jest.fn(async () => { throw new Error('createChannel mock kerak'); }),
+    updateChat:       jest.fn(async () => { throw new Error('updateChat mock kerak'); }),
     ...api,
   };
 
@@ -61,6 +73,8 @@ export const createFakeServices = (api: Partial<ApiClient> = {}, push: PushPlatf
       return () => connectionListeners.delete(l);
     },
     sendMessage: jest.fn(),
+    editMessage: jest.fn(),
+    deleteMessage: jest.fn(async () => ({ deletedAt: new Date().toISOString() })),
     setTyping:   jest.fn(),
     markRead:    jest.fn(async () => ({ lastReadAt: new Date().toISOString() })),
   };
@@ -109,5 +123,10 @@ export const createFakeServices = (api: Partial<ApiClient> = {}, push: PushPlatf
 
   // Ilova ishlatmaydigan metodlar yo'q — chaqirilsa test TypeError bilan yiqiladi.
   const services = { api: fakeApi, socket: fakeSocket, push, calls } as unknown as Services;
-  return { services, api: fakeApi, socket: fakeSocket, emit, signaling, calls, media };
+  /** Server bilan aloqa uzildi/tiklandi. */
+  const setConnected = (value: boolean) => {
+    connected = value;
+    connectionListeners.forEach((l) => l(value));
+  };
+  return { services, api: fakeApi, socket: fakeSocket, emit, setConnected, signaling, calls, media };
 };

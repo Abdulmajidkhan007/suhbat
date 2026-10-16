@@ -76,7 +76,8 @@ describe('Profil: username', () => {
       .mockResolvedValueOnce({ ...ME, username: 'ali_yangi' });
     const fake = createFakeServices({ hasSession: jest.fn(async () => true), updateProfile });
     await render(<App services={fake.services} />);
-    await fireEvent.press(await screen.findByText('Profil'));
+    await fireEvent.press(await screen.findByRole('tab', { name: 'Sozlamalar' }));
+    await fireEvent.press(await screen.findByLabelText('Profil'));
     await fireEvent.changeText(screen.getByLabelText('Username'), 'Ali_Yangi');
     expect(await screen.findByText('Bo\'sh — olish mumkin', {}, SLOW)).toBeTruthy();
     await fireEvent.press(screen.getByText('Saqlash'));

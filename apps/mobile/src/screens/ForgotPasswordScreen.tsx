@@ -1,12 +1,13 @@
 import { ApiError } from '@suhbat/client';
-import type { Palette } from '@suhbat/ui-tokens';
-import { fontSize, radius, spacing } from '@suhbat/ui-tokens';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { useSession } from '../state/SessionProvider';
+import { radii, shadows, space } from '../theme/metrics';
+import { textStyles } from '../theme/typography';
 import { useStyles, useTheme } from '../theme/ThemeProvider';
+import type { Palette } from '../theme/ThemeProvider';
 
 const failureText = (e: unknown): string => {
   if (e instanceof ApiError) {
@@ -87,15 +88,15 @@ export const ForgotPasswordScreen = ({ onBack, initialValue = '' }: { onBack: ()
 
 const createStyles = (p: Palette) => StyleSheet.create({
   root:       { flex: 1, backgroundColor: p.background },
-  content:    { flexGrow: 1, justifyContent: 'center', padding: spacing(4) },
-  card:       { width: '100%', maxWidth: 420, alignSelf: 'center', gap: spacing(3), padding: spacing(6), borderRadius: radius.lg, backgroundColor: p.surface },
-  title:      { fontSize: fontSize.xl, fontWeight: '800', color: p.textPrimary, textAlign: 'center' },
-  hint:       { fontSize: fontSize.sm, color: p.textSecondary, textAlign: 'center' },
-  input:      { borderWidth: 1, borderColor: p.divider, borderRadius: radius.md, paddingHorizontal: spacing(3), paddingVertical: spacing(3), fontSize: fontSize.md, color: p.textPrimary, backgroundColor: p.background },
-  error:      { color: p.danger, fontSize: fontSize.sm },
-  ok:         { color: p.primary, fontSize: fontSize.md, textAlign: 'center' },
-  button:     { backgroundColor: p.primary, borderRadius: radius.md, paddingVertical: spacing(3), alignItems: 'center' },
+  content:    { flexGrow: 1, justifyContent: 'center', padding: space.lg },
+  card:       { ...shadows.sm, width: '100%', maxWidth: 420, alignSelf: 'center', gap: space.md, padding: space.xxl, borderRadius: radii.xl, backgroundColor: p.surface },
+  title:      { ...textStyles.title, color: p.textPrimary, textAlign: 'center' },
+  hint:       { ...textStyles.bodySmall, color: p.textSecondary, textAlign: 'center' },
+  input:      { ...textStyles.body, fontSize: 16, borderRadius: radii.md, paddingHorizontal: space.md, paddingVertical: space.md, color: p.textPrimary, backgroundColor: p.surfaceHighlight },
+  error:      { ...textStyles.bodySmall, color: p.danger },
+  ok:         { ...textStyles.body, color: p.success, textAlign: 'center' },
+  button:     { minHeight: 48, backgroundColor: p.primary, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' },
   buttonBusy: { opacity: 0.7 },
-  buttonText: { color: '#ffffff', fontSize: fontSize.md, fontWeight: '700' },
-  link:       { color: p.primary, fontSize: fontSize.sm, textAlign: 'center' },
+  buttonText: { ...textStyles.button, color: p.onPrimary },
+  link:       { ...textStyles.bodySmall, color: p.primary, textAlign: 'center', paddingVertical: space.xs },
 });

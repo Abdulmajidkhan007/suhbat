@@ -1,27 +1,34 @@
 import { callStatusText, isSilentEnd } from '@suhbat/client';
 import type { CallState } from '@suhbat/client';
-import { fontSize, radius, spacing } from '@suhbat/ui-tokens';
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
 import type { MediaStream } from 'react-native-webrtc';
 import { Avatar } from '../components/Avatar';
+import { Icon } from '../components/icon/Icon';
+import type { IconName } from '../components/icon/Icon';
+import { radii, space } from '../theme/metrics';
+import { textStyles } from '../theme/typography';
+import { useTheme } from '../theme/ThemeProvider';
 import { useSession } from '../state/SessionProvider';
 import { useCall, useNow } from './useCall';
 
-const COLORS = { bg: '#111827', text: '#ffffff', muted: 'rgba(255,255,255,0.75)', button: 'rgba(255,255,255,0.18)', active: '#ffffff', danger: '#dc2626', accept: '#16a34a' };
+// Qo'ng'iroq ekrani doim qorong'i (video ustida o'qilsin); fon chuqurligi asosiy rangdan.
+const COLORS = { text: '#ffffff', muted: 'rgba(255,255,255,0.75)', button: 'rgba(255,255,255,0.18)', active: '#ffffff', danger: '#E53935', accept: '#43A047' };
 
 interface RoundProps {
   label:    string;
-  icon:     string;
+  icon:     IconName;
   onPress:  () => void;
   color?:   string;
   active?:  boolean;
   caption?: string;
+  /** Go'shakni qo'yish belgisi — telefon ikonkasi 135° burilgan. */
+  hangup?:  boolean;
 }
 
-const RoundButton = ({ label, icon, onPress, color, active = false, caption }: RoundProps) => (
+const RoundButton = ({ label, icon, onPress, color, active = false, caption, hangup = false }: RoundProps) => (
   <View style={styles.control}>
     <Pressable
       onPress={onPress}
@@ -30,7 +37,9 @@ const RoundButton = ({ label, icon, onPress, color, active = false, caption }: R
       accessibilityState={{ selected: active }}
       style={[styles.round, { backgroundColor: color ?? (active ? COLORS.active : COLORS.button) }]}
     >
-      <Text style={[styles.icon, active && !color && styles.iconActive]}>{icon}</Text>
+      <View style={hangup ? styles.hangup : undefined}>
+        <Icon name={icon} size={28} color={active && !color ? '#111827' : COLORS.text} />
+      </View>
     </Pressable>
     {caption ? <Text style={styles.caption}>{caption}</Text> : null}
   </View>
@@ -40,9 +49,16 @@ const Video = ({ stream, mirror, style }: { stream: MediaStream; mirror?: boolea
   <RTCView streamURL={stream.toURL()} mirror={mirror} objectFit="cover" style={style} zOrder={mirror ? 1 : 0} />
 );
 
-const Frame = ({ children }: { children: ReactNode }) => (
-  <View style={styles.overlay} accessibilityViewIsModal>{children}</View>
-);
+const Frame = ({ children }: { children: ReactNode }) => {
+  const { palette } = useTheme();
+  // Fon: qorong'i ko'k-qora + asosiy rangning xira tusi (mavzuga mos).
+  return (
+    <View style={[styles.overlay, { backgroundColor: '#0E1621' }]} accessibilityViewIsModal>
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.primary, opacity: 0.18 }]} />
+      {children}
+    </View>
+  );
+};
 
 const Incoming = ({ state }: { state: CallState<MediaStream> }) => {
   const { services: { calls } } = useSession();
@@ -54,11 +70,11 @@ const Incoming = ({ state }: { state: CallState<MediaStream> }) => {
         <Text style={styles.status}>{callStatusText(state, Date.now())}</Text>
       </View>
       <View style={styles.controls}>
-        <RoundButton label="Rad etish" caption="Rad etish" icon="✕" color={COLORS.danger} onPress={() => calls.reject()} />
+        <RoundButton label="Rad etish" caption="Rad etish" icon="call" hangup color={COLORS.danger} onPress={() => calls.reject()} />
         <RoundButton
           label="Qabul qilish"
           caption="Qabul qilish"
-          icon={state.media === 'video' ? '🎥' : '📞'}
+          icon={state.media === 'video' ? 'videocam' : 'call'}
           color={COLORS.accept}
           onPress={() => void calls.accept()}
         />
@@ -86,27 +102,27 @@ const Active = ({ state }: { state: CallState<MediaStream> }) => {
       ) : null}
       <View style={styles.controls}>
         {ended ? (
-          <RoundButton label="Yopish" caption="Yopish" icon="✕" onPress={() => calls.dismiss()} />
+          <RoundButton label="Yopish" caption="Yopish" icon="close" onPress={() => calls.dismiss()} />
         ) : (
           <>
             <RoundButton
               label={state.muted ? 'Mikrofonni yoqish' : 'Mikrofonni o\'chirish'}
-              icon="🎤"
+              icon={state.muted ? 'mic-off-outline' : 'mic-outline'}
               active={state.muted}
               onPress={() => calls.setMuted(!state.muted)}
             />
             {isVideo ? (
               <RoundButton
                 label={state.cameraOff ? 'Kamerani yoqish' : 'Kamerani o\'chirish'}
-                icon="📷"
+                icon={state.cameraOff ? 'videocam-off-outline' : 'videocam-outline'}
                 active={state.cameraOff}
                 onPress={() => calls.setCameraOff(!state.cameraOff)}
               />
             ) : null}
             {isVideo && calls.canSwitchCamera ? (
-              <RoundButton label="Kamerani almashtirish" icon="🔄" onPress={() => void calls.switchCamera()} />
+              <RoundButton label="Kamerani almashtirish" icon="camera-reverse-outline" onPress={() => void calls.switchCamera()} />
             ) : null}
-            <RoundButton label="Tugatish" icon="✕" color={COLORS.danger} onPress={() => calls.hangup()} />
+            <RoundButton label="Tugatish" icon="call" hangup color={COLORS.danger} onPress={() => calls.hangup()} />
           </>
         )}
       </View>
@@ -134,15 +150,14 @@ export const CallOverlay = () => {
 };
 
 const styles = StyleSheet.create({
-  overlay:  { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: COLORS.bg, justifyContent: 'space-between', zIndex: 10, elevation: 10 },
-  header:   { alignItems: 'center', gap: spacing(3), paddingTop: spacing(16), paddingHorizontal: spacing(6) },
-  name:     { color: COLORS.text, fontSize: fontSize.xl, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
-  status:   { color: COLORS.muted, fontSize: fontSize.md, fontVariant: ['tabular-nums'], textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
-  pip:      { position: 'absolute', right: spacing(4), top: spacing(4), width: 110, height: 150, borderRadius: radius.md, overflow: 'hidden' },
-  controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: spacing(6), paddingBottom: spacing(12), flexWrap: 'wrap' },
-  control:  { alignItems: 'center', gap: spacing(2) },
-  round:    { width: 64, height: 64, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
-  icon:     { fontSize: 26, color: COLORS.text },
-  iconActive: { opacity: 0.6 },
-  caption:  { color: COLORS.muted, fontSize: fontSize.sm },
+  overlay:  { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'space-between', zIndex: 10, elevation: 10 },
+  header:   { alignItems: 'center', gap: space.md, paddingTop: 64, paddingHorizontal: space.xxl },
+  name:     { ...textStyles.title, color: COLORS.text, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
+  status:   { ...textStyles.body, color: COLORS.muted, fontVariant: ['tabular-nums'], textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
+  pip:      { position: 'absolute', right: space.lg, top: space.lg, width: 110, height: 150, borderRadius: radii.md, overflow: 'hidden' },
+  controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: space.xxl, paddingBottom: space.huge, flexWrap: 'wrap' },
+  control:  { alignItems: 'center', gap: space.sm },
+  round:    { width: 64, height: 64, borderRadius: radii.full, alignItems: 'center', justifyContent: 'center' },
+  caption:  { ...textStyles.bodySmall, color: COLORS.muted },
+  hangup:   { transform: [{ rotate: '135deg' }] },
 });
