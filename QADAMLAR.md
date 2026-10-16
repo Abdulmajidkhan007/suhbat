@@ -189,6 +189,10 @@ GitHub **Actions → Release** ishlaydi (taxminan 20–40 daqiqa); macOS `dmg`, 
 **Releases** sahifasiga yuklanadi. Keyingi versiyalar: `v0.1.1`, `v0.2.0`, ...
 Ilovalar imzosiz: macOS/Windows ogohlantirish ko'rsatadi (normal). iOS hali yo'q.
 
+**Har release'dan oldin:** `CHANGELOG.md` da shu teg nomli bo'lim bo'lsin (masalan `## v0.3.0`) — release
+matni shundan olinadi; bo'lim bo'lmasa workflow birinchi qadamda to'xtaydi. Versiya raqami (desktop fayl nomi,
+ilovadagi "Suhbat v…") tegdan avtomatik olinadi — `package.json` ni qo'lda o'zgartirish shart emas.
+
 ## Railway tuzoqlari (amalda uchragan)
 
 - Railway monorepoda **har workspace uchun avtomatik service** yaratadi — kerakmaslarini

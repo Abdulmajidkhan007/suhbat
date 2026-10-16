@@ -37,6 +37,16 @@ jobs:
             echo "::error::Teg nomi noto'g'ri: '$TAG' (kutilgan ko'rinish: v0.1.0)"
             exit 1
           fi
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || '' }}
+          sparse-checkout: |
+            CHANGELOG.md
+            scripts
+          sparse-checkout-cone-mode: false
+      # Release matni CHANGELOG.md dan: `## vX.Y.Z` bo'limi bo'lmasa build boshlanmaydi.
+      - name: CHANGELOG bo'limini tekshirish
+        run: bash scripts/release-notes.sh "$TAG"
 
   desktop:
     needs: check
@@ -67,6 +77,10 @@ jobs:
         shell: bash
         run: bash scripts/check-api-url.sh "$VITE_API_URL" SUHBAT_API_URL
       - run: npm ci
+      # Fayl nomi (suhbat-X.Y.Z-…) va ilovadagi "Suhbat vX.Y.Z" tegdan olinadi.
+      - name: Versiya tegdan
+        shell: bash
+        run: bash scripts/release-version.sh "$TAG"
       - run: npx turbo run build --filter=@suhbat/desktop
       - name: Qadoqlash
         run: npm run package -w @suhbat/desktop -- ${{ matrix.flag }}
@@ -124,6 +138,8 @@ jobs:
             echo "::warning::GOOGLE_SERVICES_JSON secret'i yo'q — APK push bildirishnomalarsiz quriladi (QADAMLAR.md 12)"
           fi
       - run: npm ci
+      - name: Versiya tegdan
+        run: bash scripts/release-version.sh "$TAG"
       - run: npx turbo run build --filter=@suhbat/mobile^...
       - name: Imzolash kaliti
         id: sign
@@ -181,7 +197,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || '' }}
-          sparse-checkout: CHANGELOG.md
+          sparse-checkout: |
+            CHANGELOG.md
+            scripts
           sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v4
         with:
@@ -192,9 +210,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -l artifacts
-          # CHANGELOG.md dagi `## vX.Y.Z` bo'limi (bo'lsa) + o'rnatish eslatmalari.
-          awk -v tag="$TAG" '/^## / { on = ($2 == tag) ; next } on' CHANGELOG.md > notes.md 2>/dev/null || true
-          if [ -s notes.md ]; then printf '\n---\n' >> notes.md; fi
+          # CHANGELOG.md dagi `## vX.Y.Z` bo'limi (check job tekshirgan) + o'rnatish eslatmalari.
+          bash scripts/release-notes.sh "$TAG" > notes.md
+          printf '\n---\n' >> notes.md
           cat >> notes.md <<'NOTES'
           - **Android:** `*.apk`. Fayl nomida `sinov-uchun-debug-imzo` bo'lsa — vaqtinchalik kalit bilan imzolangan, faqat sinov uchun (har safar boshqa kalit: eskisini o'chirib qayta o'rnatish kerak bo'lishi mumkin). Boshqa holda — egasining kaliti bilan imzolangan.
           - **Desktop:** macOS `dmg`, Windows `exe`. Imzosiz: macOS'da Gatekeeper, Windows'da SmartScreen ogohlantirishi chiqadi.
@@ -202,6 +220,8 @@ jobs:
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             # Release allaqachon bor (masalan, GitHub UI'dan yaratilgan): fayllarni yuklab qo'yamiz.
             gh release upload "$TAG" artifacts/* --repo "$GITHUB_REPOSITORY" --clobber
+            # Matn ham CHANGELOG'dan yangilanadi (aks holda UI'dagi bo'sh/eski matn qolardi).
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
           else
             args=()
             # Teg hali yo'q bo'lsa (qo'lda ishga tushirish), main dagi commit'ga yaratiladi.

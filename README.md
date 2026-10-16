@@ -176,4 +176,5 @@ Ularsiz ilova push'siz ishlaydi.
 
 Native'siz tekshiruv: `npm run lint|typecheck|test -w @suhbat/mobile`,
 `npm run bundle:android -w @suhbat/mobile`. Native build — `.github/workflows/mobile.yml`
-(Android debug + imzosiz release APK, iOS simulyator).
+(Android debug + imzosiz release APK) va `mobile-ios.yml` (iOS simulyator; faqat iOS/native bog'liqliklar
+o'zgarganda yoki qo'lda — macOS runner qimmat).
