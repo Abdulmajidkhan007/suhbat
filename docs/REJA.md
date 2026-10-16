@@ -329,7 +329,7 @@
   Brauzerda (Playwright, lokal API + `vite preview`, ikki foydalanuvchi, 1280 va 390 px): javob → ikkinchi tomonda blok →
   asl xabar o'chirilgach "O'chirilgan xabar".
 - **Cheklov:** sahifaga yuklanmagan (eski) asl xabarga avtomatik o'tish yo'q — foydalanuvchi "Eskiroq xabarlar"ni yuklaydi.
-  Haqiqiy telefonda sinalmagan. `CHANGELOG.md` ga qator #13 merge bo'lgach qo'shiladi (konflikt bo'lmasligi uchun).
+  Haqiqiy telefonda sinalmagan. `CHANGELOG.md` `## v0.3.0` da qayd etilgan.
 
 ### Mobil dizayn yangilanishi — "Pulse UI" uslubi (2026-10-16)
 - **Namuna:** egasining `uzbek-tg` reposi (bare RN, Telegram mijozi) — faqat UI/UX g'oyalari va rang/tipografiya qiymatlari olindi;
