@@ -5,6 +5,7 @@ import type { JwtSignOptions } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { PasswordResetService } from './password-reset.service';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard],
-  exports: [JwtModule, JwtAuthGuard],
+  providers: [AuthService, PasswordResetService, JwtAuthGuard],
+  exports:   [JwtModule, JwtAuthGuard, AuthService],
 })
 export class AuthModule {}

@@ -58,7 +58,7 @@ export const NewChatScreen = () => {
         renderItem={({ item }) => (
           <ListRow
             title={item.displayName}
-            subtitle={item.bio ?? undefined}
+            subtitle={[item.username ? `@${item.username}` : null, item.bio].filter(Boolean).join(' · ') || undefined}
             left={<Avatar name={item.displayName} seed={item.id} size={42} online={state.online[item.id] === true} />}
             onPress={() => void open(item)}
           />

@@ -7,7 +7,7 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { BIO_MAX, DISPLAY_NAME_MAX, UpdateProfileInputSchema } from '@suhbat/core';
+import { BIO_MAX, DISPLAY_NAME_MAX, normalizeUsername, UpdateProfileInputSchema } from '@suhbat/core';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { setActivePanel } from '../../features/ui/uiSlice';
 import { setTheme } from '../../features/theme/themeSlice';
@@ -18,6 +18,8 @@ import { errorText } from '../../utils/errors';
 import { getAvatarColor } from '../../utils/colors';
 import { getInitials } from '../../utils/formatters';
 import { ThemeMode } from '../../types';
+import UsernameField from '../auth/UsernameField';
+import { usernameAcceptable, useUsernameCheck } from '../../hooks/useUsernameCheck';
 
 const SettingsPanel: React.FC = () => {
   const dispatch   = useAppDispatch();
@@ -30,20 +32,28 @@ const SettingsPanel: React.FC = () => {
 
   const [name, setName] = useState(user.displayName);
   const [bio, setBio]   = useState(user.bio ?? '');
+  const [username, setUsername] = useState(user.username ?? '');
   const [saving, setSaving] = useState(false);
+  const usernameCheck = useUsernameCheck(username, user.username);
 
   // Server (yoki boshqa tab) yangilaganda maydonlar tiklanadi.
   useEffect(() => {
     setName(user.displayName);
     setBio(user.bio ?? '');
-  }, [user.displayName, user.bio]);
+    setUsername(user.username ?? '');
+  }, [user.displayName, user.bio, user.username]);
 
-  const parsed  = UpdateProfileInputSchema.safeParse({ displayName: name, bio });
-  const dirty   = name.trim() !== user.displayName || bio.trim() !== (user.bio ?? '');
+  const usernameChanged = normalizeUsername(username) !== (user.username ?? '');
+  // Username faqat o'zgarganda yuboriladi; bo'sh — olib tashlash.
+  const parsed  = UpdateProfileInputSchema.safeParse({
+    displayName: name, bio, ...(usernameChanged ? { username: normalizeUsername(username) || null } : {}),
+  });
+  const dirty   = name.trim() !== user.displayName || bio.trim() !== (user.bio ?? '') || usernameChanged;
   const nameErr = name.trim().length === 0 ? 'Ism bo\'sh bo\'lmasin' : undefined;
+  const canSave = dirty && parsed.success && usernameAcceptable(usernameCheck) && !saving;
 
   const save = async () => {
-    if (!parsed.success || !dirty) return;
+    if (!parsed.success || !canSave) return;
     setSaving(true);
     try {
       const updated = await api.updateProfile(parsed.data);
@@ -109,6 +119,7 @@ const SettingsPanel: React.FC = () => {
               slotProps={{ htmlInput: { maxLength: DISPLAY_NAME_MAX } }}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
             />
+            <UsernameField value={username} onChange={setUsername} check={usernameCheck} size="small" />
             <TextField
               label="Men haqimda"
               value={bio}
@@ -124,7 +135,7 @@ const SettingsPanel: React.FC = () => {
             <Button
               variant="contained"
               fullWidth
-              disabled={!dirty || !parsed.success || saving}
+              disabled={!canSave}
               onClick={() => void save()}
               sx={{ textTransform: 'none', borderRadius: '10px' }}
             >

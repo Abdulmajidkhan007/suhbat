@@ -24,6 +24,8 @@ export const createFakeServices = (api: Partial<ApiClient> = {}, push: PushPlatf
     me:               jest.fn(async () => ME),
     login:            jest.fn(async () => ME),
     register:         jest.fn(async () => ME),
+    forgotPassword:   jest.fn(async () => ({ message: 'Agar bunday hisob bo\'lsa, havola yuborildi.' })),
+    checkUsername:    jest.fn(async (u: string) => ({ username: u, available: true, reason: null })),
     logout:           jest.fn(async () => undefined),
     listChats:        jest.fn(async () => []),
     getChat:          jest.fn(async () => { throw new Error('topilmadi'); }),

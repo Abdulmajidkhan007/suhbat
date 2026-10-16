@@ -7,6 +7,7 @@ import { CallsModule } from './calls/calls.module';
 import { ChatsModule } from './chats/chats.module';
 import { throttleOptions } from './common/throttle';
 import { HealthModule } from './health/health.module';
+import { MailModule } from './mail/mail.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
 
@@ -15,6 +16,7 @@ import { UsersModule } from './users/users.module';
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRootAsync({ inject: [ConfigService], useFactory: throttleOptions }),
     PrismaModule,
+    MailModule,
     HealthModule,
     AuthModule,
     UsersModule,

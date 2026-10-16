@@ -13,7 +13,7 @@ vi.mock('../../services/api', () => ({ api: mocks }));
 const { default: ChatInfoDialog } = await import('./ChatInfoDialog');
 
 const NEW_ID = '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e61';
-const newUser: PublicUser = { id: NEW_ID, displayName: 'Yangi Odam', photoUrl: null, bio: null, createdAt: '2026-10-01T10:00:00.000Z' };
+const newUser: PublicUser = { id: NEW_ID, displayName: 'Yangi Odam', username: null, photoUrl: null, bio: null, createdAt: '2026-10-01T10:00:00.000Z' };
 
 const part = (uid: string, displayName: string, role: 'owner' | 'admin' | 'member') =>
   ({ uid, displayName, photoURL: null, isOnline: false, lastSeen: 0, lastReadAt: null, role });

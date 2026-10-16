@@ -38,7 +38,7 @@ const AppShell: React.FC<Props> = ({ sidebar, main, mobileView }) => {
               onChange={(_, panel: 'chats' | 'settings') => dispatch(setActivePanel(panel))}
               sx={{ flexShrink: 0, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}
             >
-              <BottomNavigationAction value="chats" label="Xabarlar" icon={<ForumOutlinedIcon fontSize="small" />} />
+              <BottomNavigationAction value="chats" label="Suhbatlar" icon={<ForumOutlinedIcon fontSize="small" />} />
               <BottomNavigationAction value="settings" label="Sozlamalar" icon={<SettingsOutlinedIcon fontSize="small" />} />
             </BottomNavigation>
           </>

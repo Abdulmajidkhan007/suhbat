@@ -14,7 +14,7 @@ const SidebarNav: React.FC = () => {
   const user        = useAppSelector((s) => s.auth.user)!;
 
   const navItems: { panel: UIState['activePanel']; icon: React.ReactNode; label: string }[] = [
-    { panel: 'chats',    icon: <ForumOutlinedIcon fontSize="small" />,    label: 'Xabarlar' },
+    { panel: 'chats',    icon: <ForumOutlinedIcon fontSize="small" />,    label: 'Suhbatlar' },
     { panel: 'settings', icon: <SettingsOutlinedIcon fontSize="small" />, label: 'Sozlamalar' },
   ];
 

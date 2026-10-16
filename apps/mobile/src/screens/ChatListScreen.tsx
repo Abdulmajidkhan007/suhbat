@@ -163,7 +163,7 @@ export const ChatListScreen = () => {
                 <ListRow
                   key={u.id}
                   title={u.displayName}
-                  subtitle={u.bio ?? undefined}
+                  subtitle={[u.username ? `@${u.username}` : null, u.bio].filter(Boolean).join(' · ') || undefined}
                   left={<Avatar name={u.displayName} seed={u.id} size={42} online={state.online[u.id] === true} />}
                   onPress={() => void openUser(u)}
                 />

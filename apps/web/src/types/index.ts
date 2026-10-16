@@ -5,6 +5,8 @@ export interface AppUser {
   /** Faqat joriy foydalanuvchida (boshqalarniki serverdan kelmaydi). */
   email?:      string;
   displayName: string;
+  /** Ochiq `@username` (kichik harfda). */
+  username?:   string | null;
   photoURL:    string | null;
   phoneNumber?: string | null;
   bio?:        string | null;
@@ -112,7 +114,9 @@ export interface MessagesState {
 export type ThemeMode = 'light' | 'dark';
 
 export interface ThemeState {
-  mode: ThemeMode;
+  mode:   ThemeMode;
+  /** Foydalanuvchi hali tanlamagan — tizim rejimiga ergashadi. */
+  follow: boolean;
 }
 
 export interface UIState {

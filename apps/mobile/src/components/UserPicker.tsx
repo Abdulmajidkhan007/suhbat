@@ -42,7 +42,7 @@ export const UserPicker = ({ query, selected, onToggle, excluded, header }: Prop
         return (
           <ListRow
             title={item.displayName}
-            subtitle={member ? t('add.alreadyMember') : item.bio ?? undefined}
+            subtitle={member ? t('add.alreadyMember') : [item.username ? `@${item.username}` : null, item.bio].filter(Boolean).join(' · ') || undefined}
             left={<Avatar name={item.displayName} seed={item.id} size={42} />}
             right={member ? undefined : (
               <Icon name={on ? 'checkmark-circle' : 'ellipse-outline'} size={26} color={on ? palette.primary : palette.textDisabled} />

@@ -1,9 +1,12 @@
-import { BIO_MAX, DISPLAY_NAME_MAX, UpdateProfileInputSchema } from '@suhbat/core';
+import { ApiError } from '@suhbat/client';
+import { BIO_MAX, DISPLAY_NAME_MAX, normalizeUsername, UpdateProfileInputSchema } from '@suhbat/core';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { UsernameInput } from '../components/UsernameInput';
+import { usernameAcceptable, useUsernameCheck } from '../hooks/useUsernameCheck';
 import { t } from '../i18n';
 import { useNavigation } from '../navigation/Navigator';
 import { useCurrentUser, useSession } from '../state/SessionProvider';
@@ -13,7 +16,7 @@ import { useStyles, useTheme } from '../theme/ThemeProvider';
 import type { Palette } from '../theme/ThemeProvider';
 import { haptics } from '../utils/haptics';
 
-/** Profilni tahrirlash: ism va "men haqimda". Avatar yuklash — keyinroq (S3 sozlanmagan). */
+/** Profilni tahrirlash: ism, username va "men haqimda". Avatar yuklash — keyinroq (S3 sozlanmagan). */
 export const ProfileScreen = () => {
   const styles = useStyles(createStyles);
   const { palette } = useTheme();
@@ -22,13 +25,19 @@ export const ProfileScreen = () => {
   const { back } = useNavigation();
   const [name, setName] = useState(me.displayName);
   const [bio, setBio] = useState(me.bio ?? '');
+  const [username, setUsername] = useState(me.username ?? '');
+  const usernameCheck = useUsernameCheck(username, me.username);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
-  const parsed = UpdateProfileInputSchema.safeParse({ displayName: name, bio });
-  const dirty = name.trim() !== me.displayName || bio.trim() !== (me.bio ?? '');
+  const usernameChanged = normalizeUsername(username) !== (me.username ?? '');
+  // Username faqat o'zgarganda yuboriladi; bo'sh — olib tashlash.
+  const parsed = UpdateProfileInputSchema.safeParse({
+    displayName: name, bio, ...(usernameChanged ? { username: normalizeUsername(username) || null } : {}),
+  });
+  const dirty = name.trim() !== me.displayName || bio.trim() !== (me.bio ?? '') || usernameChanged;
   const nameError = name.trim().length === 0 ? t('profile.nameRequired') : null;
-  const canSave = parsed.success && dirty && !saving;
+  const canSave = parsed.success && dirty && usernameAcceptable(usernameCheck) && !saving;
 
   const save = async () => {
     if (!parsed.success) return;
@@ -38,8 +47,9 @@ export const ProfileScreen = () => {
       updateUser(await api.updateProfile(parsed.data));
       haptics.success();
       setMessage({ text: t('profile.saved'), ok: true });
-    } catch {
-      setMessage({ text: t('profile.saveError'), ok: false });
+    } catch (e) {
+      // 409 — username band (server xabari o'zbekcha).
+      setMessage({ text: e instanceof ApiError && e.status === 409 ? e.message : t('profile.saveError'), ok: false });
     } finally {
       setSaving(false);
     }
@@ -51,7 +61,7 @@ export const ProfileScreen = () => {
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
           <Avatar name={name.trim() || me.displayName} seed={me.id} size={96} />
-          <Text style={styles.email}>{me.email}</Text>
+          <Text style={styles.email}>{me.username ? `@${me.username} · ${me.email}` : me.email}</Text>
           <Text style={styles.hint}>{t('profile.avatarLater')}</Text>
         </View>
 
@@ -66,6 +76,9 @@ export const ProfileScreen = () => {
             accessibilityLabel={t('profile.name')}
           />
           {nameError ? <Text style={styles.error}>{nameError}</Text> : null}
+
+          <Text style={styles.label}>{t('profile.username')}</Text>
+          <UsernameInput value={username} onChange={setUsername} check={usernameCheck} editable={!saving} inputStyle={styles.input} />
 
           <Text style={styles.label}>{t('profile.bio')}</Text>
           <TextInput

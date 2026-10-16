@@ -1,20 +1,33 @@
 import { ApiError } from '@suhbat/client';
-import { LoginInputSchema, RegisterInputSchema } from '@suhbat/core';
-import type { Palette } from '@suhbat/ui-tokens';
-import { fontSize, radius, spacing } from '@suhbat/ui-tokens';
-import { useState } from 'react';
+import { LoginInputSchema, normalizeUsername, RegisterInputSchema } from '@suhbat/core';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
+import { UsernameInput } from '../components/UsernameInput';
+import { usernameAcceptable, useUsernameCheck } from '../hooks/useUsernameCheck';
 import { useSession } from '../state/SessionProvider';
+import { ForgotPasswordScreen } from './ForgotPasswordScreen';
+import { Icon } from '../components/icon/Icon';
+import { radii, shadows, space } from '../theme/metrics';
+import { textStyles } from '../theme/typography';
 import { useStyles, useTheme } from '../theme/ThemeProvider';
+import type { Palette } from '../theme/ThemeProvider';
 
 type Mode = 'login' | 'register';
 
 const errorText = (e: unknown): string =>
   e instanceof ApiError ? e.message : 'Kutilmagan xato. Qayta urinib ko\'ring.';
 
+/** Kirish/ro'yxatdan o'tish va "Parolni unutdim" (tizimga kirmagan holat). */
 export const AuthScreen = ({ expired = false }: { expired?: boolean }) => {
+  const [forgot, setForgot] = useState<{ value: string } | null>(null);
+  const closeForgot = useCallback(() => setForgot(null), []);
+  if (forgot) return <ForgotPasswordScreen onBack={closeForgot} initialValue={forgot.value} />;
+  return <AuthForm expired={expired} onForgot={(value) => setForgot({ value })} />;
+};
+
+const AuthForm = ({ expired, onForgot }: { expired: boolean; onForgot: (value: string) => void }) => {
   const styles = useStyles(createStyles);
   const { palette } = useTheme();
   const { login, register } = useSession();
@@ -22,6 +35,8 @@ export const AuthScreen = ({ expired = false }: { expired?: boolean }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
+  const usernameCheck = useUsernameCheck(mode === 'register' ? username : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(expired ? 'Sessiya tugadi. Qayta kiring.' : null);
 
@@ -44,10 +59,14 @@ export const AuthScreen = ({ expired = false }: { expired?: boolean }) => {
 
   const submit = async () => {
     if (mode === 'login') {
-      const input = LoginInputSchema.safeParse({ email, password });
+      const input = LoginInputSchema.safeParse({ login: email, password });
       return input.success ? run(() => login(input.data)) : invalid();
     }
-    const input = RegisterInputSchema.safeParse({ email, password, displayName });
+    if (!usernameAcceptable(usernameCheck)) {
+      return setError('message' in usernameCheck ? usernameCheck.message : 'Username tekshirilmoqda, biroz kuting');
+    }
+    const normalized = normalizeUsername(username);
+    const input = RegisterInputSchema.safeParse({ email, password, displayName, ...(normalized ? { username: normalized } : {}) });
     return input.success ? run(() => register(input.data)) : invalid();
   };
 
@@ -57,17 +76,35 @@ export const AuthScreen = ({ expired = false }: { expired?: boolean }) => {
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
-          <Text style={styles.brand}>Suhbat</Text>
+          <View style={styles.logo} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <Icon name="chatbubbles" size={40} color={palette.onPrimary} />
+          </View>
+          <Text style={styles.brand} accessibilityRole="header">Suhbat</Text>
           <Text style={styles.subtitle}>{mode === 'login' ? 'Hisobingizga kiring' : 'Yangi hisob yarating'}</Text>
           {mode === 'register' && (
             <TextInput {...inputProps} placeholder="Ism" value={displayName} onChangeText={setDisplayName}
               autoComplete="name" accessibilityLabel="Ism" />
           )}
-          <TextInput {...inputProps} placeholder="Email" value={email} onChangeText={setEmail}
-            autoCapitalize="none" autoComplete="email" keyboardType="email-address" accessibilityLabel="Email" />
+          {mode === 'login' ? (
+            <TextInput {...inputProps} placeholder="Email yoki username" value={email} onChangeText={setEmail}
+              autoCapitalize="none" autoCorrect={false} autoComplete="username" accessibilityLabel="Email yoki username" />
+          ) : (
+            <>
+              <TextInput {...inputProps} placeholder="Email" value={email} onChangeText={setEmail}
+                autoCapitalize="none" autoComplete="email" keyboardType="email-address" accessibilityLabel="Email" />
+              <UsernameInput value={username} onChange={setUsername} check={usernameCheck} optional editable={!busy}
+                inputStyle={styles.input} />
+            </>
+          )}
           <TextInput {...inputProps} placeholder="Parol" value={password} onChangeText={setPassword}
             secureTextEntry autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             accessibilityLabel="Parol" onSubmitEditing={submit} />
+          {mode === 'login' && (
+            <Pressable onPress={() => onForgot(email.trim())} disabled={busy}
+              accessibilityRole="button" style={styles.forgot}>
+              <Text style={styles.switch}>Parolni unutdim?</Text>
+            </Pressable>
+          )}
           {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}
           <Pressable style={[styles.button, busy && styles.buttonBusy]} onPress={submit} disabled={busy}
             accessibilityRole="button">
@@ -89,14 +126,16 @@ export const AuthScreen = ({ expired = false }: { expired?: boolean }) => {
 
 const createStyles = (p: Palette) => StyleSheet.create({
   root:       { flex: 1, backgroundColor: p.background },
-  content:    { flexGrow: 1, justifyContent: 'center', padding: spacing(4) },
-  card:       { width: '100%', maxWidth: 420, alignSelf: 'center', gap: spacing(3), padding: spacing(6), borderRadius: radius.lg, backgroundColor: p.surface },
-  brand:      { fontSize: 28, fontWeight: '800', color: p.primary, textAlign: 'center' },
-  subtitle:   { fontSize: fontSize.md, color: p.textSecondary, textAlign: 'center', marginBottom: spacing(2) },
-  input:      { borderWidth: 1, borderColor: p.divider, borderRadius: radius.md, paddingHorizontal: spacing(3), paddingVertical: spacing(3), fontSize: fontSize.md, color: p.textPrimary, backgroundColor: p.background },
-  error:      { color: p.danger, fontSize: fontSize.sm },
-  button:     { backgroundColor: p.primary, borderRadius: radius.md, paddingVertical: spacing(3), alignItems: 'center' },
+  content:    { flexGrow: 1, justifyContent: 'center', padding: space.lg },
+  card:       { ...shadows.sm, width: '100%', maxWidth: 420, alignSelf: 'center', gap: space.md, padding: space.xxl, borderRadius: radii.xl, backgroundColor: p.surface },
+  logo:       { alignSelf: 'center', width: 72, height: 72, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: p.primary, marginBottom: space.xs },
+  brand:      { ...textStyles.title, color: p.textPrimary, textAlign: 'center' },
+  subtitle:   { ...textStyles.body, color: p.textSecondary, textAlign: 'center', marginBottom: space.sm },
+  input:      { ...textStyles.body, fontSize: 16, borderRadius: radii.md, paddingHorizontal: space.md, paddingVertical: space.md, color: p.textPrimary, backgroundColor: p.surfaceHighlight },
+  error:      { ...textStyles.bodySmall, color: p.danger },
+  button:     { minHeight: 48, backgroundColor: p.primary, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center', marginTop: space.xs },
   buttonBusy: { opacity: 0.7 },
-  buttonText: { color: '#ffffff', fontSize: fontSize.md, fontWeight: '700' },
-  switch:     { color: p.primary, fontSize: fontSize.sm, textAlign: 'center' },
+  buttonText: { ...textStyles.button, color: p.onPrimary },
+  switch:     { ...textStyles.bodySmall, color: p.primary, textAlign: 'center', paddingVertical: space.xs },
+  forgot:     { alignSelf: 'flex-end' },
 });

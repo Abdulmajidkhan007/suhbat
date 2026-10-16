@@ -165,6 +165,7 @@ export const uz = {
   'profile.title':      'Profil',
   'profile.name':       'Ism',
   'profile.bio':        'Men haqimda',
+  'profile.username':   'Username',
   'profile.nameRequired': 'Ism bo\'sh bo\'lmasin',
   'profile.saved':      'Profil saqlandi',
   'profile.saveError':  'Profilni saqlab bo\'lmadi. Qayta urinib ko\'ring.',

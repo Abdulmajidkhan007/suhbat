@@ -5,7 +5,7 @@ import { App } from './App';
 import { CHAT_ID, ME, PEER, directChat } from './test/fixtures';
 import { createFakeServices } from './test/fakeServices';
 
-const FOUND: PublicUser = { id: '00000000-0000-4000-8000-0000000000a1', displayName: 'Test Odam', photoUrl: null, bio: 'Salom', createdAt: ME.createdAt };
+const FOUND: PublicUser = { id: '00000000-0000-4000-8000-0000000000a1', displayName: 'Test Odam', username: null, photoUrl: null, bio: 'Salom', createdAt: ME.createdAt };
 const CHANNEL: PublicChannel = {
   id: '00000000-0000-4000-8000-0000000000b1', title: 'Test kanal', description: 'Sinov', memberCount: 12, isMember: false,
 };

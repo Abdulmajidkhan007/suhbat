@@ -12,6 +12,8 @@ datasource db {
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique
+  /// Ochiq `@username`: doim kichik harfda (CHECK constraint) — katta-kichik harf farqsiz unique.
+  username     String?  @unique
   passwordHash String   @map("password_hash")
   displayName  String   @map("display_name")
   photoUrl     String?  @map("photo_url")
@@ -27,6 +29,7 @@ model User {
   messages      Message[]
   attachments   Attachment[]
   refreshTokens RefreshToken[]
+  passwordResets PasswordResetToken[]
   devices       DeviceToken[]
   blocking      UserBlock[] @relation("blocker")
   blockedBy     UserBlock[] @relation("blocked")
@@ -51,6 +54,23 @@ model RefreshToken {
   @@index([userId])
   @@index([familyId])
   @@map("refresh_tokens")
+}
+
+/// Parolni tiklash: bazada faqat sha256 hash. Bir martalik (`usedAt`), 30 daqiqa;
+/// yangisi so'ralganda yoki parol o'zgarganda eskilari ham `usedAt` bilan yopiladi.
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  /// Ishlatilgan yoki bekor qilingan vaqt.
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("password_reset_tokens")
 }
 
 enum ChatType {

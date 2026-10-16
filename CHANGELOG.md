@@ -4,6 +4,13 @@ Release matni shu fayldan olinadi (`release.yml`: `## vX.Y.Z` bo'limi).
 
 ## Chiqarilmagan (v0.1.2)
 
+- **"Parolni unutdim?"** (veb, desktop, mobil): email yoki username kiriting → emailga havola keladi
+  (30 daqiqa, bir martalik) → vebda yangi parol o'rnatiladi. Parol o'zgargach barcha qurilmalardan chiqiladi.
+  Xat yuborish uchun server sozlanishi kerak (Resend — `QADAMLAR.md` 14); sozlanmagan bo'lsa
+  "Email yuborish hozircha sozlanmagan" chiqadi.
+- **Username:** `@username` (ixtiyoriy) — ro'yxatdan o'tishda yoki profilda; band/bo'shligi darhol ko'rinadi.
+  Kirish endi **email yoki username** bilan; qidiruvda `@username` bo'yicha aniq topiladi.
+
 - **Global qidiruv** (veb, desktop, mobil): "Qidirish" — suhbatlar, foydalanuvchilar va ochiq kanallar bo'limlari;
   foydalanuvchini bossangiz suhbat ochiladi, kanalni bossangiz "Obuna bo'lish".
 - **Profil tahriri:** ism va "Men haqimda" (`PATCH /users/me`). Avatar keyinroq.
