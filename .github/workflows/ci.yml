@@ -3,7 +3,16 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: ["**/*.md", "docs/**"]
   pull_request:
+    paths-ignore: ["**/*.md", "docs/**"]
+  workflow_dispatch:
+
+# Bir branch/PR'ga yangi push eski run'ni bekor qiladi (Actions daqiqalarini tejash); main'da — yo'q,
+# har merge commit tekshirilsin.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -40,6 +49,21 @@ jobs:
             if bash scripts/check-api-url.sh "$bad" > /dev/null; then echo "::error::'$bad' qabul qilinmasligi kerak edi"; exit 1; fi
           done
           if bash scripts/check-api-url.sh http://api.suhbat.uz SUHBAT_API_URL https-only > /dev/null; then exit 1; fi
+      # release.yml: versiya tegdan, release matni CHANGELOG.md dan.
+      - name: Release skriptlari
+        run: |
+          if bash scripts/release-version.sh 0.2 > /dev/null; then echo "::error::'0.2' qabul qilinmasligi kerak edi"; exit 1; fi
+          bash scripts/release-version.sh v9.8.7
+          for dir in apps/web apps/desktop apps/mobile; do
+            test "$(node -p "require('./$dir/package.json').version")" = 9.8.7
+          done
+          git diff --stat -- apps
+          git checkout -- apps/web/package.json apps/desktop/package.json apps/mobile/package.json
+          # Oxirgi chiqarilgan teg uchun CHANGELOG bo'limi bo'lishi shart.
+          latest="$(grep -m1 -oE '^## v[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | cut -c4-)"
+          bash scripts/release-notes.sh "$latest" > /dev/null
+          bash scripts/release-notes.sh v0.2.0 > /dev/null
+          if bash scripts/release-notes.sh v99.0.0 > /dev/null; then echo "::error::bo'limsiz teg qabul qilinmasligi kerak edi"; exit 1; fi
       # MinIO manbadan quriladi (rasm nashr qilinmaydi) — qatlamlar GitHub Actions keshida.
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
