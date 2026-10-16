@@ -26,9 +26,12 @@ interface Props {
   editing?:      EditTarget | null;
   onEdit?:       (target: EditTarget, text: string) => void;
   onCancelEdit?: () => void;
+  /** Javob berilayotgan xabar (muallif ismi va matn boshi) — panel ko'rsatiladi. */
+  replying?:     { name: string; text: string } | null;
+  onCancelReply?: () => void;
 }
 
-export const Composer = ({ onSend, onTyping, editing = null, onEdit, onCancelEdit }: Props) => {
+export const Composer = ({ onSend, onTyping, editing = null, onEdit, onCancelEdit, replying = null, onCancelReply }: Props) => {
   const styles = useStyles(createStyles);
   const { palette } = useTheme();
   const [text, setText] = useState('');
@@ -103,6 +106,15 @@ export const Composer = ({ onSend, onTyping, editing = null, onEdit, onCancelEdi
             <Text style={styles.editText} numberOfLines={1}>{editing.content}</Text>
           </View>
           <IconButton icon="close" label={t('composer.cancelEdit')} onPress={() => onCancelEdit?.()} color={palette.textSecondary} size={20} />
+        </View>
+      ) : replying ? (
+        <View style={styles.editBar}>
+          <Icon name="arrow-undo-outline" size={20} color={palette.primary} />
+          <View style={styles.editBody}>
+            <Text style={styles.editTitle} numberOfLines={1}>{t('reply.to', { name: replying.name })}</Text>
+            <Text style={styles.editText} numberOfLines={1}>{replying.text}</Text>
+          </View>
+          <IconButton icon="close" label={t('reply.cancel')} onPress={() => onCancelReply?.()} color={palette.textSecondary} size={20} />
         </View>
       ) : null}
       <View style={styles.root}>

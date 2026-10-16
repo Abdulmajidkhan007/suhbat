@@ -153,6 +153,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         socket.data.userId,
         p.content,
         p.attachmentId,
+        p.replyToId,
       );
       this.emitMessageNew(message, memberIds, p.clientId);
       return message;

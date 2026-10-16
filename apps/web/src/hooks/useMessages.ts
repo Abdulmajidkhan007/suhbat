@@ -1,7 +1,7 @@
 // src/hooks/useMessages.ts
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { UploadUrlInputSchema, kindOfFile, normalizeMime } from '@suhbat/core';
-import type { UploadUrlInput } from '@suhbat/core';
+import { REPLY_PREVIEW_MAX, UploadUrlInputSchema, kindOfFile, normalizeMime } from '@suhbat/core';
+import type { MessageReply, UploadUrlInput } from '@suhbat/core';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import {
@@ -31,6 +31,25 @@ const PAGE_SIZE = 50;
 const TYPING_RESEND_MS = 3000;
 const TYPING_IDLE_MS = 4000;
 const EMPTY: Message[] = [];
+
+/** UTF-16 chegarasida, emoji o'rtasidan kesmay qisqartirish (server bilan bir xil). */
+const truncate = (text: string, max: number): string => {
+  let out = '';
+  for (const ch of text) {
+    if (out.length + ch.length > max) break;
+    out += ch;
+  }
+  return out;
+};
+
+/** Optimistik xabar uchun javob ko'rinishi — server ack'ida o'zinikiga almashadi. */
+export const toReplyPreview = (m: Message): MessageReply => ({
+  id:       m.id,
+  senderId: m.senderId,
+  content:  truncate(m.content, REPLY_PREVIEW_MAX),
+  kind:     m.attachment?.kind ?? null,
+  deleted:  false,
+});
 
 export const useMessages = (chatId: string | null) => {
   const dispatch   = useAppDispatch();
@@ -98,13 +117,14 @@ export const useMessages = (chatId: string | null) => {
   }, [chatId, nextCursor, loadingOlder, dispatch]);
 
   /** Matnni yuboradi (`clientId` = vaqtinchalik id — server ack'ida optimistik xabar almashtiriladi). */
-  const deliver = useCallback(async (targetChatId: string, tempId: string, text: string) => {
+  const deliver = useCallback(async (targetChatId: string, tempId: string, text: string, replyToId?: string) => {
     if (!user) return;
+    const reply = replyToId ? { replyToId } : {};
     try {
       // Asosiy yo'l — WebSocket; ulanish bo'lmasa REST zaxira.
       const saved = socket.isConnected()
-        ? await socket.sendMessage({ chatId: targetChatId, content: text, clientId: tempId })
-        : await api.sendMessage(targetChatId, { content: text, clientId: tempId });
+        ? await socket.sendMessage({ chatId: targetChatId, content: text, clientId: tempId, ...reply })
+        : await api.sendMessage(targetChatId, { content: text, clientId: tempId, ...reply });
       const message = toMessage(saved, chatRef.current);
       dispatch(messageReceived({ message, clientId: tempId }));
       dispatch(chatMessageReceived({ message, currentUid: user.uid, countUnread: false }));
@@ -113,7 +133,8 @@ export const useMessages = (chatId: string | null) => {
     }
   }, [user, dispatch]);
 
-  const sendMessage = useCallback(async (content: string) => {
+  /** `replyTo` — javob berilayotgan xabar (shu chatdan). */
+  const sendMessage = useCallback(async (content: string, replyTo?: Message | null) => {
     const text = content.trim();
     if (!chatId || !user || !text) return;
     const tempId = `optimistic-${uuidv4()}`;
@@ -130,8 +151,9 @@ export const useMessages = (chatId: string | null) => {
       updatedAt:    Date.now(),
       editedAt:     null,
       isOptimistic: true,
+      replyTo:      replyTo ? toReplyPreview(replyTo) : null,
     }));
-    await deliver(chatId, tempId, text);
+    await deliver(chatId, tempId, text, replyTo?.id);
   }, [chatId, user, dispatch, deliver]);
 
   /** Yuborilmagan matnli xabarni qayta yuborish (o'sha `clientId` bilan — takrorlanmaydi). */
@@ -140,7 +162,7 @@ export const useMessages = (chatId: string | null) => {
     const msg = rawRef.current.find((m) => m.id === tempId);
     if (!msg || msg.status !== 'failed' || msg.type !== 'text') return;
     dispatch(markMessageSending({ chatId, tempId }));
-    await deliver(chatId, tempId, msg.content);
+    await deliver(chatId, tempId, msg.content, msg.replyTo?.id);
   }, [chatId, dispatch, deliver]);
 
   /** Yuborilmagan xabarni ro'yxatdan olib tashlash (serverda yo'q). */

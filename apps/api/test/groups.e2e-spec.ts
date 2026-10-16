@@ -350,6 +350,48 @@ describe('Guruh, kanal, media (e2e)', () => {
     await expect(ali.deleteMessage(chat.id, m2.id)).rejects.toMatchObject({ status: 404 });
   });
 
+  it('javob (replyTo): shu chat xabariga — WS va REST, boshqa chat/o\'chirilgan/tizim xabariga — 400, o\'chirilsa "deleted"', async () => {
+    const { ali, vali } = api;
+    const chat = await ali.createDirectChat(user.hasan.id);
+    const original = await ws.ali.sendMessage({ chatId: chat.id, content: 'Ertaga uchrashamizmi? 😀'.repeat(20) });
+
+    // WS orqali javob; ikkinchi tomon `message:new` da replyTo bilan oladi
+    const arrived = next(ws.hasan, 'message:new', (p) => p.message.chatId === chat.id);
+    const reply = await ws.hasan.sendMessage({ chatId: chat.id, content: 'Ha', replyToId: original.id });
+    expect(reply.replyTo).toMatchObject({ id: original.id, senderId: user.ali.id, deleted: false, kind: null });
+    // Uzun matn qisqartiriladi (emoji o'rtasidan kesilmaydi)
+    expect(reply.replyTo?.content.length).toBeLessThanOrEqual(200);
+    expect(original.content.startsWith(reply.replyTo?.content ?? 'x')).toBe(true);
+    expect((await arrived).message.replyTo?.id).toBe(original.id);
+    // Tarix va ro'yxatda ham
+    const page = await ali.listMessages(chat.id);
+    expect(page.items.find((m) => m.id === reply.id)?.replyTo?.id).toBe(original.id);
+    expect(page.items.find((m) => m.id === original.id)?.replyTo).toBeNull();
+    expect((await ali.getChat(chat.id)).lastMessage?.replyTo?.id).toBe(original.id);
+
+    // REST zaxira ham qo'llaydi
+    const viaRest = await api.hasan.sendMessage(chat.id, { content: 'REST javob', replyToId: original.id });
+    expect(viaRest.replyTo?.id).toBe(original.id);
+    // Tahrirlangandan keyin ham javob saqlanadi
+    expect((await ws.hasan.editMessage(chat.id, reply.id, 'Ha, albatta')).replyTo?.id).toBe(original.id);
+
+    // Boshqa chat xabariga — 400 (WS'da ack xatosi), mavjud bo'lmagan id — 400
+    const otherChat = await ali.createDirectChat(user.vali.id);
+    const foreign = await vali.sendMessage(otherChat.id, { content: 'begona' });
+    await expect(api.hasan.sendMessage(chat.id, { content: 'x', replyToId: foreign.id })).rejects.toMatchObject({ status: 400 });
+    await expect(ws.hasan.sendMessage({ chatId: chat.id, content: 'x', replyToId: foreign.id })).rejects.toThrow(/topilmadi/);
+    await expect(api.hasan.sendMessage(chat.id, { content: 'x', replyToId: '00000000-0000-4000-8000-000000000000' }))
+      .rejects.toMatchObject({ status: 400 });
+    await expect(api.hasan.sendMessage(chat.id, { content: 'x', replyToId: 'not-a-uuid' } as never)).rejects.toMatchObject({ status: 400 });
+
+    // Asl xabar o'chirilsa — javoblarda "deleted", matn ko'rinmaydi; o'chirilgan xabarga yangi javob — 400
+    await ali.deleteMessage(chat.id, original.id);
+    const replies = (await api.hasan.listMessages(chat.id)).items.filter((m) => m.replyTo);
+    expect(replies).toHaveLength(2);
+    for (const m of replies) expect(m.replyTo).toEqual({ id: original.id, senderId: user.ali.id, content: '', kind: null, deleted: true });
+    await expect(api.hasan.sendMessage(chat.id, { content: 'x', replyToId: original.id })).rejects.toMatchObject({ status: 400 });
+  });
+
   it('media: imzolangan URL → yuklash → rasm xabari; cheklovlar; o\'chirilganda fayl ham o\'chadi', async () => {
     const { ali, vali } = api;
     const chat = await ali.createGroup({ title: `Media ${stamp}`, memberIds: [user.vali.id] });

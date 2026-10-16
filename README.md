@@ -70,7 +70,7 @@ standart 15m); refresh token — body'da, bir martalik (rotatsiya).
 | POST  | `/chats/direct`        | `{ userId }` → 1:1 chat (bor bo'lsa — o'sha)            |
 | GET   | `/chats/:id`           | bitta chat                                              |
 | GET   | `/chats/:id/messages?before=&limit=` | tarix (keyset): `{ items, nextCursor }`   |
-| POST  | `/chats/:id/messages`  | `{ content, attachmentId?, clientId? }` — REST zaxira (asosiysi WS) |
+| POST  | `/chats/:id/messages`  | `{ content, attachmentId?, replyToId?, clientId? }` — REST zaxira (asosiysi WS); `replyToId` — shu chatdagi tirik xabar, aks holda 400 |
 | PATCH | `/chats/:id/messages/:mid` | `{ content }` — faqat muallif, faqat matn            |
 | DELETE| `/chats/:id/messages/:mid` | soft-delete: muallif yoki guruh/kanal owner/admini   |
 | POST  | `/chats/group`         | `{ title, description?, memberIds }` → guruh (yaratuvchi — owner) |
@@ -97,7 +97,7 @@ Ulanish: `io(API_URL, { auth: { token: accessToken } })`. Tiplar — `@suhbat/co
 
 | Yo'nalish | Event             | Payload                                  |
 |-----------|-------------------|------------------------------------------|
-| → server  | `message:send`    | `{ chatId, content, attachmentId?, clientId? }` → ack `{ ok, data: Message }` |
+| → server  | `message:send`    | `{ chatId, content, attachmentId?, replyToId?, clientId? }` → ack `{ ok, data: Message }` (`Message.replyTo` — asl xabar ko'rinishi) |
 | → server  | `typing`          | `{ chatId, isTyping }`                   |
 | → server  | `message:read`    | `{ chatId, messageId }` → ack `{ ok, data: { lastReadAt } }` |
 | → server  | `message:edit`    | `{ chatId, messageId, content }` → ack `{ ok, data: Message }` |

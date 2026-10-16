@@ -58,6 +58,13 @@ describe('messagesSlice', () => {
     expect(reducer(loaded, messageUpdated({ ...msg('b', 2), chatId: 'c9' }))).toEqual(loaded);
   });
 
+  it('messageDeleted: unga berilgan javoblar "o\'chirilgan" bo\'ladi', () => {
+    const replyTo = { id: 'a', senderId: 'u1', content: 'a', kind: null, deleted: false };
+    let s = reducer(loaded, messageReceived({ message: msg('r', 5, { replyTo }) }));
+    s = reducer(s, messageDeleted({ chatId: 'c1', messageId: 'a' }));
+    expect(s.messagesByChatId.c1.find((m) => m.id === 'r')?.replyTo).toEqual({ ...replyTo, content: '', deleted: true });
+  });
+
   it('messageDeleted: xabar ro\'yxatdan olib tashlanadi', () => {
     const s = reducer(loaded, messageDeleted({ chatId: 'c1', messageId: 'a' }));
     expect(ids(s)).toEqual(['b']);

@@ -24,12 +24,13 @@ import { radii, space } from '../theme/metrics';
 import { textStyles } from '../theme/typography';
 import { useStyles, useTheme } from '../theme/ThemeProvider';
 import type { Palette } from '../theme/ThemeProvider';
-import { chatTitle, directPeerId, formatCount, formatDayLabel, formatLastSeen, sameDay } from '../utils/format';
+import { chatTitle, directPeerId, formatCount, formatDayLabel, formatLastSeen, messagePreview, sameDay } from '../utils/format';
 import { haptics } from '../utils/haptics';
 import { subscriberCount } from '../utils/members';
 
 const EMPTY: LocalMessage[] = [];
 const NOTICE_MS = 3_000;
+const HIGHLIGHT_MS = 1_500;
 
 /** Sarlavha ostidagi holat: yozmoqda / onlayn / oxirgi marta / a'zolar soni. */
 export const subtitleFor = (
@@ -69,6 +70,10 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [menuFor, setMenuFor] = useState<LocalMessage | null>(null);
   const [editing, setEditing] = useState<EditTarget | null>(null);
+  const [replyTo, setReplyTo] = useState<LocalMessage | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const listRef = useRef<FlatList<LocalMessage>>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { services: { calls } } = useSession();
   const call = useCall();
@@ -79,7 +84,10 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
     setNotice(text);
     noticeTimer.current = setTimeout(() => setNotice(null), NOTICE_MS);
   }, []);
-  useEffect(() => () => clearTimeout(noticeTimer.current), []);
+  useEffect(() => () => {
+    clearTimeout(noticeTimer.current);
+    clearTimeout(highlightTimer.current);
+  }, []);
 
   const load = useCallback(() => {
     setLoadError(false);
@@ -136,6 +144,19 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
     setMenuFor(m);
   }, []);
 
+  /** Javob blokini bosish: asl xabar ro'yxatda bo'lsa — unga o'tib, qisqa yoritiladi. */
+  const jumpTo = useCallback((messageId: string) => {
+    const index = data.findIndex((m) => m.id === messageId);
+    if (index < 0) {
+      showNotice(t('reply.notLoaded'));
+      return;
+    }
+    listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
+    clearTimeout(highlightTimer.current);
+    setHighlightId(messageId);
+    highlightTimer.current = setTimeout(() => setHighlightId(null), HIGHLIGHT_MS);
+  }, [data, showNotice]);
+
   if (!chat) {
     return (
       <View style={styles.root}>
@@ -156,6 +177,8 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
   const peer = chat.members.find((m) => m.user.id === peerId)?.user;
   const title = chatTitle(chat, me.id);
   const subtitle = subtitleFor(chat, me.id, state.typing[chatId] ?? [], state.online);
+  // Kanalda oddiy a'zo boshqa adminlarni ko'rmasligi mumkin — muallif sifatida kanal nomi.
+  const replyNameOf = (id: string) => (id === me.id ? t('common.you') : nameOf(id) ?? (chat.type === 'channel' ? title : undefined));
 
   const startCall = (media: CallMedia) => {
     if (!peer) return;
@@ -177,6 +200,7 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
         style: 'destructive',
         onPress: () => {
           if (editing?.id === m.id) setEditing(null);
+          if (replyTo?.id === m.id) setReplyTo(null);
           deleteMessage(chatId, m.id).catch(() => showNotice(t('menu.deleteError')));
         },
       },
@@ -186,6 +210,15 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
   const menuActions = (m: LocalMessage): SheetAction[] => {
     const own = m.senderId === me.id;
     const actions: SheetAction[] = [];
+    if (!m.local && writable) {
+      actions.push({
+        key: 'reply', label: t('menu.reply'), icon: 'arrow-undo-outline',
+        onPress: () => {
+          setEditing(null);
+          setReplyTo(m);
+        },
+      });
+    }
     if (m.local === 'failed') {
       actions.push({ key: 'retry', label: t('menu.retry'), icon: 'send', onPress: () => void resend(m) });
     }
@@ -199,7 +232,13 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
       });
     }
     if (!m.local && own && m.type === 'text' && m.content && writable) {
-      actions.push({ key: 'edit', label: t('menu.edit'), icon: 'pencil', onPress: () => setEditing({ id: m.id, content: m.content }) });
+      actions.push({
+        key: 'edit', label: t('menu.edit'), icon: 'pencil',
+        onPress: () => {
+          setReplyTo(null);
+          setEditing({ id: m.id, content: m.content });
+        },
+      });
     }
     if (m.local === 'failed' && m.clientId) {
       const clientId = m.clientId;
@@ -228,6 +267,9 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
           senderName={showSender && !grouped ? nameOf(item.senderId) : undefined}
           onRetry={resend}
           onLongPress={item.type === 'system' ? undefined : onLongPress}
+          replyName={item.replyTo ? replyNameOf(item.replyTo.senderId) : undefined}
+          onReplyPress={jumpTo}
+          highlighted={highlightId === item.id}
         />
       </View>
     );
@@ -253,8 +295,14 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
       <ConnectionBanner />
       <View style={styles.list}>
         <FlatList
+          ref={listRef}
           data={data}
           inverted
+          // Balandligi noma'lum qatorlarga o'tishda: avval taxminiy siljish, so'ng aniq.
+          onScrollToIndexFailed={({ index, averageItemLength }) => {
+            listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: true });
+            setTimeout(() => listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true }), 250);
+          }}
           keyExtractor={(m) => m.id}
           renderItem={renderItem}
           onEndReached={loadOlder}
@@ -280,11 +328,19 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
       </View>
       {writable ? (
         <Composer
-          onSend={(text) => void sendText(chatId, text)}
+          onSend={(text) => {
+            void sendText(chatId, text, replyTo ?? undefined);
+            setReplyTo(null);
+          }}
           onTyping={(on) => setTyping(chatId, on)}
           editing={editing}
           onEdit={submitEdit}
           onCancelEdit={() => setEditing(null)}
+          replying={replyTo ? {
+            name: replyNameOf(replyTo.senderId) ?? t('reply.unknownSender'),
+            text: messagePreview(replyTo).replace(/\s+/g, ' '),
+          } : null}
+          onCancelReply={() => setReplyTo(null)}
         />
       ) : (
         <Text style={styles.readonly}>{t('chat.readonly')}</Text>

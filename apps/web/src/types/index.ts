@@ -1,3 +1,5 @@
+import type { MessageReply } from '@suhbat/core';
+
 export type UserRole = 'owner' | 'admin' | 'member';
 
 export interface AppUser {
@@ -46,6 +48,8 @@ export interface Message {
   /** Tahrirlangan vaqt (ms); tahrirlanmagan bo'lsa null. */
   editedAt:    number | null;
   isOptimistic?: boolean;
+  /** Javob bo'lsa — asl xabarning qisqa ko'rinishi (`@suhbat/core` `MessageReply`). */
+  replyTo?:    MessageReply | null;
 }
 
 export interface ChatParticipant {

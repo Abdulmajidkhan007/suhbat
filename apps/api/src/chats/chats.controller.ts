@@ -201,7 +201,7 @@ export class ChatsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(SendMessageInputSchema)) body: SendMessageInput,
   ) {
-    const { message, memberIds } = await this.chats.sendMessage(id, req.user.sub, body.content, body.attachmentId);
+    const { message, memberIds } = await this.chats.sendMessage(id, req.user.sub, body.content, body.attachmentId, body.replyToId);
     this.gateway.emitMessageNew(message, memberIds, body.clientId);
     return message;
   }

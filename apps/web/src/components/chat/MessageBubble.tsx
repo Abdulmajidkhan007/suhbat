@@ -7,6 +7,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import ReplayIcon from '@mui/icons-material/Replay';
+import ReplyIcon from '@mui/icons-material/Reply';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { Message } from '../../types';
@@ -14,6 +15,7 @@ import { formatDuration, formatMessageTime } from '../../utils/formatters';
 import FileChip from '../common/FileChip';
 import AvatarWithStatus from '../common/AvatarWithStatus';
 import { Linkified } from '../../utils/linkify';
+import ReplyQuote from './ReplyQuote';
 
 interface Props {
   message:    Message;
@@ -32,6 +34,14 @@ interface Props {
   /** Yuborilmagan xabar: qayta yuborish va ro'yxatdan olib tashlash. */
   onResend?:  (messageId: string) => void;
   onDiscard?: (messageId: string) => void;
+  /** "Javob berish" (yozish huquqi bo'lsa). */
+  onReply?:   (message: Message) => void;
+  /** Javob blokidagi asl xabar muallifi ismi. */
+  replyName?: string;
+  /** Javob blokini bosish — asl xabarga o'tish. */
+  onJump?:    (messageId: string) => void;
+  /** Asl xabarga o'tilganda qisqa yoritish. */
+  highlighted?: boolean;
 }
 
 const copyText = async (text: string) => {
@@ -83,7 +93,7 @@ const Attachment: React.FC<{ message: Message }> = ({ message }) => {
 
 const MessageBubble: React.FC<Props> = memo(({
   message, isSelf, showAvatar = true, showSender = true, canEdit = false, canDelete = false, onEdit, onDelete,
-  onResend, onDiscard,
+  onResend, onDiscard, onReply, replyName, onJump, highlighted = false,
 }) => {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [editing, setEditing]       = useState(false);
@@ -91,7 +101,8 @@ const MessageBubble: React.FC<Props> = memo(({
   const [saving, setSaving]         = useState(false);
   const failed = message.status === 'failed';
   const canCopy = message.content.length > 0;
-  const hasMenu = !message.isOptimistic && (canCopy || (canEdit && !!onEdit) || (canDelete && !!onDelete));
+  const canReply = !message.isOptimistic && !!onReply;
+  const hasMenu = !message.isOptimistic && (canReply || canCopy || (canEdit && !!onEdit) || (canDelete && !!onDelete));
   const withSender = !isSelf && showSender;
 
   const startEdit = () => {
@@ -120,7 +131,8 @@ const MessageBubble: React.FC<Props> = memo(({
       initial={{ opacity: 0, y: 8, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className={`group flex items-end gap-2 max-w-[92%] sm:max-w-[78%] ${isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
+      id={`msg-${message.id}`}
+      className={`group flex items-end gap-2 max-w-[92%] sm:max-w-[78%] rounded-2xl transition-colors duration-500 ${isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'} ${highlighted ? 'bg-blue-500/20' : ''}`}
     >
       {withSender && showAvatar ? (
         <AvatarWithStatus
@@ -182,6 +194,9 @@ const MessageBubble: React.FC<Props> = memo(({
             </div>
           ) : (
             <>
+              {message.replyTo && (
+                <ReplyQuote reply={message.replyTo} name={replyName ?? 'Noma\'lum'} onJump={onJump} onDark={isSelf} />
+              )}
               {message.attachment && <Attachment message={message} />}
               {message.content && (
                 <Typography variant="body2" sx={{ lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap', mt: message.attachment ? 0.5 : 0 }}>
@@ -243,6 +258,12 @@ const MessageBubble: React.FC<Props> = memo(({
             onClose={() => setMenuAnchor(null)}
             slotProps={{ paper: { sx: { borderRadius: '12px', minWidth: 160 } } }}
           >
+            {canReply && (
+              <MenuItem onClick={() => { setMenuAnchor(null); onReply?.(message); }}>
+                <ListItemIcon><ReplyIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Javob berish" />
+              </MenuItem>
+            )}
             {canCopy && (
               <MenuItem onClick={() => { setMenuAnchor(null); void copyText(message.content); }}>
                 <ListItemIcon><ContentCopyOutlinedIcon fontSize="small" /></ListItemIcon>

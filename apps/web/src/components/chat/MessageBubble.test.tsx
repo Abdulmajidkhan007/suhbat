@@ -53,3 +53,30 @@ describe('MessageBubble', () => {
     expect(onDiscard).toHaveBeenCalledWith('optimistic-1');
   });
 });
+
+describe('MessageBubble — javob', () => {
+  const reply = { id: '11111111-1111-4111-8111-111111111111', senderId: 'v', content: 'asl xabar', kind: null, deleted: false };
+
+  it('javob bloki: muallif va matn; bosilsa asl xabarga o\'tish', () => {
+    const onJump = vi.fn();
+    render(<MessageBubble message={msg({ replyTo: reply })} isSelf={false} replyName="Vali" onJump={onJump} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Javob: Vali: asl xabar' }));
+    expect(onJump).toHaveBeenCalledWith(reply.id);
+  });
+
+  it('o\'chirilgan asl xabar — "O\'chirilgan xabar", bosib bo\'lmaydi', () => {
+    const onJump = vi.fn();
+    render(<MessageBubble message={msg({ replyTo: { ...reply, content: '', deleted: true } })} isSelf={false} replyName="Vali" onJump={onJump} />);
+    const quote = screen.getByRole('button', { name: 'Javob: Vali: O\'chirilgan xabar' });
+    expect(quote).toBeDisabled();
+  });
+
+  it('menyuda "Javob berish"', () => {
+    const onReply = vi.fn();
+    const m = msg();
+    render(<MessageBubble message={m} isSelf={false} onReply={onReply} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Xabar amallari' }));
+    fireEvent.click(screen.getByText('Javob berish'));
+    expect(onReply).toHaveBeenCalledWith(m);
+  });
+});

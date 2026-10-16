@@ -1,5 +1,7 @@
-import type { ChatMember, ChatSummary, Message } from '@suhbat/core';
+import { REPLY_PREVIEW_MAX } from '@suhbat/core';
+import type { ChatMember, ChatSummary, Message, MessageReply } from '@suhbat/core';
 import type {
+  Attachment as AttachmentRow,
   Chat as ChatRow,
   ChatMember as MemberRow,
   Message as MessageRow,
@@ -14,8 +16,34 @@ export const toChatMember = (m: MemberRow & { user: UserRow }): ChatMember => ({
   lastSeenAt: m.user.lastSeenAt?.toISOString() ?? null,
 });
 
+/** Javob berilgan xabar qatori (biriktirma turi bilan). */
+export type ReplyRow = MessageRow & { attachment: Pick<AttachmentRow, 'kind'> | null };
+
+/** `max` UTF-16 birligigacha qisqartiradi, emoji (surrogat juftlik) o'rtasidan kesmaydi. */
+export const truncate = (text: string, max: number): string => {
+  if (text.length <= max) return text;
+  let out = '';
+  for (const ch of text) {
+    if (out.length + ch.length > max) break;
+    out += ch;
+  }
+  return out;
+};
+
+/** Asl xabarning qisqa ko'rinishi; o'chirilgan bo'lsa matn va tur yashiriladi. */
+export const toReply = (r: ReplyRow): MessageReply => {
+  const deleted = r.deletedAt !== null;
+  return {
+    id:       r.id,
+    senderId: r.senderId,
+    content:  deleted ? '' : truncate(r.content, REPLY_PREVIEW_MAX),
+    kind:     deleted ? null : r.attachment?.kind ?? null,
+    deleted,
+  };
+};
+
 /** Biriktirma imzolangan URL talab qiladi (async) — `ChatsService.present` qo'shadi. */
-export const toMessage = (m: MessageRow, attachment: Message['attachment']): Message => ({
+export const toMessage = (m: MessageRow, attachment: Message['attachment'], replyTo: ReplyRow | null = null): Message => ({
   id:         m.id,
   chatId:     m.chatId,
   senderId:   m.senderId,
@@ -24,6 +52,7 @@ export const toMessage = (m: MessageRow, attachment: Message['attachment']): Mes
   attachment,
   createdAt:  m.createdAt.toISOString(),
   editedAt:   m.editedAt?.toISOString() ?? null,
+  replyTo:    replyTo ? toReply(replyTo) : null,
 });
 
 export type ChatWithRelations = ChatRow & {

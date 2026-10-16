@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 import { Box, Button, CircularProgress } from '@mui/material';
 import { AnimatePresence } from 'framer-motion';
 import MessageBubble from './MessageBubble';
@@ -32,7 +33,13 @@ interface Props {
   onDiscard?:   (messageId: string) => void;
   /** Guruhda — yuboruvchi ismi va avatari; 1:1 va kanalda kerak emas. */
   showSenders?: boolean;
+  /** "Javob berish" — yozish huquqi bo'lsa. */
+  onReply?:     (message: Message) => void;
+  /** Javob blokidagi muallif ismi. */
+  nameOf?:      (userId: string) => string;
 }
+
+const HIGHLIGHT_MS = 1500;
 
 /** Bo'sh/yuklanish/xato holati maydonni to'ldiradi — composer doim pastda turadi. */
 const Fill: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -56,8 +63,26 @@ const MessageList: React.FC<Props> = ({
   onResend,
   onDiscard,
   showSenders = true,
+  onReply,
+  nameOf,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(highlightTimer.current), []);
+
+  /** Asl xabar sahifada bo'lsa — unga o'tib, qisqa yoritiladi; bo'lmasa — izoh. */
+  const jumpTo = useCallback((messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (!el) {
+      toast('Asl xabar hali yuklanmagan — "Eskiroq xabarlar"ni bosing.');
+      return;
+    }
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    clearTimeout(highlightTimer.current);
+    setHighlightId(messageId);
+    highlightTimer.current = setTimeout(() => setHighlightId(null), HIGHLIGHT_MS);
+  }, []);
   const lastId    = messages[messages.length - 1]?.id;
 
   // Faqat yangi xabar (oxirgisi o'zgarsa) yoki "yozmoqda"da pastga; eskilar
@@ -116,6 +141,10 @@ const MessageList: React.FC<Props> = ({
               onDelete={onDelete}
               onResend={onResend}
               onDiscard={onDiscard}
+              onReply={onReply}
+              replyName={msg.replyTo ? (msg.replyTo.senderId === currentUserId ? 'Siz' : nameOf?.(msg.replyTo.senderId)) : undefined}
+              onJump={jumpTo}
+              highlighted={highlightId === msg.id}
             />
           );
         })}

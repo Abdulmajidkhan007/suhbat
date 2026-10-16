@@ -2,6 +2,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { IconButton, Tooltip, Paper, Typography } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
+import CloseIcon from '@mui/icons-material/Close';
+import ReplyIcon from '@mui/icons-material/Reply';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ATTACHMENT_RULES } from '@suhbat/core';
 import VoiceButton from './VoiceButton';
@@ -20,6 +22,9 @@ interface Props {
   /** Berilsa, yozish o'rniga shu matn ko'rsatiladi (masalan kanalda oddiy a'zo). */
   readOnlyReason?: string;
   placeholder?: string;
+  /** Javob berilayotgan xabar — panel; Escape yoki ✕ bekor qiladi. */
+  replying?:    { name: string; text: string } | null;
+  onCancelReply?: () => void;
 }
 
 const MessageComposer: React.FC<Props> = ({
@@ -31,6 +36,8 @@ const MessageComposer: React.FC<Props> = ({
   disabled = false,
   readOnlyReason,
   placeholder = 'Xabar yozing…',
+  replying = null,
+  onCancelReply,
 }) => {
   const [text, setText]         = useState('');
   const fileInputRef            = useRef<HTMLInputElement>(null);
@@ -57,7 +64,17 @@ const MessageComposer: React.FC<Props> = ({
     onTyping(false);
   }, [text, disabled, onSend, onTyping]);
 
+  // Javob tanlanganda yozish maydoniga fokus.
+  useEffect(() => {
+    if (replying) textAreaRef.current?.focus();
+  }, [replying]);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Escape' && replying) {
+      e.preventDefault();
+      onCancelReply?.();
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -86,6 +103,20 @@ const MessageComposer: React.FC<Props> = ({
       className="border-t border-gray-100 dark:border-gray-800"
       sx={{ bgcolor: 'background.paper' }}
     >
+      {replying && (
+        <div className="flex items-center gap-2 px-3 pt-2" role="status">
+          <ReplyIcon fontSize="small" color="primary" />
+          <div className="flex-1 min-w-0 border-l-2 border-blue-500 pl-2">
+            <Typography variant="caption" color="primary" sx={{ fontWeight: 600, display: 'block' }} noWrap>
+              Javob: {replying.name}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }} noWrap>{replying.text}</Typography>
+          </div>
+          <IconButton size="small" onClick={onCancelReply} aria-label="Javobni bekor qilish">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </div>
+      )}
       <div className="flex items-end gap-1 px-3 py-2">
         <Tooltip title="Fayl biriktirish">
           <IconButton

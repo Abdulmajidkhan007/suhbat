@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BIO_MAX, ChatMemberSchema, DISPLAY_NAME_MAX, LoginInputSchema, PublicUserSchema, RegisterInputSchema, UpdateProfileInputSchema, UserSchema,
+  BIO_MAX, ChatMemberSchema, DISPLAY_NAME_MAX, LoginInputSchema, MessageSchema, PublicUserSchema, RegisterInputSchema, REPLY_PREVIEW_MAX,
+  SendMessageInputSchema, UpdateProfileInputSchema, UserSchema,
 } from './schemas.js';
 
 describe('RegisterInputSchema', () => {
@@ -76,5 +77,26 @@ describe('UpdateProfileInputSchema', () => {
     expect(UpdateProfileInputSchema.safeParse({ displayName: 'x'.repeat(DISPLAY_NAME_MAX + 1) }).success).toBe(false);
     expect(UpdateProfileInputSchema.safeParse({ bio: 'x'.repeat(BIO_MAX + 1) }).success).toBe(false);
     expect(UpdateProfileInputSchema.safeParse({ displayName: 'x'.repeat(DISPLAY_NAME_MAX), bio: 'x'.repeat(BIO_MAX) }).success).toBe(true);
+  });
+});
+
+describe('javob (replyTo)', () => {
+  const msg = {
+    id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', chatId: '7f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f',
+    senderId: '8f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', type: 'text', content: 'ha', attachment: null,
+    createdAt: '2026-10-16T10:00:00.000Z', editedAt: null,
+  };
+
+  it('MessageSchema: replyTo ixtiyoriy (eski server), null yoki ko\'rinish', () => {
+    expect(MessageSchema.parse(msg).replyTo).toBeUndefined();
+    expect(MessageSchema.parse({ ...msg, replyTo: null }).replyTo).toBeNull();
+    const replyTo = { id: msg.id, senderId: msg.senderId, content: 'salom', kind: null, deleted: false };
+    expect(MessageSchema.parse({ ...msg, replyTo }).replyTo).toEqual(replyTo);
+    expect(MessageSchema.safeParse({ ...msg, replyTo: { ...replyTo, content: 'x'.repeat(REPLY_PREVIEW_MAX + 1) } }).success).toBe(false);
+  });
+
+  it('SendMessageInputSchema: replyToId — uuid', () => {
+    expect(SendMessageInputSchema.safeParse({ content: 'ha', replyToId: msg.id }).success).toBe(true);
+    expect(SendMessageInputSchema.safeParse({ content: 'ha', replyToId: 'yoq' }).success).toBe(false);
   });
 });
