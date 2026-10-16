@@ -13,6 +13,9 @@ const { default: LoginPage } = await import('./LoginPage');
 const { default: ForgotPasswordPage } = await import('./ForgotPasswordPage');
 const { default: ResetPasswordPage } = await import('./ResetPasswordPage');
 
+// To'liq sahifalar (MUI + framer-motion + router): sekin CI runner'da birinchi render 5 s dan oshadi.
+vi.setConfig({ testTimeout: 20_000 });
+
 const LocationProbe = () => <div data-testid="location">{useLocation().pathname + useLocation().search}</div>;
 
 const renderAt = (path: string, signedIn = false) =>
