@@ -10,6 +10,8 @@ Release matni shu fayldan olinadi (`release.yml`: `## vX.Y.Z` bo'limi).
   "Email yuborish hozircha sozlanmagan" chiqadi.
 - **Username:** `@username` (ixtiyoriy) — ro'yxatdan o'tishda yoki profilda; band/bo'shligi darhol ko'rinadi.
   Kirish endi **email yoki username** bilan; qidiruvda `@username` bo'yicha aniq topiladi.
+- **Xabarga javob berish** (veb, desktop, mobil): xabar menyusidan "Javob berish"; javobda asl xabar ko'rinadi, bosilsa
+  unga o'tadi; asl xabar o'chirilsa — "O'chirilgan xabar". Faqat shu suhbatdagi xabarga javob berish mumkin.
 - **Mobil ilova — yangi dizayn:** yorug'/qorong'i/tizim rejimi va 7 ta asosiy rang; pastki tablar (Suhbatlar, Sozlamalar);
   chat ro'yxati (vaqt, ✓/✓✓, "Siz:", o'qilmaganlar, "yozmoqda"); chatda sana ajratgichlari, uzun bosish menyusi
   (nusxa olish, tahrirlash, o'chirish); guruh/kanal ma'lumoti (a'zolar, rollar, qo'shish/chiqarish); yangi guruh/kanal;
