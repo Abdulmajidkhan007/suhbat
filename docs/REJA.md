@@ -332,6 +332,32 @@
   Sozlamalar 3 — tema saqlanishi, bildirishnoma). `react-native bundle` (android) lokal.
 - **Tekshirilmadi:** haqiqiy telefon/emulyatorda ko'rinish va animatsiya, haptics, clipboard, iOS'da native build — faqat CI
   (android/ios job'lari). Skrinshot yo'q (sandboxda Android emulyator yo'q).
+### v0.3.0 tayyorgarligi — release versiyasi va matni (2026-10-16)
+- **Muammo (v0.2.0 release'ida):** desktop fayllari `suhbat-0.1.0-mac-arm64.dmg` va h.k. (versiya `apps/desktop/package.json`
+  dan, u 0.1.0 edi); release matni faqat o'rnatish eslatmalari — `CHANGELOG.md` da `## v0.2.0` bo'limi yo'q edi
+  ("Chiqarilmagan (v0.1.2)" deb nomlangan), va release oldindan mavjud bo'lsa matn umuman yangilanmasdi.
+- **Tuzatish:** `scripts/release-version.sh <teg>` — desktop va android job'larida build'dan oldin web/desktop/mobile
+  `package.json` versiyasi tegdan (faqat `version` maydoni). `scripts/release-notes.sh <teg>` — `## <teg>` bo'limini chiqaradi,
+  yo'q/bo'sh bo'lsa yiqiladi; release `check` job'i shu bilan boshlanadi; mavjud release'ga `gh release edit --notes-file`.
+  Repodagi versiyalar 0.2.0 ga ko'tarildi. `CHANGELOG.md`: `## v0.2.0` (qo'ng'iroqlar, global qidiruv, profil, o'zbekcha UI)
+  va `## v0.3.0 (chiqarilmagan)`. CI `check` skriptlarni sinaydi.
+- **Tekshirildi:** skriptlar lokal (to'g'ri/noto'g'ri teg, bo'limsiz teg). **Tekshirilmadi:** haqiqiy `v*` teg bilan release
+  (macOS/Windows job'ida `bash` + `node -e`) — keyingi teg'da ko'rinadi. v0.2.0 dagi mavjud fayllar qayta nomlanmadi
+  (egasi xohlasa Release workflow'ni `v0.2.0` bilan qo'lda qayta ishga tushirishi mumkin — lekin u `main` ni quradi).
+### GitHub Actions sarfini kamaytirish (2026-10-16)
+- **Sabab:** 16-oktabr ~10:42 dan Actions daqiqalari tugadi — barcha job'lar runner ajratilmasdan (2–3 s, logsiz) yiqila boshladi.
+- **iOS** (`macos-15`, Linux'dan ~10× qimmat) alohida `mobile-ios.yml` ga ko'chirildi: faqat `apps/mobile/ios/**`,
+  `apps/mobile/package.json` (native bog'liqliklar), `apps/mobile/Gemfile` yoki workflow fayli o'zgarganda + qo'lda
+  (Actions → Mobile iOS → Run workflow). Debug simulyator build JS bundle'siz — JS/TS o'zgarishlari unga ta'sir qilmaydi.
+- **Android** (`mobile.yml`): o'sha path'lar, lekin `apps/mobile/ios/**`, testlar (`*.test.ts(x)`, `__tests__`) va `*.md` hisobga
+  olinmaydi; `workflow_dispatch` qo'shildi; `concurrency: cancel-in-progress` avvaldan bor edi.
+- **CI** (`ci.yml`): faqat hujjat (`**/*.md`, `docs/**`) o'zgargan push/PR'da ishlamaydi; PR'da bir branch'ga yangi push eski
+  run'ni bekor qiladi (`concurrency`, `main`da bekor qilinmaydi); `workflow_dispatch`.
+- **E'tibor:** agar branch protection'da `ios` (yoki boshqa) check "required" bo'lsa, path filtri tufayli ishlamagan check PR'ni
+  "kutilmoqda"da qoldiradi — required ro'yxatini moslash kerak (egasi, Settings → Branches). Release'dan oldin iOS build'ni
+  qo'lda ishga tushirish tavsiya etiladi.
+- **Tekshirilmadi:** Actions daqiqalari tiklanmaguncha workflow'lar ishlamaydi; YAML sintaksisi lokal tekshirildi.
+
 ### Kamchiliklar auditi — veb va desktop (2026-10-16)
 - **Qanday tekshirildi:** jonli sayt (Railway) Playwright/Chromium bilan, 390 px (telefon) va 1280 px, yorug'/qorong'i;
   ikki test hisob ochildi (`claude-audit-a-65329334@example.com`, `claude-audit-b-…`, ism "Audit a/b 65329334") va

@@ -2,7 +2,7 @@
 
 Release matni shu fayldan olinadi (`release.yml`: `## vX.Y.Z` bo'limi).
 
-## Chiqarilmagan (v0.1.2)
+## v0.3.0 (chiqarilmagan)
 
 - **"Parolni unutdim?"** (veb, desktop, mobil): email yoki username kiriting → emailga havola keladi
   (30 daqiqa, bir martalik) → vebda yangi parol o'rnatiladi. Parol o'zgargach barcha qurilmalardan chiqiladi.
@@ -10,12 +10,28 @@ Release matni shu fayldan olinadi (`release.yml`: `## vX.Y.Z` bo'limi).
   "Email yuborish hozircha sozlanmagan" chiqadi.
 - **Username:** `@username` (ixtiyoriy) — ro'yxatdan o'tishda yoki profilda; band/bo'shligi darhol ko'rinadi.
   Kirish endi **email yoki username** bilan; qidiruvda `@username` bo'yicha aniq topiladi.
+- **Mobil ilova — yangi dizayn:** yorug'/qorong'i/tizim rejimi va 7 ta asosiy rang; pastki tablar (Suhbatlar, Sozlamalar);
+  chat ro'yxati (vaqt, ✓/✓✓, "Siz:", o'qilmaganlar, "yozmoqda"); chatda sana ajratgichlari, uzun bosish menyusi
+  (nusxa olish, tahrirlash, o'chirish); guruh/kanal ma'lumoti (a'zolar, rollar, qo'shish/chiqarish); yangi guruh/kanal;
+  sozlamalar (bildirishnoma matni, ko'rinish); "Ulanmoqda…" holati. Haqiqiy telefonda hali sinalmagan.
+- **Veb va desktop tuzatishlari (audit):** "Internet yo'q" / "Ulanmoqda…" yorlig'i; yuborilmagan xabarni qayta
+  yuborish yoki o'chirish; havolalar bosiladigan; xabar matnidan nusxa olish; bo'sh chatda yozish maydoni pastda;
+  1:1 chatda har xabar ustida ism takrorlanmaydi; qorong'i rejim tizim sozlamasiga ergashadi; "Chiqish" tasdiq bilan;
+  xato xabarlari o'zbekcha; desktop menyusi o'zbekcha, oyna sarlavhasi "Suhbat".
+- Desktop fayl nomi va ilovadagi versiya endi release tegidan olinadi (v0.2.0 da desktop fayllari
+  `suhbat-0.1.0-…` deb chiqqan edi). Release matni shu fayldan olinadi; tegning bo'limi bo'lmasa release yiqiladi.
 
+## v0.2.0 (2026-10-14)
+
+- **Qo'ng'iroqlar (1:1, WebRTC):** ovozli va video qo'ng'iroq — veb, desktop va mobil. Kiruvchi qo'ng'iroq
+  oynasi (qabul/rad), mikrofon/kamera o'chirish, taymer; tugaganda chatda "📞 Qo'ng'iroq, 3:12" yozuvi.
+  Ilova yopiq bo'lsa push bildirishnoma. TURN server hali sozlanmagan — ba'zi tarmoqlarda (NAT) ulanmasligi mumkin;
+  haqiqiy telefonda sinalmagan.
 - **Global qidiruv** (veb, desktop, mobil): "Qidirish" — suhbatlar, foydalanuvchilar va ochiq kanallar bo'limlari;
   foydalanuvchini bossangiz suhbat ochiladi, kanalni bossangiz "Obuna bo'lish".
 - **Profil tahriri:** ism va "Men haqimda" (`PATCH /users/me`). Avatar keyinroq.
 - Kanal ma'lumotida "Ega va adminlar" ro'yxatida endi faqat ega/adminlar; obunachilar soni alohida.
-- Veb o'zbekchalashtirildi; vaqt 24 soatlik ("14:20"); sozlamalardan texnologiya yozuvi olib tashlandi.
+- **O'zbekcha UI:** veb to'liq o'zbekchalashtirildi; vaqt 24 soatlik ("14:20"); sozlamalardan texnologiya yozuvi olib tashlandi.
 - Telefon brauzerida ro'yxat to'liq kenglikda, chat ochilganda yashirinadi ("Orqaga" tugmasi bilan).
 - Kanalga obunachi qo'shishda tanlangan odam aniq belgilanadi.
 
