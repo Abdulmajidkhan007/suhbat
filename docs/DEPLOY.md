@@ -142,6 +142,9 @@ git push origin v0.1.0
 workflow fayllarni unga `--clobber` bilan yuklaydi.)
 **Actions → Release** ishlaydi (taxminan 20–40 daqiqa): macOS `dmg`, Windows `exe`, Android `apk`
 **Releases** sahifasiga yuklanadi. Keyingi versiyalar — `v0.1.1`, `v0.2.0`, ...
+Release matni — `CHANGELOG.md` dagi `## vX.Y.Z` bo'limi (`scripts/release-notes.sh`; bo'lim yo'q bo'lsa `check`
+job yiqiladi; release oldindan bo'lsa matni ham `gh release edit` bilan yangilanadi). Web/desktop/mobile
+`package.json` versiyasi build'dan oldin tegdan o'rnatiladi (`scripts/release-version.sh`).
 
 Eslatma: desktop va mobil ilovalar **imzosiz** (Apple/Windows sertifikatlari yo'q) —
 macOS'da Gatekeeper, Windows'da SmartScreen ogohlantiradi. iOS release hali yo'q.
