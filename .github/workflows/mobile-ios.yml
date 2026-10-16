@@ -1,0 +1,73 @@
+name: Mobile iOS
+
+# iOS simulyator build (macOS runner — Linux'dan ~10 barobar ko'p daqiqa sarflaydi). Shuning uchun
+# har PR'da emas: faqat iOS loyihasi, Podfile yoki mobil native bog'liqliklar (`apps/mobile/package.json`)
+# o'zgarganda; JS/TS o'zgarishlari iOS native build'iga ta'sir qilmaydi (Debug build JS bundle'siz).
+# Qo'lda: Actions → Mobile iOS → Run workflow (masalan, release'dan oldin).
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/mobile/ios/**
+      - apps/mobile/package.json
+      - apps/mobile/Gemfile
+      - .github/workflows/mobile-ios.yml
+  pull_request:
+    paths:
+      - apps/mobile/ios/**
+      - apps/mobile/package.json
+      - apps/mobile/Gemfile
+      - .github/workflows/mobile-ios.yml
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/mobile
+      - run: npm ci
+      - run: npx turbo run build --filter=@suhbat/mobile^...
+      # Push (FCM): secret bo'lsa yoziladi, bo'lmasa build bosqichi faylsiz o'tadi (push o'chiq).
+      - name: GoogleService-Info.plist (ixtiyoriy)
+        env:
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > apps/mobile/ios/Suhbat/GoogleService-Info.plist
+            echo "GoogleService-Info.plist yozildi"
+          else
+            echo "GOOGLE_SERVICE_INFO_PLIST secret'i yo'q — push'siz build"
+          fi
+      - name: CocoaPods
+        working-directory: apps/mobile/ios
+        run: bundle exec pod install
+      - name: Simulyator uchun build (imzosiz, Debug)
+        working-directory: apps/mobile/ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace Suhbat.xcworkspace \
+            -scheme Suhbat \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tail -n 200

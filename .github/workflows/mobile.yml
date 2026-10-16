@@ -1,14 +1,36 @@
 name: Mobile
 
-# Native build'lar (Android APK, iOS simulyator) — og'ir, shuning uchun faqat mobil
-# ilova yoki umumiy paketlar o'zgarganda. JS tekshiruvlari (lint, typecheck, jest)
-# asosiy CI'dagi `turbo run` ichida.
+# Android native build (debug + release APK) — og'ir, shuning uchun faqat mobil ilova yoki umumiy
+# paketlar o'zgarganda (iOS papkasi, testlar va hujjatlar hisobga olinmaydi). JS tekshiruvlari
+# (lint, typecheck, jest) asosiy CI'dagi `turbo run` ichida. iOS — alohida `mobile-ios.yml`
+# (macOS runner daqiqasi 10 barobar qimmat). Qo'lda: Actions → Mobile → Run workflow.
 on:
   push:
     branches: [main]
-    paths: [apps/mobile/**, packages/**, package-lock.json, scripts/verify-apk.sh, .github/workflows/mobile.yml]
+    paths:
+      - apps/mobile/**
+      - packages/**
+      - package-lock.json
+      - scripts/verify-apk.sh
+      - .github/workflows/mobile.yml
+      - "!apps/mobile/ios/**"
+      - "!apps/mobile/**/*.test.ts"
+      - "!apps/mobile/**/*.test.tsx"
+      - "!apps/mobile/**/__tests__/**"
+      - "!**/*.md"
   pull_request:
-    paths: [apps/mobile/**, packages/**, package-lock.json, scripts/verify-apk.sh, .github/workflows/mobile.yml]
+    paths:
+      - apps/mobile/**
+      - packages/**
+      - package-lock.json
+      - scripts/verify-apk.sh
+      - .github/workflows/mobile.yml
+      - "!apps/mobile/ios/**"
+      - "!apps/mobile/**/*.test.ts"
+      - "!apps/mobile/**/*.test.tsx"
+      - "!apps/mobile/**/__tests__/**"
+      - "!**/*.md"
+  workflow_dispatch:
 
 concurrency:
   group: mobile-${{ github.ref }}
@@ -85,46 +107,3 @@ jobs:
           path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
 
-  ios:
-    runs-on: macos-15
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
-          working-directory: apps/mobile
-      - run: npm ci
-      - run: npx turbo run build --filter=@suhbat/mobile^...
-      # Push (FCM): secret bo'lsa yoziladi, bo'lmasa build bosqichi faylsiz o'tadi (push o'chiq).
-      - name: GoogleService-Info.plist (ixtiyoriy)
-        env:
-          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
-        run: |
-          if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
-            echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > apps/mobile/ios/Suhbat/GoogleService-Info.plist
-            echo "GoogleService-Info.plist yozildi"
-          else
-            echo "GOOGLE_SERVICE_INFO_PLIST secret'i yo'q — push'siz build"
-          fi
-      - name: CocoaPods
-        working-directory: apps/mobile/ios
-        run: bundle exec pod install
-      - name: Simulyator uchun build (imzosiz, Debug)
-        working-directory: apps/mobile/ios
-        run: |
-          set -o pipefail
-          xcodebuild \
-            -workspace Suhbat.xcworkspace \
-            -scheme Suhbat \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
-            build | tail -n 200

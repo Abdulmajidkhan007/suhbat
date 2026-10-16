@@ -315,6 +315,20 @@
 - **Tekshirildi:** skriptlar lokal (to'g'ri/noto'g'ri teg, bo'limsiz teg). **Tekshirilmadi:** haqiqiy `v*` teg bilan release
   (macOS/Windows job'ida `bash` + `node -e`) — keyingi teg'da ko'rinadi. v0.2.0 dagi mavjud fayllar qayta nomlanmadi
   (egasi xohlasa Release workflow'ni `v0.2.0` bilan qo'lda qayta ishga tushirishi mumkin — lekin u `main` ni quradi).
+### GitHub Actions sarfini kamaytirish (2026-10-16)
+- **Sabab:** 16-oktabr ~10:42 dan Actions daqiqalari tugadi — barcha job'lar runner ajratilmasdan (2–3 s, logsiz) yiqila boshladi.
+- **iOS** (`macos-15`, Linux'dan ~10× qimmat) alohida `mobile-ios.yml` ga ko'chirildi: faqat `apps/mobile/ios/**`,
+  `apps/mobile/package.json` (native bog'liqliklar), `apps/mobile/Gemfile` yoki workflow fayli o'zgarganda + qo'lda
+  (Actions → Mobile iOS → Run workflow). Debug simulyator build JS bundle'siz — JS/TS o'zgarishlari unga ta'sir qilmaydi.
+- **Android** (`mobile.yml`): o'sha path'lar, lekin `apps/mobile/ios/**`, testlar (`*.test.ts(x)`, `__tests__`) va `*.md` hisobga
+  olinmaydi; `workflow_dispatch` qo'shildi; `concurrency: cancel-in-progress` avvaldan bor edi.
+- **CI** (`ci.yml`): faqat hujjat (`**/*.md`, `docs/**`) o'zgargan push/PR'da ishlamaydi; PR'da bir branch'ga yangi push eski
+  run'ni bekor qiladi (`concurrency`, `main`da bekor qilinmaydi); `workflow_dispatch`.
+- **E'tibor:** agar branch protection'da `ios` (yoki boshqa) check "required" bo'lsa, path filtri tufayli ishlamagan check PR'ni
+  "kutilmoqda"da qoldiradi — required ro'yxatini moslash kerak (egasi, Settings → Branches). Release'dan oldin iOS build'ni
+  qo'lda ishga tushirish tavsiya etiladi.
+- **Tekshirilmadi:** Actions daqiqalari tiklanmaguncha workflow'lar ishlamaydi; YAML sintaksisi lokal tekshirildi.
+
 ### Kamchiliklar auditi — veb va desktop (2026-10-16)
 - **Qanday tekshirildi:** jonli sayt (Railway) Playwright/Chromium bilan, 390 px (telefon) va 1280 px, yorug'/qorong'i;
   ikki test hisob ochildi (`claude-audit-a-65329334@example.com`, `claude-audit-b-…`, ism "Audit a/b 65329334") va
