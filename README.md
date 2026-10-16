@@ -49,13 +49,16 @@ standart 15m); refresh token — body'da, bir martalik (rotatsiya).
 | Metod | Yo'l                   | Izoh                                                    |
 |-------|------------------------|---------------------------------------------------------|
 | GET   | `/health`              | API va DB holati                                        |
-| POST  | `/auth/register`       | `{ email, password, displayName }` → `{ accessToken, refreshToken, user }` |
-| POST  | `/auth/login`          | `{ email, password }` → `{ accessToken, refreshToken, user }` |
+| POST  | `/auth/register`       | `{ email, password, displayName, username? }` → `{ accessToken, refreshToken, user }`; 409 — email yoki username band |
+| POST  | `/auth/login`          | `{ login, password }` (`login` — email yoki username, `@` bilan ham; eski `{ email }` ham qabul qilinadi) → `{ accessToken, refreshToken, user }` |
+| POST  | `/auth/forgot-password` | `{ emailOrUsername }` → 200 doim bir xil `{ message }` (hisob borligi oshkor qilinmaydi); 503 — email sozlanmagan; 429 — IP limiti |
+| POST  | `/auth/reset-password` | `{ token, newPassword }` → 204; token bir martalik, 30 daqiqa; **barcha sessiyalar** (refresh token oilalari) bekor; 400 — yaroqsiz/muddati o'tgan |
 | POST  | `/auth/refresh`        | `{ refreshToken }` → yangi `{ accessToken, refreshToken }` |
 | POST  | `/auth/logout`         | `{ refreshToken, deviceToken? }` → 204 (shu sessiya yopiladi; push tokeni ham o'chadi) |
 | GET   | `/auth/me`             | joriy foydalanuvchi                                     |
-| GET   | `/users/search?q=&limit=` | ism (qism) yoki email (faqat to'liq mos) bo'yicha; o'zini qaytarmaydi |
-| PATCH | `/users/me`               | `{ displayName?, bio? }` — profil (javob `User`); bo'sh `bio` o'chiradi |
+| GET   | `/users/search?q=&limit=` | ism (qism), username (aniq; `@` bilan boshlansa faqat username) yoki email (faqat to'liq mos) bo'yicha; o'zini qaytarmaydi |
+| GET   | `/users/username-available?u=` | **tokensiz**: `{ username, available, reason }` (format, zaxira so'z, band) |
+| PATCH | `/users/me`               | `{ displayName?, bio?, username? }` — profil (javob `User`); bo'sh `bio`/`username` (yoki `null`) o'chiradi; 409 — username band |
 | GET   | `/users/me/notifications` | `{ preview }` — push'da matn ko'rinadimi              |
 | PATCH | `/users/me/notifications` | `{ preview }` (`false` — faqat "Yangi xabar")         |
 | POST  | `/users/:id/block`     | bloklash (idempotent): 1:1 da yozib bo'lmaydi, push bormaydi |

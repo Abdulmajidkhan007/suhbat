@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-14 (egasining veb sinovidan keyingi tuzatishlar: global qidiruv, profil, mobil joylashuv — pastdagi "v0.1.2 tuzatishlari")
+> Oxirgi yangilanish: 2026-10-16 (username va parolni tiklash — pastdagi "Auth: username va parolni tiklash"; undan oldin v0.1.2 tuzatishlari)
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -99,7 +99,7 @@
   yangilaydi.
 - Profil: faqat ism va bio (`PATCH /users/me`); avatar yuklash yo'q (S3 sozlanmagan). Ism/bio o'zgarsa boshqa foydalanuvchilar
   ochiq chatlarda eski ismni sahifa/ro'yxat yangilanguncha ko'radi (WS voqeasi yo'q).
-- **Email faqat o'zi uchun:** `PublicUser` (id, displayName, photoUrl, createdAt) —
+- **Email faqat o'zi uchun:** `PublicUser` (id, displayName, username, photoUrl, bio, createdAt) —
   qidiruv, chat a'zolari, WS voqealari; `User` (email bilan) faqat `/auth/me` va
   login/register/refresh javoblarida. Xom HTTP/WS javoblarida email yo'qligi e2e
   bilan tekshiriladi (qasddan sizdirilsa test yiqiladi).
@@ -339,6 +339,64 @@ Egasi veb versiyani telefonda ikki hisob bilan sinadi; topilgan 7 ta bug:
   (gorizontal skroll yo'q), qidiruv bo'limlari, kanalga obuna, chat to'liq ekran, "Orqaga", sozlamalarda texnologiya yozuvi yo'q, profil saqlandi.
 - **Tekshirilmadi:** haqiqiy telefon brauzeri (iOS Safari/Android Chrome) — faqat Chromium emulyatsiyasi; Railway deploy;
   desktop (Electron) oynasida qo'lda; mobil ilova qurilmada (faqat jest). Ism o'zgarishi boshqalarga real vaqtda yetmaydi.
+
+### Auth: username va parolni tiklash (2026-10-16)
+Sabab: egasi hisobiga kira olmadi ("Email yoki parol noto'g'ri") va "Parolni unutdim" yo'q edi.
+Aniq sabab (noto'g'ri parolmi, boshqa email bilan ochilgan hisobmi) koddan ko'rinmaydi — endi parolni o'zi tiklay oladi.
+- **Username** (`User.username`, migratsiya `*_username_password_reset`): ixtiyoriy (mavjud hisoblarda `null`),
+  5–32 belgi, `a-z0-9_`, harf bilan boshlanadi, `_` bilan tugamaydi, `__` yo'q; zaxira so'zlar (admin, support,
+  suhbat*, …) — `@suhbat/core` `username.ts` (`usernameProblem`, `UsernameSchema`, `RESERVED_USERNAMES`).
+  Doim kichik harfda saqlanadi (`CHECK username = lower(username)`) → oddiy unique = katta-kichik harf farqsiz unique.
+  Ro'yxatdan o'tishda ixtiyoriy maydon; `GET /users/username-available?u=` (tokensiz; usernamelar ochiq ma'lumot,
+  email uchun bunday tekshiruv yo'q); profilda o'zgartirish/o'chirish (`PATCH /users/me { username }`, band — 409).
+  `PublicUser.username` (eski server javobida bo'lmasa `null`). Qidiruv: username — aniq moslik (`@` bilan boshlansa
+  faqat username), aniq moslik ro'yxatda birinchi.
+- **Kirish:** `POST /auth/login { login, password }` — `login` email (ichida `@`) yoki username (boshidagi `@` tashlanadi).
+  Eski mijozlar (v0.2.0 APK) yuboradigan `{ email }` ham qabul qilinadi. Xato matni: "Login yoki parol noto'g'ri".
+- **Parolni tiklash** (`PasswordResetService`): `POST /auth/forgot-password { emailOrUsername }` — javob **doim bir xil**
+  (200 + bir xil matn), xat fonda yuboriladi (javob vaqti xatga bog'liq emas). Token: 32 bayt (`base64url`), bazada faqat
+  sha256 (`PasswordResetToken`), 30 daqiqa, bir martalik (shartli `updateMany` — parallel so'rovdan bittasi o'tadi);
+  yangisi so'ralganda eskilari bekor. `POST /auth/reset-password { token, newPassword }` → 204: parol yangilanadi,
+  boshqa tiklash tokenlari va **foydalanuvchining barcha refresh token oilalari bekor** (bitta tranzaksiyada).
+  Cheklovlar: `@AuthThrottle` (10/daqiqa, IP+endpoint) + IP bo'yicha 5 / 15 daqiqa (429, `FORGOT_PASSWORD_IP_*`,
+  xotirada) + hisob bo'yicha 3 / soat (bazadagi tokenlar soni; oshsa — xat jim yuborilmaydi, javob o'zgarmaydi).
+- **Email:** `Mailer` abstraktsiyasi (`src/mail`): `ResendMailer` (HTTP API, `RESEND_API_KEY`), `SmtpMailer`
+  (nodemailer, `SMTP_URL`), `DisabledMailer`. `MAIL_FROM` shart; `WEB_URL` — havola `${WEB_URL}/reset-password?token=…`.
+  Kalit/`MAIL_FROM`/`WEB_URL` bo'lmasa API ko'tariladi, logda ogohlantirish, forgot-password — bor/yo'q hisob uchun
+  bir xil 503 "Email yuborish hozircha sozlanmagan". Xat o'zbekcha, HTML (ism ekranlanadi) + matn.
+  Egasi qadamlari: `QADAMLAR.md` 14 (Resend akkaunt, domen yoki `onboarding@resend.dev`, Railway Variables).
+- **Veb/desktop:** login maydoni "Email yoki username", "Parolni unutdim?" → `/forgot-password`, `/reset-password`
+  (yangi parol + tasdiqlash, kuch ko'rsatkichi; token darhol URL'dan olib tashlanadi — `navigate(replace)` =
+  `history.replaceState`; kirgan bo'lsa shu brauzerdan ham chiqadi). Ro'yxatdan o'tishda username (jonli tekshiruv:
+  format — darhol, bandlik — 400 ms debounce). Sozlamalarda username. Qidiruv natijasida `@username`.
+  Desktop — veb bilan bir xil kod (so'rov sahifasi ilova ichida); **xatdagi havola tizim brauzerida vebda ochiladi**,
+  `suhbat://reset-password` deep link — **qilinmadi (keyin)**.
+- **Mobil:** login'da "Email yoki username", "Parolni unutdim?" → so'rov ekrani (kiritilgan qiymat ko'chadi, Android
+  "orqaga"), ro'yxatdan o'tish va Profil'da username (jonli tekshiruv). Xatdagi havola **vebda** ochiladi; mobil deep link
+  (`suhbat://` / App Links) — **keyin**. Mobil ekranlarga faqat auth/profil/qidiruv qatoriga (`@username`) tegildi.
+- **Testlar:** core 63 (username qoidalari, login/register/profil sxemalari), client 42, api unit 92 (mailer: Resend so'rovi,
+  xato matnida kalit yo'q, tanlov; PasswordResetService: 503, hash, TTL, eski tokenlar, jim holatlar, IP limiti, reset
+  tranzaksiyasi, parallel), API e2e 47 (yangi `auth-reset.e2e-spec.ts` 13: username unique/case-insensitive + CHECK,
+  format/zaxira, availability, login email/username/eski `email`, qidiruv, profil 409; forgot doim bir xil (bor/yo'q,
+  email/username), faqat hash, reset → eski parol rad, token qayta — 400, ikki qurilma refresh — 401, yangi so'rov eskisini
+  bekor qiladi, muddati o'tgan, IP 429 + hisob limiti, sozlanmagan — bir xil 503), web 94 (`AuthPages.test.tsx` 12,
+  SettingsPanel username, passwordStrength), mobil 44 (`AuthFlow.test.tsx` 5). `turbo run lint typecheck test build` yashil.
+  **Brauzerda (Playwright, Chromium 390 px, lokal API + `vite preview`, API `SMTP_URL` → lokal SMTP "sink"):**
+  ro'yxatdan o'tish username bilan → "Parolni unutdim?" (`@username`) → **haqiqiy SMTP xati** (nodemailer) keldi →
+  havola ochildi, URL'da token qolmadi → yangi parol → eski havola yaroqsiz → eski parol rad, username + yangi parol
+  bilan kirildi → boshqa kontekstdagi eski sessiya yangilanganda `/login` ga tushdi.
+- **Tekshirilmagan:** **haqiqiy Resend API** (faqat soxta `fetch` bilan unit) va haqiqiy pochta yetkazilishi (spam va h.k.);
+  Railway'da deploy; mobil ilovada qurilmada (faqat jest); desktop oynasida qo'lda.
+- **Cheklovlar / keyin:**
+  - **Email tasdiqlash — keyin** (hozir ro'yxatdan o'tishda email tekshirilmaydi; boshqaning emaili bilan hisob ochish
+    mumkin, tiklash xati esa email egasiga boradi).
+  - Parol tiklangach **access token'lar (≤ 15 daqiqa) va ochiq socket'lar** o'z muddatigacha ishlaydi — refresh bekor
+    bo'lgani uchun keyingi yangilashda chiqadi; darhol uzish (token versiyasi / `passwordChangedAt`) — keyin.
+  - IP limiti bitta API nusxasi xotirasida (ko'p nusxa — Redis). `TRUST_PROXY` bo'lmasa hamma bitta IP.
+  - Login'da hisob yo'q bo'lsa argon2 tekshiruvi qilinmaydi — javob vaqti bo'yicha hisob borligini taxmin qilish
+    nazariy jihatdan mumkin (oldin ham shunday edi).
+  - Username tarixi/qayta band qilishdan himoya yo'q (bo'shatilgan username'ni darhol boshqa odam olishi mumkin).
+  - Deep link (desktop `suhbat://reset-password`, mobil App Links/Universal Links) — keyin.
 
 ### 1-fazada nima tekshirildi
 - `npx turbo run lint typecheck test build` — yashil (core 16, client 13,
