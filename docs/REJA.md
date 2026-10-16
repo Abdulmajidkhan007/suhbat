@@ -303,6 +303,19 @@
   qo'ng'iroqlar tarixi alohida jadvalda emas (faqat tizim xabari); Cloudflare TURN credential'ini avtomatik
   yaratish.
 
+### v0.3.0 tayyorgarligi — release versiyasi va matni (2026-10-16)
+- **Muammo (v0.2.0 release'ida):** desktop fayllari `suhbat-0.1.0-mac-arm64.dmg` va h.k. (versiya `apps/desktop/package.json`
+  dan, u 0.1.0 edi); release matni faqat o'rnatish eslatmalari — `CHANGELOG.md` da `## v0.2.0` bo'limi yo'q edi
+  ("Chiqarilmagan (v0.1.2)" deb nomlangan), va release oldindan mavjud bo'lsa matn umuman yangilanmasdi.
+- **Tuzatish:** `scripts/release-version.sh <teg>` — desktop va android job'larida build'dan oldin web/desktop/mobile
+  `package.json` versiyasi tegdan (faqat `version` maydoni). `scripts/release-notes.sh <teg>` — `## <teg>` bo'limini chiqaradi,
+  yo'q/bo'sh bo'lsa yiqiladi; release `check` job'i shu bilan boshlanadi; mavjud release'ga `gh release edit --notes-file`.
+  Repodagi versiyalar 0.2.0 ga ko'tarildi. `CHANGELOG.md`: `## v0.2.0` (qo'ng'iroqlar, global qidiruv, profil, o'zbekcha UI)
+  va `## v0.3.0 (chiqarilmagan)`. CI `check` skriptlarni sinaydi.
+- **Tekshirildi:** skriptlar lokal (to'g'ri/noto'g'ri teg, bo'limsiz teg). **Tekshirilmadi:** haqiqiy `v*` teg bilan release
+  (macOS/Windows job'ida `bash` + `node -e`) — keyingi teg'da ko'rinadi. v0.2.0 dagi mavjud fayllar qayta nomlanmadi
+  (egasi xohlasa Release workflow'ni `v0.2.0` bilan qo'lda qayta ishga tushirishi mumkin — lekin u `main` ni quradi).
+
 ### v0.1.2 — egasining veb sinovidan keyingi tuzatishlar (2026-10-14)
 Egasi veb versiyani telefonda ikki hisob bilan sinadi; topilgan 7 ta bug:
 1. **Global qidiruv** (asosiy bug). Qidiruv faqat mavjud suhbatlarni filtrlardi. Endi (veb + desktop + mobil) bitta
