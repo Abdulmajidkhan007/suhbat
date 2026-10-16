@@ -112,7 +112,9 @@ export interface MessagesState {
 export type ThemeMode = 'light' | 'dark';
 
 export interface ThemeState {
-  mode: ThemeMode;
+  mode:   ThemeMode;
+  /** Foydalanuvchi hali tanlamagan — tizim rejimiga ergashadi. */
+  follow: boolean;
 }
 
 export interface UIState {

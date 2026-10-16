@@ -5,24 +5,43 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
+import ReplayIcon from '@mui/icons-material/Replay';
+import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { Message } from '../../types';
 import { formatDuration, formatMessageTime } from '../../utils/formatters';
 import FileChip from '../common/FileChip';
 import AvatarWithStatus from '../common/AvatarWithStatus';
+import { Linkified } from '../../utils/linkify';
 
 interface Props {
   message:    Message;
   isSelf:     boolean;
   isFirst?:   boolean;
+  /** Ketma-ket xabarlarning birinchisi — avatar va ism shu yerda. */
   showAvatar?: boolean;
+  /** Guruhda yuboruvchini ko'rsatish (1:1 va kanalda — yo'q). */
+  showSender?: boolean;
   /** O'z matnli xabari (kanalda — yozish huquqi bor). */
   canEdit?:   boolean;
   /** O'zining yoki (guruh/kanal admini sifatida) birovning xabari. */
   canDelete?: boolean;
   onEdit?:    (messageId: string, content: string) => Promise<void>;
   onDelete?:  (messageId: string) => void;
+  /** Yuborilmagan xabar: qayta yuborish va ro'yxatdan olib tashlash. */
+  onResend?:  (messageId: string) => void;
+  onDiscard?: (messageId: string) => void;
 }
+
+const copyText = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success('Nusxa olindi');
+  } catch {
+    toast.error('Nusxa olib bo\'lmadi');
+  }
+};
 
 const StatusIcon: React.FC<{ status: Message['status'] }> = ({ status }) => {
   // O'z xabarimiz ko'k fonda: bitta belgi — yuborildi, ikkita — o'qildi.
@@ -30,7 +49,7 @@ const StatusIcon: React.FC<{ status: Message['status'] }> = ({ status }) => {
   if (status === 'sent')      return <DoneIcon sx={{ fontSize: 13, opacity: 0.8 }} aria-label="yuborildi" />;
   if (status === 'delivered') return <DoneAllIcon sx={{ fontSize: 13, opacity: 0.8 }} aria-label="yetkazildi" />;
   if (status === 'read')      return <DoneAllIcon sx={{ fontSize: 13, color: '#bbf7d0' }} aria-label="o'qildi" />;
-  if (status === 'failed')    return <span className="text-red-200 text-xs font-bold" title="Yuborilmadi">!</span>;
+  if (status === 'failed')    return <span className="text-red-200 text-xs font-bold" role="img" aria-label="yuborilmadi">!</span>;
   return null;
 };
 
@@ -63,13 +82,17 @@ const Attachment: React.FC<{ message: Message }> = ({ message }) => {
 };
 
 const MessageBubble: React.FC<Props> = memo(({
-  message, isSelf, showAvatar = true, canEdit = false, canDelete = false, onEdit, onDelete,
+  message, isSelf, showAvatar = true, showSender = true, canEdit = false, canDelete = false, onEdit, onDelete,
+  onResend, onDiscard,
 }) => {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [editing, setEditing]       = useState(false);
   const [draft, setDraft]           = useState('');
   const [saving, setSaving]         = useState(false);
-  const hasMenu = !message.isOptimistic && ((canEdit && !!onEdit) || (canDelete && !!onDelete));
+  const failed = message.status === 'failed';
+  const canCopy = message.content.length > 0;
+  const hasMenu = !message.isOptimistic && (canCopy || (canEdit && !!onEdit) || (canDelete && !!onDelete));
+  const withSender = !isSelf && showSender;
 
   const startEdit = () => {
     setMenuAnchor(null);
@@ -99,7 +122,7 @@ const MessageBubble: React.FC<Props> = memo(({
       transition={{ duration: 0.2, ease: 'easeOut' }}
       className={`group flex items-end gap-2 max-w-[92%] sm:max-w-[78%] ${isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
     >
-      {!isSelf && showAvatar ? (
+      {withSender && showAvatar ? (
         <AvatarWithStatus
           uid={message.senderId}
           displayName={message.senderName}
@@ -108,11 +131,11 @@ const MessageBubble: React.FC<Props> = memo(({
           size={30}
         />
       ) : (
-        !isSelf && <div className="w-[30px] flex-shrink-0" />
+        withSender && <div className="w-[30px] flex-shrink-0" />
       )}
 
       <div className={`flex flex-col gap-0.5 ${isSelf ? 'items-end' : 'items-start'}`}>
-        {!isSelf && showAvatar && (
+        {withSender && showAvatar && (
           <Typography variant="caption" sx={{ px: 1, fontWeight: 600, color: 'text.secondary' }}>
             {message.senderName}
           </Typography>
@@ -162,7 +185,7 @@ const MessageBubble: React.FC<Props> = memo(({
               {message.attachment && <Attachment message={message} />}
               {message.content && (
                 <Typography variant="body2" sx={{ lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap', mt: message.attachment ? 0.5 : 0 }}>
-                  {message.content}
+                  <Linkified text={message.content} />
                 </Typography>
               )}
             </>
@@ -186,6 +209,21 @@ const MessageBubble: React.FC<Props> = memo(({
             </Typography>
           )}
         </div>
+        {failed && (onResend || onDiscard) && (
+          <div className="flex items-center gap-1" role="group" aria-label="Yuborilmadi">
+            <Typography variant="caption" color="error">Yuborilmadi</Typography>
+            {onResend && message.type === 'text' && (
+              <Button size="small" startIcon={<ReplayIcon fontSize="small" />} onClick={() => onResend(message.id)} sx={{ textTransform: 'none', minWidth: 0, py: 0 }}>
+                Qayta yuborish
+              </Button>
+            )}
+            {onDiscard && (
+              <Button size="small" color="inherit" onClick={() => onDiscard(message.id)} sx={{ textTransform: 'none', minWidth: 0, py: 0, color: 'text.secondary' }}>
+                O'chirish
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {hasMenu && !editing && (
@@ -205,6 +243,12 @@ const MessageBubble: React.FC<Props> = memo(({
             onClose={() => setMenuAnchor(null)}
             slotProps={{ paper: { sx: { borderRadius: '12px', minWidth: 160 } } }}
           >
+            {canCopy && (
+              <MenuItem onClick={() => { setMenuAnchor(null); void copyText(message.content); }}>
+                <ListItemIcon><ContentCopyOutlinedIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Nusxa olish" />
+              </MenuItem>
+            )}
             {canEdit && onEdit && (
               <MenuItem onClick={startEdit}>
                 <ListItemIcon><EditOutlinedIcon fontSize="small" /></ListItemIcon>

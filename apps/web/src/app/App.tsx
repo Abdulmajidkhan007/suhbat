@@ -6,14 +6,26 @@ import { Toaster } from 'react-hot-toast';
 import { store } from './store';
 import AppRouter from './router';
 import { lightTheme, darkTheme } from '../styles/muiTheme';
-import { useAppSelector } from './hooks';
+import { useAppDispatch, useAppSelector } from './hooks';
+import { systemThemeChanged } from '../features/theme/themeSlice';
+import ConnectionBanner from '../components/common/ConnectionBanner';
 import { useAuth } from '../hooks/useAuth';
 import ErrorBoundary from '../components/common/ErrorBoundary';
 import '../styles/global.css';
 
 const ThemedApp: React.FC = () => {
   const mode = useAppSelector((s) => s.theme.mode);
+  const dispatch = useAppDispatch();
   useAuth();
+
+  // Tizim rejimi o'zgarsa (masalan, kechqurun avtomatik qorong'i) — tanlov qilinmagan bo'lsa ergashadi.
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq) return;
+    const onChange = (e: MediaQueryListEvent) => dispatch(systemThemeChanged(e.matches ? 'dark' : 'light'));
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [dispatch]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -30,6 +42,7 @@ const ThemedApp: React.FC = () => {
       <AnimatePresence mode="wait">
         <AppRouter />
       </AnimatePresence>
+      <ConnectionBanner />
       <Toaster
         position="top-right"
         toastOptions={{
