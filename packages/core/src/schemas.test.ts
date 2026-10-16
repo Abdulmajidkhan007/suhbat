@@ -16,18 +16,41 @@ describe('RegisterInputSchema', () => {
 });
 
 describe('LoginInputSchema', () => {
-  it('noto\'g\'ri emailni rad etadi', () => {
-    expect(LoginInputSchema.safeParse({ email: 'x', password: 'y' }).success).toBe(false);
+  it('`login` (email yoki username) va eski `email` maydonini qabul qiladi', () => {
+    expect(LoginInputSchema.parse({ login: ' Ali_01 ', password: 'y' })).toEqual({ login: 'Ali_01', password: 'y' });
+    expect(LoginInputSchema.parse({ email: 'a@b.uz', password: 'y' })).toEqual({ login: 'a@b.uz', password: 'y' });
+  });
+
+  it('bo\'sh login yoki parolni rad etadi', () => {
+    expect(LoginInputSchema.safeParse({ password: 'y' }).success).toBe(false);
+    expect(LoginInputSchema.safeParse({ login: '  ', password: 'y' }).success).toBe(false);
+    expect(LoginInputSchema.safeParse({ login: 'ali', password: '' }).success).toBe(false);
+  });
+});
+
+describe('RegisterInputSchema username', () => {
+  it('ixtiyoriy; berilsa normallashtiriladi va tekshiriladi', () => {
+    const base = { email: ' A@B.uz ', password: '12345678', displayName: 'A' };
+    expect(RegisterInputSchema.parse(base)).not.toHaveProperty('username');
+    expect(RegisterInputSchema.parse(base).email).toBe('a@b.uz');
+    expect(RegisterInputSchema.parse({ ...base, username: '@Ali_Valiyev' }).username).toBe('ali_valiyev');
+    expect(RegisterInputSchema.safeParse({ ...base, username: 'admin' }).success).toBe(false);
   });
 });
 
 describe('PublicUser / User', () => {
-  const pub = { id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', displayName: 'Ali', photoUrl: null, bio: null, createdAt: '2026-10-11T10:00:00.000Z' };
+  const pub = { id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', displayName: 'Ali', photoUrl: null, bio: null, username: null, createdAt: '2026-10-11T10:00:00.000Z' };
 
   it('PublicUser emailsiz, email kelsa ham tashlab yuboradi; User email talab qiladi', () => {
     expect(PublicUserSchema.parse({ ...pub, email: 'a@b.uz' })).toEqual(pub);
     expect(UserSchema.safeParse(pub).success).toBe(false);
     expect(UserSchema.parse({ ...pub, email: 'a@b.uz' }).email).toBe('a@b.uz');
+  });
+
+  it('eski server javobida username yo\'q — null', () => {
+    const old: Record<string, unknown> = { ...pub };
+    delete old.username;
+    expect(PublicUserSchema.parse(old).username).toBeNull();
   });
 
   it('chat a\'zosi — PublicUser (email yo\'q)', () => {
@@ -46,6 +69,10 @@ describe('UpdateProfileInputSchema', () => {
   it('bo\'sh ism, bo\'sh tanasi va uzun qiymatlarni rad etadi', () => {
     expect(UpdateProfileInputSchema.safeParse({ displayName: '   ' }).success).toBe(false);
     expect(UpdateProfileInputSchema.safeParse({}).success).toBe(false);
+    expect(UpdateProfileInputSchema.parse({ username: 'Ali_Valiyev' })).toEqual({ username: 'ali_valiyev' });
+    expect(UpdateProfileInputSchema.parse({ username: null })).toEqual({ username: null });
+    expect(UpdateProfileInputSchema.parse({ username: '' })).toEqual({ username: '' });
+    expect(UpdateProfileInputSchema.safeParse({ username: 'ab' }).success).toBe(false);
     expect(UpdateProfileInputSchema.safeParse({ displayName: 'x'.repeat(DISPLAY_NAME_MAX + 1) }).success).toBe(false);
     expect(UpdateProfileInputSchema.safeParse({ bio: 'x'.repeat(BIO_MAX + 1) }).success).toBe(false);
     expect(UpdateProfileInputSchema.safeParse({ displayName: 'x'.repeat(DISPLAY_NAME_MAX), bio: 'x'.repeat(BIO_MAX) }).success).toBe(true);

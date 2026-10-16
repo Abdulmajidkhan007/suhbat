@@ -7,7 +7,10 @@ export default defineConfig({
   test: {
     environment: 'node',
     // e2e'lar tez ishlashi uchun rate limit amalda o'chirilgan; cheklov testlari o'z qiymatlarini beradi.
-    env: { THROTTLE_LIMIT: '100000', THROTTLE_AUTH_LIMIT: '100000', WS_SEND_LIMIT: '100000' },
+    env: {
+      THROTTLE_LIMIT: '100000', THROTTLE_AUTH_LIMIT: '100000', WS_SEND_LIMIT: '100000',
+      FORGOT_PASSWORD_IP_LIMIT: '100000', FORGOT_PASSWORD_ACCOUNT_LIMIT: '100000',
+    },
     include: ['**/*.spec.ts', '**/*.e2e-spec.ts'],
   },
 });

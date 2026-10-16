@@ -74,7 +74,7 @@ const GlobalSearchResults: React.FC<Props> = ({
                 </ListItemAvatar>
                 <ListItemText
                   primary={u.displayName}
-                  secondary={u.bio || undefined}
+                  secondary={[u.username ? `@${u.username}` : null, u.bio].filter(Boolean).join(' · ') || undefined}
                   slotProps={{ primary: { variant: 'body2', noWrap: true, sx: { fontWeight: 600 } }, secondary: { noWrap: true } }}
                 />
                 {pendingUserId === u.uid && <CircularProgress size={18} />}

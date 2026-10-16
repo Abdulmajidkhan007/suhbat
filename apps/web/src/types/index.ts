@@ -5,6 +5,8 @@ export interface AppUser {
   /** Faqat joriy foydalanuvchida (boshqalarniki serverdan kelmaydi). */
   email?:      string;
   displayName: string;
+  /** Ochiq `@username` (kichik harfda). */
+  username?:   string | null;
   photoURL:    string | null;
   phoneNumber?: string | null;
   bio?:        string | null;

@@ -7,17 +7,30 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
+import { Link as RouterLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { normalizeUsername } from '@suhbat/core';
 import LoadingButton from '../common/LoadingButton';
+import UsernameField from './UsernameField';
+import { usernameAcceptable, useUsernameCheck } from '../../hooks/useUsernameCheck';
 import { validateSignIn, validateSignUp } from '../../utils/validators';
 
 type Mode = 'login' | 'signup';
+
+export interface AuthFormData {
+  /** Kirishda — email yoki username; ro'yxatdan o'tishda — email. */
+  login:        string;
+  password:     string;
+  displayName?: string;
+  /** Normallashtirilgan; bo'sh bo'lsa — yo'q. */
+  username?:    string;
+}
 
 interface Props {
   mode:         Mode;
   loading:      boolean;
   error:        string | null;
-  onSubmit:     (data: { email: string; password: string; displayName?: string }) => void;
+  onSubmit:     (data: AuthFormData) => void;
   onToggle:     () => void;
   onClearError: () => void;
 }
@@ -28,8 +41,10 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
   const [email,       setEmail]       = useState('');
   const [password,    setPassword]    = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [username,    setUsername]    = useState('');
   const [showPass,    setShowPass]    = useState(false);
   const [localError,  setLocalError]  = useState('');
+  const usernameCheck = useUsernameCheck(mode === 'signup' ? username : '');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +60,16 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
       setLocalError(validation.message);
       return;
     }
-    onSubmit({ email, password, displayName: mode === 'signup' ? displayName : undefined });
+    if (mode === 'login') {
+      onSubmit({ login: email.trim(), password });
+      return;
+    }
+    if (!usernameAcceptable(usernameCheck)) {
+      setLocalError('message' in usernameCheck ? usernameCheck.message : 'Username tekshirilmoqda, biroz kuting.');
+      return;
+    }
+    const normalized = normalizeUsername(username);
+    onSubmit({ login: email.trim(), password, displayName, ...(normalized ? { username: normalized } : {}) });
   };
 
   const displayedError = error || localError;
@@ -98,13 +122,13 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
         )}
 
         <TextField
-          label="Email"
-          type="email"
+          label={mode === 'login' ? 'Email yoki username' : 'Email'}
+          type={mode === 'login' ? 'text' : 'email'}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           fullWidth
           autoFocus={mode === 'login'}
-          autoComplete="email"
+          autoComplete={mode === 'login' ? 'username' : 'email'}
           required
           disabled={loading}
           sx={fieldSx}
@@ -118,6 +142,10 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
             },
           }}
         />
+
+        {mode === 'signup' && (
+          <UsernameField value={username} onChange={setUsername} check={usernameCheck} disabled={loading} optional />
+        )}
 
         <TextField
           label="Parol"
@@ -156,6 +184,19 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
           }}
         />
 
+        {mode === 'login' && (
+          <Typography variant="body2" align="right" sx={{ mt: -1 }}>
+            <Typography
+              component={RouterLink}
+              to="/forgot-password"
+              variant="body2"
+              sx={{ color: 'primary.main', fontWeight: 600, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+            >
+              Parolni unutdim?
+            </Typography>
+          </Typography>
+        )}
+
         <LoadingButton
           type="submit"
           variant="contained"
@@ -167,7 +208,7 @@ const AuthForm: React.FC<Props> = ({ mode, loading, error, onSubmit, onToggle, o
         </LoadingButton>
 
         <Divider sx={{ my: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">or</Typography>
+          <Typography variant="caption" color="text.secondary">yoki</Typography>
         </Divider>
 
         <Typography variant="body2" align="center" color="text.secondary">

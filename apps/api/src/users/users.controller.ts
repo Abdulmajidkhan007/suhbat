@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -14,7 +15,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { UpdateNotificationSettingsInputSchema, UpdateProfileInputSchema, UserSearchQuerySchema } from '@suhbat/core';
+import { normalizeUsername, UpdateNotificationSettingsInputSchema, UpdateProfileInputSchema, UserSearchQuerySchema } from '@suhbat/core';
 import type {
   NotificationSettings,
   PublicUser,
@@ -25,7 +26,7 @@ import type {
 } from '@suhbat/core';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthedRequest } from '../auth/jwt-auth.guard';
-import { toPublicUser, toSelfUser } from '../auth/auth.service';
+import { isUniqueViolation, toPublicUser, toSelfUser, USERNAME_TAKEN_MESSAGE } from '../auth/auth.service';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -35,43 +36,61 @@ export class UsersController {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Ism bo'yicha — qism (katta-kichik harf farqsiz); email bo'yicha — faqat
-   * to'liq mos kelganda (aks holda `a@` bilan boshqalarning emailini terib
-   * chiqarish mumkin bo'lardi). Javobda email YO'Q (`PublicUser`). O'zini qaytarmaydi.
+   * Ism bo'yicha — qism (katta-kichik harf farqsiz); username bo'yicha — aniq moslik
+   * (`@ali_v` yoki `ali_v`; `@` bilan boshlansa faqat username); email bo'yicha — faqat
+   * to'liq mos kelganda (aks holda `a@` bilan boshqalarning emailini terib chiqarish
+   * mumkin bo'lardi). Javobda email YO'Q (`PublicUser`). O'zini qaytarmaydi.
    */
   @Get('search')
   async search(
     @Req() req: AuthedRequest,
     @Query(new ZodValidationPipe(UserSearchQuerySchema)) query: UserSearchQuery,
   ): Promise<PublicUser[]> {
+    const username = normalizeUsername(query.q);
+    const onlyUsername = query.q.startsWith('@');
     const users = await this.prisma.user.findMany({
       where: {
         id: { not: req.user.sub },
         OR: [
-          { displayName: { contains: query.q, mode: 'insensitive' } },
-          { email: query.q.toLowerCase() }, // emaillar ro'yxatdan o'tishda kichik harfga o'tkaziladi
+          ...(username ? [{ username }] : []),
+          ...(onlyUsername ? [] : [
+            { displayName: { contains: query.q, mode: 'insensitive' as const } },
+            { email: query.q.toLowerCase() }, // emaillar ro'yxatdan o'tishda kichik harfga o'tkaziladi
+          ]),
         ],
       },
       orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
       take:    query.limit,
     });
-    return users.map(toPublicUser);
+    // Aniq username mosligi — birinchi.
+    return users
+      .sort((a, b) => Number(b.username === username) - Number(a.username === username))
+      .map(toPublicUser);
   }
 
-  /** Profilni tahrirlash (ism, bio). Bo'sh `bio` — o'chirish. Avatar yuklash keyinga qoldirilgan (S3). */
+  /**
+   * Profilni tahrirlash (ism, bio, username). Bo'sh `bio`/`username` (yoki `null`) — o'chirish.
+   * Avatar yuklash keyinga qoldirilgan (S3).
+   */
   @Patch('me')
   async updateProfile(
     @Req() req: AuthedRequest,
     @Body(new ZodValidationPipe(UpdateProfileInputSchema)) body: UpdateProfileInput,
   ): Promise<User> {
-    const user = await this.prisma.user.update({
-      where: { id: req.user.sub },
-      data: {
-        ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),
-        ...(body.bio !== undefined ? { bio: body.bio || null } : {}),
-      },
-    });
-    return toSelfUser(user);
+    try {
+      const user = await this.prisma.user.update({
+        where: { id: req.user.sub },
+        data: {
+          ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),
+          ...(body.bio !== undefined ? { bio: body.bio || null } : {}),
+          ...(body.username !== undefined ? { username: body.username || null } : {}),
+        },
+      });
+      return toSelfUser(user);
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new ConflictException(USERNAME_TAKEN_MESSAGE);
+      throw e;
+    }
   }
 
   @Get('me/notifications')

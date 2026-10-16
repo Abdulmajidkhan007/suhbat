@@ -13,10 +13,10 @@ describe('App', () => {
     await render(<App services={fake.services} />);
 
     // Sessiya yo'q — kirish ekrani.
-    await fireEvent.changeText(await screen.findByLabelText('Email'), 'Ali@Example.uz');
+    await fireEvent.changeText(await screen.findByLabelText('Email yoki username'), 'Ali@Example.uz');
     await fireEvent.changeText(screen.getByLabelText('Parol'), 'parol1234');
     await fireEvent.press(screen.getByText('Kirish'));
-    await waitFor(() => expect(fake.api.login).toHaveBeenCalledWith({ email: 'ali@example.uz', password: 'parol1234' }));
+    await waitFor(() => expect(fake.api.login).toHaveBeenCalledWith({ login: 'Ali@Example.uz', password: 'parol1234' }));
 
     // Chatlar ro'yxati: suhbatdosh ismi, oxirgi xabar, o'qilmaganlar.
     expect(await screen.findByText(PEER.displayName)).toBeTruthy();

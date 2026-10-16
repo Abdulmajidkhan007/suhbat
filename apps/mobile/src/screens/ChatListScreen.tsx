@@ -162,7 +162,11 @@ export const ChatListScreen = () => {
                   <Avatar name={u.displayName} size={40} />
                   <View style={styles.itemBody}>
                     <Text style={styles.title} numberOfLines={1}>{u.displayName}</Text>
-                    {u.bio ? <Text style={styles.preview} numberOfLines={1}>{u.bio}</Text> : null}
+                    {u.username || u.bio ? (
+                      <Text style={styles.preview} numberOfLines={1}>
+                        {[u.username ? `@${u.username}` : null, u.bio].filter(Boolean).join(' · ')}
+                      </Text>
+                    ) : null}
                   </View>
                 </Pressable>
               ))}
