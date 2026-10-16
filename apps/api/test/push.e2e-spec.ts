@@ -230,12 +230,12 @@ describe('Push bildirishnomalar (e2e)', () => {
   it('logout deviceToken bilan — shu qurilma tokeni o\'chadi', async () => {
     const token = `tok-logout-${stamp}`;
     const fresh = createApiClient({ baseUrl: url, storage: memoryTokenStorage() });
-    await fresh.login({ email: emailOf('gani'), password: '12345678' });
+    await fresh.login({ login: emailOf('gani'), password: '12345678' });
     await fresh.registerDevice({ platform: 'android', token });
     // Begona token logout'da o'chmaydi
     await api.vali.registerDevice({ platform: 'android', token: `tok-other-${stamp}` });
     const other = createApiClient({ baseUrl: url, storage: memoryTokenStorage() });
-    await other.login({ email: emailOf('gani'), password: '12345678' });
+    await other.login({ login: emailOf('gani'), password: '12345678' });
     await other.logout({ deviceToken: `tok-other-${stamp}` });
     expect(await prisma.deviceToken.count({ where: { token: `tok-other-${stamp}` } })).toBe(1);
 

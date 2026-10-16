@@ -15,7 +15,7 @@ const { default: ChatList } = await import('./ChatList');
 
 const USER_ID = '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e51';
 const CH_ID   = '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e52';
-const testUser: PublicUser = { id: USER_ID, displayName: 'Test Foydalanuvchi', photoUrl: null, bio: 'Salom', createdAt: '2026-10-01T10:00:00.000Z' };
+const testUser: PublicUser = { id: USER_ID, displayName: 'Test Foydalanuvchi', username: null, photoUrl: null, bio: 'Salom', createdAt: '2026-10-01T10:00:00.000Z' };
 const testChannel: PublicChannel = { id: CH_ID, title: 'Test kanal', description: 'Sinov', memberCount: 12, isMember: false };
 
 const directSummary = (): ChatSummary => ({

@@ -11,6 +11,7 @@ export const toAppUser = (u: PublicUser | User): AppUser => ({
   uid:         u.id,
   email:       'email' in u ? u.email : undefined,
   displayName: u.displayName,
+  username:    u.username,
   photoURL:    u.photoUrl,
   bio:         u.bio,
   createdAt:   ms(u.createdAt),

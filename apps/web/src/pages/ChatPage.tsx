@@ -53,6 +53,7 @@ const ChatPage: React.FC = () => {
   const [findOpen, setFindOpen]       = useState(false);
   const [infoOpen, setInfoOpen]       = useState(false);
   const [deleteId, setDeleteId]       = useState<string | null>(null);
+  const [signOutOpen, setSignOutOpen] = useState(false);
   const [deleting, setDeleting]       = useState(false);
 
   useRealtime(true);
@@ -73,7 +74,7 @@ const ChatPage: React.FC = () => {
 
   const {
     messages, loading: msgLoading, error: msgError, hasOlder, loadingOlder, loadOlder, sendMessage, setTyping,
-    sendAttachment, editMessage, deleteMessage,
+    sendAttachment, editMessage, deleteMessage, resendMessage, discardMessage,
   } = useMessages(activeChat?.id ?? null);
 
   const handleSelectChat = useCallback(
@@ -183,7 +184,7 @@ const ChatPage: React.FC = () => {
       onNewGroup={() => setGroupOpen(true)}
       onNewChannel={() => setChannelOpen(true)}
       onFindChannel={() => setFindOpen(true)}
-      onSignOut={handleSignOut}
+      onSignOut={() => setSignOutOpen(true)}
       onRetryChats={chatsState.retry}
     />
   );
@@ -223,6 +224,9 @@ const ChatPage: React.FC = () => {
                 canWrite={canWrite(activeChat.type, activeChat.myRole)}
                 onEdit={handleEdit}
                 onDelete={setDeleteId}
+                onResend={(id) => void resendMessage(id)}
+                onDiscard={discardMessage}
+                showSenders={activeChat.type === 'group'}
               />
               <MessageComposer
                 onSend={sendMessage}
@@ -271,6 +275,18 @@ const ChatPage: React.FC = () => {
       {activeChat && activeChat.type !== 'direct' && (
         <ChatInfoDialog chat={activeChat} open={infoOpen} onClose={() => setInfoOpen(false)} onLeft={handleLeft} />
       )}
+      <ConfirmDialog
+        open={signOutOpen}
+        destructive
+        title="Hisobdan chiqilsinmi?"
+        description="Qayta kirish uchun email va parol kerak bo'ladi."
+        confirmLabel="Chiqish"
+        onConfirm={() => {
+          setSignOutOpen(false);
+          void handleSignOut();
+        }}
+        onClose={() => setSignOutOpen(false)}
+      />
       <ConfirmDialog
         open={deleteId !== null}
         destructive

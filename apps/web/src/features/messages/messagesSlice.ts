@@ -92,6 +92,11 @@ const messagesSlice = createSlice({
       const msg = state.messagesByChatId[action.payload.chatId]?.find((m) => m.id === action.payload.tempId);
       if (msg) msg.status = 'failed';
     },
+    /** Qayta yuborish boshlandi (xato holatidan). */
+    markMessageSending(state, action: PayloadAction<{ chatId: string; tempId: string }>) {
+      const msg = state.messagesByChatId[action.payload.chatId]?.find((m) => m.id === action.payload.tempId);
+      if (msg) msg.status = 'sending';
+    },
     removeOptimisticMessage(
       state,
       action: PayloadAction<{ chatId: string; tempId: string }>,
@@ -127,6 +132,7 @@ export const {
   messageUpdated,
   messageDeleted,
   markMessageFailed,
+  markMessageSending,
   removeOptimisticMessage,
   clearMessages,
   resetMessages,

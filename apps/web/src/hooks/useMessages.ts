@@ -1,6 +1,5 @@
 // src/hooks/useMessages.ts
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { ApiError } from '@suhbat/client';
 import { UploadUrlInputSchema, kindOfFile, normalizeMime } from '@suhbat/core';
 import type { UploadUrlInput } from '@suhbat/core';
 import { v4 as uuidv4 } from 'uuid';
@@ -8,10 +7,12 @@ import { useAppDispatch, useAppSelector } from '../app/hooks';
 import {
   appendOptimisticMessage,
   markMessageFailed,
+  markMessageSending,
   messageDeleted,
   messageReceived,
   messageUpdated,
   prependOlder,
+  removeOptimisticMessage,
   setLoadingOlder,
   setMessages,
   setMessagesError,
@@ -23,6 +24,7 @@ import { selectActiveChat } from '../features/chats/chatsSelectors';
 import { api, socket } from '../services/api';
 import { toMessage, withStatus } from '../services/apiMappers';
 import { AttachmentKind, Message } from '../types';
+import { errorText } from '../utils/errors';
 
 const PAGE_SIZE = 50;
 /** "Yozmoqda" qayta yuborish oralig'i va jim turgandan keyin to'xtash vaqti. */
@@ -43,6 +45,8 @@ export const useMessages = (chatId: string | null) => {
 
   const chatRef = useRef(chat);
   chatRef.current = chat;
+  const rawRef = useRef(raw);
+  rawRef.current = raw;
 
   // Tarixning birinchi sahifasi (chat almashganda va qayta ulanganda).
   useEffect(() => {
@@ -59,8 +63,8 @@ export const useMessages = (chatId: string | null) => {
         }));
         void dispatch(markChatRead(chatId));
       },
-      (err: Error) => {
-        if (!cancelled) dispatch(setMessagesError({ chatId, error: err.message || 'Xabarlarni yuklab bo\'lmadi' }));
+      (err: unknown) => {
+        if (!cancelled) dispatch(setMessagesError({ chatId, error: errorText(err, 'Xabarlarni yuklab bo\'lmadi.') }));
       },
     );
     return () => { cancelled = true; };
@@ -93,6 +97,22 @@ export const useMessages = (chatId: string | null) => {
     }
   }, [chatId, nextCursor, loadingOlder, dispatch]);
 
+  /** Matnni yuboradi (`clientId` = vaqtinchalik id — server ack'ida optimistik xabar almashtiriladi). */
+  const deliver = useCallback(async (targetChatId: string, tempId: string, text: string) => {
+    if (!user) return;
+    try {
+      // Asosiy yo'l — WebSocket; ulanish bo'lmasa REST zaxira.
+      const saved = socket.isConnected()
+        ? await socket.sendMessage({ chatId: targetChatId, content: text, clientId: tempId })
+        : await api.sendMessage(targetChatId, { content: text, clientId: tempId });
+      const message = toMessage(saved, chatRef.current);
+      dispatch(messageReceived({ message, clientId: tempId }));
+      dispatch(chatMessageReceived({ message, currentUid: user.uid, countUnread: false }));
+    } catch {
+      dispatch(markMessageFailed({ chatId: targetChatId, tempId }));
+    }
+  }, [user, dispatch]);
+
   const sendMessage = useCallback(async (content: string) => {
     const text = content.trim();
     if (!chatId || !user || !text) return;
@@ -111,18 +131,25 @@ export const useMessages = (chatId: string | null) => {
       editedAt:     null,
       isOptimistic: true,
     }));
-    try {
-      // Asosiy yo'l — WebSocket; ulanish bo'lmasa REST zaxira.
-      const saved = socket.isConnected()
-        ? await socket.sendMessage({ chatId, content: text, clientId: tempId })
-        : await api.sendMessage(chatId, { content: text, clientId: tempId });
-      const message = toMessage(saved, chatRef.current);
-      dispatch(messageReceived({ message, clientId: tempId }));
-      dispatch(chatMessageReceived({ message, currentUid: user.uid, countUnread: false }));
-    } catch {
-      dispatch(markMessageFailed({ chatId, tempId }));
-    }
-  }, [chatId, user, dispatch]);
+    await deliver(chatId, tempId, text);
+  }, [chatId, user, dispatch, deliver]);
+
+  /** Yuborilmagan matnli xabarni qayta yuborish (o'sha `clientId` bilan — takrorlanmaydi). */
+  const resendMessage = useCallback(async (tempId: string) => {
+    if (!chatId) return;
+    const msg = rawRef.current.find((m) => m.id === tempId);
+    if (!msg || msg.status !== 'failed' || msg.type !== 'text') return;
+    dispatch(markMessageSending({ chatId, tempId }));
+    await deliver(chatId, tempId, msg.content);
+  }, [chatId, dispatch, deliver]);
+
+  /** Yuborilmagan xabarni ro'yxatdan olib tashlash (serverda yo'q). */
+  const discardMessage = useCallback((tempId: string) => {
+    if (!chatId) return;
+    const msg = rawRef.current.find((m) => m.id === tempId);
+    if (msg?.attachment?.url.startsWith('blob:')) URL.revokeObjectURL(msg.attachment.url);
+    dispatch(removeOptimisticMessage({ chatId, tempId }));
+  }, [chatId, dispatch]);
 
   /**
    * Fayl/rasm/ovoz: avval imzolangan URL orqali saqlashga yuklanadi, so'ng xabar
@@ -164,7 +191,7 @@ export const useMessages = (chatId: string | null) => {
       return null;
     } catch (e) {
       dispatch(markMessageFailed({ chatId, tempId }));
-      return e instanceof ApiError || e instanceof Error ? e.message : 'Faylni yuborib bo\'lmadi';
+      return errorText(e, 'Faylni yuborib bo\'lmadi. Qayta urinib ko\'ring.');
     }
   }, [chatId, user, dispatch]);
 
@@ -227,6 +254,8 @@ export const useMessages = (chatId: string | null) => {
     loadOlder,
     sendMessage,
     sendAttachment,
+    resendMessage,
+    discardMessage,
     editMessage,
     deleteMessage,
     setTyping,

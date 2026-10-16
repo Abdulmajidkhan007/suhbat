@@ -27,7 +27,7 @@ describe('directKeyOf', () => {
 
 describe('foydalanuvchi ko\'rinishlari', () => {
   const row = {
-    id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', email: 'ali@test.uz', passwordHash: 'x', displayName: 'Ali',
+    id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', email: 'ali@test.uz', username: 'ali_v', passwordHash: 'x', displayName: 'Ali',
     photoUrl: null, bio: null, createdAt: new Date('2026-10-11T10:00:00Z'), updatedAt: new Date(), lastSeenAt: null, notificationPreview: true,
   };
 

@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { signIn, signUp, clearError } from '../features/auth/authSlice';
 import AuthLayout from '../layouts/AuthLayout';
 import AuthForm from '../components/auth/AuthForm';
+import type { AuthFormData } from '../components/auth/AuthForm';
 
 const LoginPage: React.FC = () => {
   const dispatch  = useAppDispatch();
@@ -17,10 +18,13 @@ const LoginPage: React.FC = () => {
 
   if (user) return <Navigate to={from} replace />;
 
-  const handleSubmit = async (data: { email: string; password: string; displayName?: string }) => {
+  const handleSubmit = async (data: AuthFormData) => {
     const result = formMode === 'login'
-      ? await dispatch(signIn({ email: data.email, password: data.password }))
-      : await dispatch(signUp({ email: data.email, password: data.password, displayName: data.displayName! }));
+      ? await dispatch(signIn({ login: data.login, password: data.password }))
+      : await dispatch(signUp({
+        email: data.login, password: data.password, displayName: data.displayName ?? '',
+        ...(data.username ? { username: data.username } : {}),
+      }));
     if (result.meta.requestStatus === 'fulfilled') {
       navigate(from, { replace: true });
     }

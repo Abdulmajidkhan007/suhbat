@@ -91,7 +91,7 @@ describe('Guruh, kanal, media (e2e)', () => {
     const byName = (await get('ali', `/users/search?q=vali%20${stamp}`)) as Record<string, unknown>[];
     expect(byName).toHaveLength(1);
     expect(byName[0]).not.toHaveProperty('email');
-    expect(Object.keys(byName[0]).sort()).toEqual(['bio', 'createdAt', 'displayName', 'id', 'photoUrl']);
+    expect(Object.keys(byName[0]).sort()).toEqual(['bio', 'createdAt', 'displayName', 'id', 'photoUrl', 'username']);
     expect(hasEmail(await get('ali', '/users/search?q=a'))).toBe(false);
     // To'liq email bilan topilganda ham javobda email yo'q
     const byEmail = (await get('ali', `/users/search?q=${encodeURIComponent(emailOf('vali'))}`)) as Record<string, unknown>[];

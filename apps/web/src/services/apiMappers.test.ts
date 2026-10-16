@@ -5,7 +5,7 @@ import { toAppUser, toChat, toMessage, withStatus } from './apiMappers';
 const me = '00000000-0000-4000-8000-000000000001';
 const other = '00000000-0000-4000-8000-000000000002';
 const user = (id: string, displayName: string) => ({
-  id, displayName, photoUrl: null, bio: null, createdAt: '2026-10-11T10:00:00.000Z',
+  id, displayName, username: null, photoUrl: null, bio: null, createdAt: '2026-10-11T10:00:00.000Z',
 });
 const apiMsg = (overrides = {}) => ({
   id: '00000000-0000-4000-8000-0000000000m1', chatId: '00000000-0000-4000-8000-0000000000c1',

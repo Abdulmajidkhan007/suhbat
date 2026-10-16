@@ -4,6 +4,16 @@ Release matni shu fayldan olinadi (`release.yml`: `## vX.Y.Z` bo'limi).
 
 ## v0.3.0 (chiqarilmagan)
 
+- **"Parolni unutdim?"** (veb, desktop, mobil): email yoki username kiriting → emailga havola keladi
+  (30 daqiqa, bir martalik) → vebda yangi parol o'rnatiladi. Parol o'zgargach barcha qurilmalardan chiqiladi.
+  Xat yuborish uchun server sozlanishi kerak (Resend — `QADAMLAR.md` 14); sozlanmagan bo'lsa
+  "Email yuborish hozircha sozlanmagan" chiqadi.
+- **Username:** `@username` (ixtiyoriy) — ro'yxatdan o'tishda yoki profilda; band/bo'shligi darhol ko'rinadi.
+  Kirish endi **email yoki username** bilan; qidiruvda `@username` bo'yicha aniq topiladi.
+- **Veb va desktop tuzatishlari (audit):** "Internet yo'q" / "Ulanmoqda…" yorlig'i; yuborilmagan xabarni qayta
+  yuborish yoki o'chirish; havolalar bosiladigan; xabar matnidan nusxa olish; bo'sh chatda yozish maydoni pastda;
+  1:1 chatda har xabar ustida ism takrorlanmaydi; qorong'i rejim tizim sozlamasiga ergashadi; "Chiqish" tasdiq bilan;
+  xato xabarlari o'zbekcha; desktop menyusi o'zbekcha, oyna sarlavhasi "Suhbat".
 - Desktop fayl nomi va ilovadagi versiya endi release tegidan olinadi (v0.2.0 da desktop fayllari
   `suhbat-0.1.0-…` deb chiqqan edi). Release matni shu fayldan olinadi; tegning bo'limi bo'lmasa release yiqiladi.
 
