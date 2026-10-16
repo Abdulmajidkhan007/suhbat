@@ -1,3 +1,4 @@
+import { Alert } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ChatSummary } from '@suhbat/core';
 import { App } from '../App';
@@ -96,7 +97,13 @@ describe('PushNotifications', () => {
     const fake = createFakePush({ token: 'tok-out' });
     const { services, api } = setup(fake);
     await render(<App services={services} />);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
+      buttons?.find((b) => b.style === 'destructive')?.onPress?.();
+    });
+    await fireEvent.press(await screen.findByRole('tab', { name: 'Sozlamalar' }));
     await fireEvent.press(await screen.findByText('Chiqish'));
+    expect(alert).toHaveBeenCalledWith('Chiqish', 'Hisobdan chiqmoqchimisiz?', expect.any(Array));
+    alert.mockRestore();
     await waitFor(() => expect(api.logout).toHaveBeenCalledWith({ deviceToken: 'tok-out' }));
     expect(fake.push.deleteToken).toHaveBeenCalled();
   });

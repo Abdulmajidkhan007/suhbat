@@ -34,6 +34,7 @@ export type ChatAction =
   | { type: 'message/received'; message: Message; clientId?: string; myId: string; activeChatId: string | null }
   | { type: 'message/updated'; message: Message }
   | { type: 'message/deleted'; chatId: string; messageId: string }
+  | { type: 'message/discarded'; chatId: string; clientId: string }
   | { type: 'read/updated'; chatId: string; userId: string; lastReadAt: string; myId: string }
   | { type: 'typing'; chatId: string; userId: string; isTyping: boolean }
   | { type: 'presence/state'; online: string[] }
@@ -180,6 +181,18 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
         messages: {
           ...state.messages,
           [action.chatId]: { ...prev, items: prev.items.filter((m) => m.id !== action.messageId) },
+        },
+      };
+    }
+
+    case 'message/discarded': {
+      const prev = state.messages[action.chatId];
+      if (!prev) return state;
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          [action.chatId]: { ...prev, items: prev.items.filter((m) => m.clientId !== action.clientId || !m.local) },
         },
       };
     }

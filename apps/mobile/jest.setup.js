@@ -1,18 +1,20 @@
 jest.mock('react-native-keychain', () => {
-  let stored = null;
+  // `service` bo'yicha alohida (tokenlar va sozlamalar bir-birini bosib ketmasin).
+  const stored = new Map();
+  const key = (options) => options?.service ?? 'default';
   return {
     ACCESSIBLE: { WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'AccessibleWhenUnlockedThisDeviceOnly' },
-    setGenericPassword: jest.fn(async (username, password) => {
-      stored = { username, password };
-      return { service: 'test', storage: 'test' };
+    setGenericPassword: jest.fn(async (username, password, options) => {
+      stored.set(key(options), { username, password });
+      return { service: key(options), storage: 'test' };
     }),
-    getGenericPassword: jest.fn(async () => stored ?? false),
-    resetGenericPassword: jest.fn(async () => {
-      stored = null;
-      return true;
-    }),
+    getGenericPassword: jest.fn(async (options) => stored.get(key(options)) ?? false),
+    resetGenericPassword: jest.fn(async (options) => (options?.service ? stored.delete(options.service) : (stored.clear(), true))),
   };
 });
+
+jest.mock('@react-native-clipboard/clipboard', () => ({ setString: jest.fn(), getString: jest.fn(async () => '') }));
+jest.mock('react-native-haptic-feedback', () => ({ __esModule: true, trigger: jest.fn() }));
 
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
 

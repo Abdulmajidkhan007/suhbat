@@ -2,6 +2,22 @@
 
 Ishga tushirish va umumiy ma'lumot — ildizdagi [`README.md`](../../README.md) ("Mobil" bo'limi).
 
+## Dizayn ("Pulse UI" uslubi) va tuzilma
+
+- `src/theme/` — `colors.ts` (yorug'/qorong'i palitra, `@suhbat/ui-tokens` `Palette` ning kengaytmasi), `accents.ts`
+  (7 ta asosiy rang), `typography.ts`, `metrics.ts` (masofa, radius, soya, `HIT` = 44 px). `ThemeProvider` — rejim
+  (`system | light | dark`) va asosiy rang; tanlov qurilmada saqlanadi (`services/prefsStorage.ts`, Keychain'dagi alohida `service`).
+- `src/i18n/` — `uz.ts` (barcha matnlar, tipli kalitlar) va `t(key, params)`. Yangi til — shu kalitlar bilan yangi fayl.
+- `src/components/` — `icon/` (Ionicons 8 yo'llari `react-native-svg` bilan; ro'yxat `scripts/gen-mobile-icons.py`),
+  `Avatar` (id bo'yicha rang), `ScreenHeader`, `IconButton`, `ListRow`, `Section`, `EmptyState`/`LoadingState`,
+  `SearchField`, `PrimaryButton`, `ActionSheet` (pastdan chiquvchi menyu), `TabBar`, `ConnectionBanner`,
+  `ChatListItem`, `MessageBubble` (+ `StatusTick`, `DateSeparator`), `Composer` (tahrirlash rejimi bilan), `UserPicker`.
+- `src/navigation/` — o'z stek navigatori + pastki tablar (Suhbatlar / Sozlamalar), Android "orqaga", `ScreenTransition`
+  (o'ngdan surilish, "harakatni kamaytirish" yoqilgan bo'lsa — animatsiyasiz). React Navigation qo'shilmadi: ekranlar kam,
+  `react-native-screens`/`gesture-handler`/`reanimated` native build xavfini oshiradi.
+- Haptics: `utils/haptics.ts` (`react-native-haptic-feedback`) — uzun bosish, tab, yuborish, saqlash.
+- Nusxa olish: `@react-native-clipboard/clipboard`.
+
 ## Push bildirishnomalar (FCM)
 
 Push `@react-native-firebase/messaging` orqali ishlaydi (Android va iOS — ikkalasi ham FCM,

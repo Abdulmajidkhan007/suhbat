@@ -1,33 +1,69 @@
-import { ActivityIndicator, StatusBar, StyleSheet } from 'react-native';
+import { useMemo } from 'react';
+import { StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { CallOverlay } from './calls/CallOverlay';
+import { LoadingState } from './components/EmptyState';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { TabBar } from './components/TabBar';
 import { NavigationProvider, useNavigation } from './navigation/Navigator';
+import { ScreenTransition } from './navigation/ScreenTransition';
 import { PushNotifications } from './push/PushNotifications';
+import { AddMembersScreen } from './screens/AddMembersScreen';
+import { AppearanceScreen } from './screens/AppearanceScreen';
 import { AuthScreen } from './screens/AuthScreen';
+import { ChatInfoScreen } from './screens/ChatInfoScreen';
 import { ChatListScreen } from './screens/ChatListScreen';
 import { ChatScreen } from './screens/ChatScreen';
 import { NewChatScreen } from './screens/NewChatScreen';
+import { NewGroupScreen } from './screens/NewGroupScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
 import type { Services } from './services/createServices';
-import { ChatStoreProvider } from './state/ChatStoreProvider';
+import { ChatStoreProvider, useChatStore } from './state/ChatStoreProvider';
 import { SessionProvider, useSession } from './state/SessionProvider';
 import { ThemeProvider, useTheme } from './theme/ThemeProvider';
+import type { PrefsStorage } from './services/prefsStorage';
+
+const Tabs = () => {
+  const { tab, setTab } = useNavigation();
+  const { state } = useChatStore();
+  const unread = useMemo(
+    () => Object.values(state.chats).reduce((sum, c) => sum + (c.unreadCount > 0 ? 1 : 0), 0),
+    [state.chats],
+  );
+  return (
+    <View style={styles.fill}>
+      <View style={styles.fill}>{tab === 'chats' ? <ChatListScreen /> : <SettingsScreen />}</View>
+      <TabBar current={tab} onSelect={setTab} unread={unread} />
+    </View>
+  );
+};
 
 const Screens = () => {
-  const { route } = useNavigation();
-  switch (route.name) {
-    case 'chats':   return <ChatListScreen />;
-    case 'chat':    return <ChatScreen key={route.chatId} chatId={route.chatId} />;
-    case 'newChat': return <NewChatScreen />;
-    case 'profile': return <ProfileScreen />;
-  }
+  const { route, depth } = useNavigation();
+  const screen = (() => {
+    switch (route.name) {
+      case 'tabs':       return <Tabs />;
+      case 'chat':       return <ChatScreen key={route.chatId} chatId={route.chatId} />;
+      case 'chatInfo':   return <ChatInfoScreen chatId={route.chatId} />;
+      case 'addMembers': return <AddMembersScreen chatId={route.chatId} />;
+      case 'newChat':    return <NewChatScreen />;
+      case 'newGroup':   return <NewGroupScreen kind={route.kind} />;
+      case 'profile':    return <ProfileScreen />;
+      case 'appearance': return <AppearanceScreen />;
+    }
+  })();
+  // Har yangi ekran o'tish animatsiyasi bilan; tablarga qaytish — animatsiyasiz.
+  return (
+    <ScreenTransition key={`${depth}:${route.name}`} animate={route.name !== 'tabs'}>
+      {screen}
+    </ScreenTransition>
+  );
 };
 
 const Root = () => {
   const { session } = useSession();
-  const { palette } = useTheme();
-  if (session.status === 'loading') return <ActivityIndicator style={styles.fill} color={palette.primary} />;
+  if (session.status === 'loading') return <LoadingState />;
   if (session.status === 'signedOut') return <AuthScreen expired={session.expired} />;
   return (
     // Foydalanuvchi almashsa holat noldan boshlanadi.
@@ -53,11 +89,17 @@ const Shell = ({ services }: { services?: Services }) => {
   );
 };
 
-/** `services` — faqat testlar uchun (soxta API/socket). */
-export const App = ({ services }: { services?: Services }) => (
+interface AppProps {
+  /** Faqat testlar uchun (soxta API/socket). */
+  services?: Services;
+  /** Faqat testlar uchun (tema sozlamasi). */
+  prefs?:    PrefsStorage;
+}
+
+export const App = ({ services, prefs }: AppProps) => (
   <ErrorBoundary>
     <SafeAreaProvider>
-      <ThemeProvider>
+      <ThemeProvider storage={prefs}>
         <Shell services={services} />
       </ThemeProvider>
     </SafeAreaProvider>

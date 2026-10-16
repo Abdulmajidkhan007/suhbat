@@ -88,7 +88,7 @@ describe('Global qidiruv (mobil)', () => {
     const fake = signedIn();
     await render(<App services={fake.services} />);
     await fireEvent.changeText(await screen.findByLabelText('Qidirish'), PEER.displayName.slice(0, 3));
-    expect(await screen.findByText('Suhbatlar')).toBeTruthy();
+    expect(await screen.findByRole('header', { name: 'Suhbatlar' })).toBeTruthy();
     expect(screen.getByText(PEER.displayName)).toBeTruthy();
   });
 });
@@ -98,7 +98,8 @@ describe('Profil (mobil)', () => {
     const updated = { ...ME, displayName: 'Ali Yangi', bio: 'Dasturchi' };
     const fake = signedIn({ updateProfile: jest.fn(async () => updated) });
     await render(<App services={fake.services} />);
-    await fireEvent.press(await screen.findByText('Profil'));
+    await fireEvent.press(await screen.findByRole('tab', { name: 'Sozlamalar' }));
+    await fireEvent.press(await screen.findByLabelText('Profil'));
 
     const save = await screen.findByText('Saqlash');
     expect(screen.getByRole('button', { name: 'Saqlash' })).toBeDisabled();
@@ -117,7 +118,8 @@ describe('Profil (mobil)', () => {
   it('server xatosi — xabar ko\'rsatiladi', async () => {
     const fake = signedIn({ updateProfile: jest.fn(async () => { throw new Error('500'); }) });
     await render(<App services={fake.services} />);
-    await fireEvent.press(await screen.findByText('Profil'));
+    await fireEvent.press(await screen.findByRole('tab', { name: 'Sozlamalar' }));
+    await fireEvent.press(await screen.findByLabelText('Profil'));
     await fireEvent.changeText(await screen.findByLabelText('Ism'), 'Yangi ism');
     await fireEvent.press(screen.getByText('Saqlash'));
     expect(await screen.findByText('Profilni saqlab bo\'lmadi. Qayta urinib ko\'ring.')).toBeTruthy();
