@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-17 (tashqi xizmatlarsiz — pastdagi "O'zimizda: ..." bo'limlari: media, FCM'siz bildirishnomalar)
+> Oxirgi yangilanish: 2026-10-17 (tashqi xizmatlarsiz — pastdagi "O'zimizda: ..." bo'limlari)
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -327,6 +327,25 @@ Tashqi variantlar kodda ixtiyoriy qoladi. Qismlar alohida PR: 1) media, 2) TURN,
 - **Tekshirilmadi:** Railway'ning o'zida Volume + `RAILWAY_RUN_UID=0` (akkaunt yo'q), haqiqiy telefonda/desktopda
   local havolalar bilan rasm/ovoz ko'rinishi (kod yo'li S3 bilan bir xil — faqat URL boshqa).
 - Cheklov: fayllar API orqali o'tadi (trafik/xotira API hisobidan), avtomatik backup yo'q, bitta API nusxasi.
+
+### O'zimizda: TURN — coturn `infra/turn/` (2026-10-17)
+Egasi talabi: metered.ca kabi tashqi xizmatsiz. API'da `TURN_SECRET` (coturn REST credential) allaqachon bor edi —
+API kodi o'zgarmadi.
+- `infra/turn/`: `coturn/coturn:4.9.0-alpine` + `entrypoint.sh` (konfiguratsiya env'dan), `railway.toml`,
+  `docker-compose.yml` (VPS, host tarmoq), `.env.example`, `README.md`.
+- **Railway rejimi:** Railway kiruvchi UDP bermaydi (Railway Station'da xodim javobi), TCP Proxy bor (tashqi port
+  boshqa raqam — `TURN_URLS` da shu raqam). coturn faqat TCP tinglaydi (`no-udp`), relay manzili — konteynerning
+  IPv4'i, `denied-peer-ip` hammasi + `allowed-peer-ip=<relay IP>`: ikkala mijoz ham shu TURN'ga TCP bilan ulanib,
+  paket relay'dan relay'ga konteyner ichida o'tadi. Internetga / Railway ichki tarmog'iga relay yo'q (SSRF himoyasi).
+- **VPS rejimi:** UDP+TCP 3478, TLS 5349 (sertifikat berilsa), xususiy/maxsus diapazonlarga relay taqiqlangan.
+- **Tekshirildi (lokal, coturn 4.6.1 Ubuntu paketi + shu `entrypoint.sh`):** railway — TCP ikki mijoz relay↔relay,
+  0% yo'qotish; 127.0.0.1 / 10.0.0.5 / 8.8.8.8 peer — 403 Forbidden IP; noto'g'ri secret — allocation yo'q;
+  API'ning `turnRestCredential` formatidagi login/parol qabul qilindi. vps — UDP va TCP relay, loopback peer 403.
+  CI `turn.yml` shuni `coturn/coturn:4.9.0-alpine` image bilan takrorlaydi.
+- **Tekshirilmadi:** Railway'ning o'zida (IPv4 borligi, TCP Proxy uzoq ulanish), haqiqiy brauzer/telefon
+  qo'ng'iroqi TURN TCP orqali va uning sifati (TCP ustida kechikish), VPS'da TLS.
+- STUN: Railway'da UDP STUN berib bo'lmaydi — standart Google STUN qoladi (faqat manzil aniqlash, media o'tmaydi);
+  `STUN_URLS=` bo'sh qilinsa butunlay o'zimizda, lekin turli tarmoqdagi hamma qo'ng'iroq TURN orqali.
 
 ### O'zimizda: bildirishnomalar FCM'siz (2026-10-17)
 Egasi talabi: Firebase/FCM'ga bog'liq bo'lmaslik. FCM kodi ixtiyoriy qoladi (`GOOGLE_SERVICES_JSON` bo'lsa).
@@ -734,7 +753,7 @@ packages/
 
 ## Keyingi sessiya uchun
 4b (qo'ng'iroqlar) PR #11 da. Merge'dan keyin taklif etiladigan navbat:
-1. **Egasi:** TURN tanlash va sozlash (`QADAMLAR.md` 13) — busiz mobil internet/NAT ortida qo'ng'iroq
+1. **Egasi:** TURN sozlash — o'z coturn'imiz (`QADAMLAR.md` 13, `infra/turn/`) — busiz mobil internet/NAT ortida qo'ng'iroq
    ulanmasligi mumkin. Keyin ikki xil tarmoqda va haqiqiy telefonda sinash.
 2. **4c (qo'ng'iroq sifati):** jiringlash ovozi (veb + mobil), karnay/quloqchin (`react-native-incall-manager`),
    CallKit / ConnectionService (qulflangan ekranda jiringlash, data-only push), socket qisqa uzilganda va
