@@ -271,50 +271,37 @@ Railway UDP bermaydi, shuning uchun ikki variant bor — batafsil: [`infra/turn/
 **Tekshirish:** ikki xil tarmoqda (Wi-Fi va mobil internet) video qo'ng'iroq. Ulanmasa — `turn` va API
 **Deploy Logs** ni yuboring (secret'ni emas).
 
-## 14. Parolni tiklash uchun email (Resend)
+## 14. Parolni tiklash uchun email
 
-Busiz ham ilova ishlaydi, lekin **"Parolni unutdim?"** bosilganda "Email yuborish hozircha sozlanmagan"
-chiqadi. Xat yuborish uchun **Resend** (bepul tarif: kuniga 100 ta xat) ishlatiladi.
-Resend akkauntiga men kira olmayman — quyidagilarni **siz** qilasiz.
+Busiz ham ilova ishlaydi, faqat **"Parolni unutdim?"** da "Email yuborish hozircha sozlanmagan" chiqadi.
 
-> ⚠️ **API kalitini (`re_...`) hech kimga yubormang — menga ham, chatga ham yozmang.**
-> U faqat Railway **Variables** ga kiritiladi. Tasodifan biror joyga yozib yuborsangiz —
-> Resend'da o'sha kalitni o'chirib (**Delete**), yangisini yarating.
+> ⚠️ **Railway Hobby tarifida chiquvchi SMTP yopiq** (25, 465, 587, 2525 portlar; faqat Pro va undan yuqori).
+> Bu Railway xodimlarining Central Station'dagi javoblaridan; rasmiy sahifani
+> (docs.railway.com/reference/outbound-networking) men ochib tekshira olmadim.
+> Demak: **Hobby'da — B variant (Resend)**, **Pro'da — A variant (SMTP)**.
+> Kalit/parolni hech kimga (menga ham) yubormang — faqat Railway **Variables** ga.
 
-### 14.1. Akkaunt va kalit
-1. https://resend.com → **Sign up** (Google yoki email bilan).
-2. Chap menyu **API Keys → Create API Key**: nomi `suhbat-api`, **Permission = Sending access** → **Add**.
-3. Chiqqan kalitni (`re_` bilan boshlanadi) nusxalang — u **faqat bir marta** ko'rsatiladi.
-
-### 14.2. Kimdan yuboriladi (domen)
-- **Sinov uchun (domensiz):** `onboarding@resend.dev` manzilidan yuborish mumkin, **lekin** xat faqat
-  **Resend akkauntingiz emailiga** boradi (boshqa odamlarga bormaydi). O'zingiz sinab ko'rish uchun yetarli.
-- **Haqiqiy foydalanuvchilar uchun:** o'z domeningiz kerak (masalan `suhbat.uz`).
-  Resend → **Domains → Add Domain** → domenni yozing → ko'rsatilgan DNS yozuvlarini (TXT, MX)
-  domen sotib olgan joyingizda (DNS sozlamalari) qo'shing → Resend'da **Verify** yashil bo'lguncha kuting
-  (bir necha daqiqadan bir necha soatgacha).
-
-### 14.3. Railway'ga qo'shish
-Railway → **API xizmati → Variables → New Variable** — uchtasini qo'shing:
+**A) SMTP (Railway Pro yoki SMTP ochiq hosting) — masalan Gmail:**
+1. Google hisobida **2 bosqichli tasdiqlash** yoqilgan bo'lsin → https://myaccount.google.com/apppasswords →
+   nom `suhbat` → 16 belgili **App Password** chiqadi (probellarsiz yozing).
+2. Railway → API → **Variables:**
 
 | Nomi | Qiymati |
 |---|---|
-| `RESEND_API_KEY` | 14.1 dagi kalit (`re_...`) |
-| `MAIL_FROM` | sinovda: `Suhbat <onboarding@resend.dev>`; domen tasdiqlangach: `Suhbat <noreply@suhbat.uz>` |
-| `WEB_URL` | `https://suhbatweb-production.up.railway.app` (oxirida `/` siz; veb manzilingiz o'zgarsa — shuni yangilang) |
+| `SMTP_URL` | `smtps://sizning.email%40gmail.com:APPPAROL@smtp.gmail.com:465` (`@` o'rniga `%40`) |
+| `MAIL_FROM` | `Suhbat <sizning.email@gmail.com>` (Gmail faqat o'z manzilidan yuboradi) |
+| `WEB_URL` | veb manzili, oxirida `/` siz |
 
-API qayta deploy bo'ladi. **Deploy Logs** da `RESEND_API_KEY / SMTP_URL yo'q` yoki `WEB_URL yo'q`
-ogohlantirishi **chiqmasa** — ulandi.
+Gmail'da kuniga ~500 xat cheklovi bor — kichik loyiha uchun yetadi.
 
-### 14.4. Tekshirish
-1. Vebda **Kirish → Parolni unutdim?** → Resend akkauntingiz emailini (yoki shu email bilan ochilgan
-   Suhbat hisobini / username'ini) kiriting → **Havola yuborish**.
-2. Pochtaga "Suhbat: parolni tiklash" xati keladi (kelmasa **Spam** papkasini ham ko'ring).
-3. Xatdagi tugmani bosing → yangi parolni ikki marta kiriting → **Parolni saqlash**.
-4. Yangi parol bilan kiring. Eslatma: parol o'zgargach **hamma qurilmalardan chiqasiz** (telefon ham) —
-   bu xavfsizlik uchun ataylab shunday.
-5. Xat kelmasa: Railway API **Deploy Logs** dagi `PasswordResetService` qatorlarini menga yuboring
-   (kalitni emas). Resend → **Emails** bo'limida ham xat holati ko'rinadi.
+**B) Resend (Hobby'da yagona yo'l — HTTPS orqali):**
+1. https://resend.com → ro'yxatdan o'ting → **API Keys → Create** (Sending access) → `re_...` kalit.
+2. Railway → API → **Variables:** `RESEND_API_KEY` = kalit, `MAIL_FROM` = `Suhbat <onboarding@resend.dev>`
+   (sinov: xat faqat Resend akkaunt emailingizga boradi; boshqalarga — Resend'da o'z domeningizni
+   **Domains → Add** bilan tasdiqlab, `Suhbat <noreply@domeningiz>`), `WEB_URL` = veb manzili.
 
-> Ixtiyoriy: Resend o'rniga istalgan SMTP (masalan Gmail emas, balki pochta xizmatingizning SMTP'si)
-> — `SMTP_URL=smtps://login:parol@smtp.example.uz:465`. `RESEND_API_KEY` bo'lsa Resend ustun.
+`RESEND_API_KEY` va `SMTP_URL` ikkalasi bo'lsa Resend ishlatiladi.
+
+**Tekshirish:** vebda **Kirish → Parolni unutdim?** → emailingiz → xat kelishi kerak (Spam'ni ham ko'ring).
+Kelmasa — API **Deploy Logs** dagi `PasswordResetService` qatorini yuboring. `SMTP serverga ulanib bo'lmadi`
+chiqsa — port yopiq: B variantga o'ting.

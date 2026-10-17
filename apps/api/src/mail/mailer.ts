@@ -59,6 +59,24 @@ export class ResendMailer extends Mailer {
   }
 }
 
+/** Nodemailer standarti 2 daqiqa — bloklangan portda xato tez ko'rinsin. URL'da berilsa o'shanisi. */
+export const SMTP_TIMEOUTS = { connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 30_000 } as const;
+
+/** Tarmoq darajasidagi xatolar: odatda hosting chiquvchi SMTP portini yopgan. */
+const NETWORK_ERRORS = new Set(['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', 'ECONNREFUSED', 'ENETUNREACH', 'EHOSTUNREACH']);
+
+export const withSmtpTimeouts = (url: string): string => {
+  try {
+    const parsed = new URL(url);
+    for (const [key, value] of Object.entries(SMTP_TIMEOUTS)) {
+      if (!parsed.searchParams.has(key)) parsed.searchParams.set(key, String(value));
+    }
+    return parsed.toString();
+  } catch {
+    return url; // nodemailer o'zi xato beradi
+  }
+};
+
 export class SmtpMailer extends Mailer {
   readonly configured = true;
   readonly provider = 'smtp';
@@ -66,11 +84,22 @@ export class SmtpMailer extends Mailer {
 
   constructor(url: string, private readonly from: string) {
     super();
-    this.transport = createTransport(url);
+    this.transport = createTransport(withSmtpTimeouts(url));
   }
 
   async send(m: MailMessage): Promise<void> {
-    await this.transport.sendMail({ from: this.from, to: m.to, subject: m.subject, html: m.html, text: m.text });
+    try {
+      await this.transport.sendMail({ from: this.from, to: m.to, subject: m.subject, html: m.html, text: m.text });
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      if (code && NETWORK_ERRORS.has(code)) {
+        throw new Error(
+          `SMTP serverga ulanib bo'lmadi (${code}). Hosting chiquvchi SMTP portlarini yopgan bo'lishi mumkin ` +
+          `(Railway Hobby'da 25/465/587/2525 yopiq) — RESEND_API_KEY ishlating (QADAMLAR.md 14): ${(e as Error).message}`,
+        );
+      }
+      throw e;
+    }
   }
 }
 
