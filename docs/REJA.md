@@ -327,6 +327,7 @@ Tashqi variantlar kodda ixtiyoriy qoladi. Qismlar alohida PR: 1) media, 2) TURN,
 - **Tekshirilmadi:** Railway'ning o'zida Volume + `RAILWAY_RUN_UID=0` (akkaunt yo'q), haqiqiy telefonda/desktopda
   local havolalar bilan rasm/ovoz ko'rinishi (kod yo'li S3 bilan bir xil — faqat URL boshqa).
 - Cheklov: fayllar API orqali o'tadi (trafik/xotira API hisobidan), avtomatik backup yo'q, bitta API nusxasi.
+
 ### O'zimizda: bildirishnomalar FCM'siz (2026-10-17)
 Egasi talabi: Firebase/FCM'ga bog'liq bo'lmaslik. FCM kodi ixtiyoriy qoladi (`GOOGLE_SERVICES_JSON` bo'lsa).
 - **Umumiy:** `@suhbat/client` `createMessageNotifier` — socket `message:new` / `call:invite` dan bildirishnoma
