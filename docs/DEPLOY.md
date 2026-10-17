@@ -110,6 +110,16 @@ bucket o'zgaruvchilarini (endpoint, kalitlar, nom) yuqoridagi `S3_*` ga referenc
 Agar xizmat faqat `bucket.host` uslubini qabul qilsa, `S3_FORCE_PATH_STYLE=false` qo'ying.
 Bu variantni sinab ko'rmadim — brauzer uchun CORS'ni ham shu yerda sozlash kerak.
 
+## 3b. TURN (qo'ng'iroqlar uchun, ixtiyoriy)
+
+O'z coturn'imiz: `infra/turn/` (Dockerfile, `entrypoint.sh`, Railway `railway.toml`, VPS `docker-compose.yml`).
+API `TURN_SECRET` bilan har foydalanuvchiga vaqtinchalik credential beradi (`GET /calls/ice-servers`).
+- **Railway** (`TURN_MODE=railway`): UDP yo'q → faqat TCP Proxy; relay faqat konteynerning o'z IP'siga
+  (relay ↔ relay), ichki tarmoq va internetga relay taqiqlangan. Lokal/CI'da coturn bilan sinalgan, Railway'da — yo'q.
+- **VPS** (`TURN_MODE=vps`): UDP+TCP(+TLS), `network_mode: host`, xususiy tarmoqlarga relay taqiqlangan.
+- CI: `.github/workflows/turn.yml` (`infra/turn/**` o'zgarganda) image'ni quradi va `turnutils_uclient` bilan ikkala rejimni sinaydi.
+Batafsil: [`infra/turn/README.md`](../infra/turn/README.md).
+
 ## 4. GitHub: API manzili va (ixtiyoriy) Android imzosi
 
 1. GitHub repo → **Settings → Secrets and variables → Actions → Variables → New repository variable**:

@@ -260,62 +260,24 @@ Kod tayyor; quyidagilarni **siz** qilasiz (Firebase va Apple akkauntlariga men k
 > Eslatma: GitHub'dagi **Release** (`release.yml`) build'iga `GOOGLE_SERVICES_JSON` hali ulanmagan —
 > u alohida ish sifatida qo'shiladi. Hozircha push faqat `Mobile` workflow APK'sida va lokal build'da ishlaydi.
 
-## 13. Qo'ng'iroqlar uchun TURN server (ixtiyoriy, lekin tavsiya etiladi)
+## 13. Qo'ng'iroqlar uchun TURN server (o'zimizniki)
 
-**Nima uchun kerak.** Qo'ng'iroqda ovoz/video serverimiz orqali emas, ikki qurilma orasida to'g'ridan-to'g'ri
-yuradi. Ko'p hollarda (bir xil Wi-Fi, oddiy uy interneti) bu ishlaydi. Lekin mobil internet (operator NAT'i),
-ofis/korporativ tarmoq yoki ba'zi routerlar ortida to'g'ridan-to'g'ri ulanib bo'lmaydi — shunda qo'ng'iroq
-"Ulanmoqda…" da qolib, keyin "Ulanib bo'lmadi" bo'ladi. **TURN** — shunday paytda ovoz/videoni o'zi orqali
-uzatadigan server. Railway UDP portlarni ochmaydi, shuning uchun TURN'ni Railway'ga qo'yib **bo'lmaydi** —
-quyidagi variantlardan biri kerak.
+Busiz ham qo'ng'iroq ishlaydi, lekin mobil internet / ofis tarmog'ida "Ulanib bo'lmadi" bo'lishi mumkin.
+TURN — shunday paytda ovoz/videoni o'zi orqali uzatadigan server (coturn, `infra/turn/`).
+Railway UDP bermaydi, shuning uchun ikki variant bor — batafsil: [`infra/turn/README.md`](infra/turn/README.md).
 
-TURN sozlanmasa ham qo'ng'iroq ishlaydi (Google'ning bepul STUN serveri bilan), faqat yuqoridagi tarmoqlarda
-ulanmasligi mumkin.
+**A) Railway'da (TCP orqali; Railway'da hali sinalmagan):**
+1. **+ New → GitHub Repo →** `suhbat`, xizmat nomi `turn`. **Settings → Config file path** = `/infra/turn/railway.toml`.
+2. `turn` **Variables:** `TURN_MODE` = `railway`, `TURN_SECRET` = uzun tasodifiy qator (`openssl rand -hex 32`).
+3. `turn` **Settings → Networking → TCP Proxy** → port `3478`. Chiqqan manzilni yozib oling (`xxx.proxy.rlwy.net:12345`).
+4. **API Variables:** `TURN_URLS` = `turn:xxx.proxy.rlwy.net:12345?transport=tcp`,
+   `TURN_SECRET` = `${{turn.TURN_SECRET}}`.
 
-### 13.1. Eng oson: metered.ca (bepul tarif bor)
-1. https://www.metered.ca/ → ro'yxatdan o'ting → **TURN Server** bo'limi.
-2. U sizga manzillar ro'yxati (`turn:...:80`, `turn:...:443?transport=tcp`, `turns:...:443` kabi),
-   **username** va **credential** beradi.
-3. Railway → API xizmati → **Variables**:
-   - `TURN_URLS` — manzillarni **vergul bilan** bitta qatorda: `turn:a.relay.metered.ca:80,turn:a.relay.metered.ca:443?transport=tcp,turns:a.relay.metered.ca:443`
-   - `TURN_USERNAME` — berilgan username
-   - `TURN_CREDENTIAL` — berilgan credential (maxfiy — hech kimga yubormang)
-4. Bepul tarifda oylik trafik cheklangan; ko'p video qo'ng'iroq bo'lsa pullik tarif kerak bo'ladi.
+**B) Arzon VPS'da (UDP — sifatliroq):** VPS'da `cd suhbat/infra/turn && cp .env.example .env`, `.env` ga
+`TURN_SECRET` yozing, `docker compose up -d --build`. API Variables — README'dagi `TURN_URLS`/`TURN_SECRET`/`STUN_URLS`.
 
-### 13.2. Cloudflare (Realtime / Calls TURN)
-Cloudflare TURN'i ham bor, lekin u login/parolni **har safar API orqali yaratishni** talab qiladi
-(qisqa muddatli). Hozirgi kodimiz buni avtomatik qilmaydi — faqat qo'lda yaratilgan credential'ni
-(muddati tugaguncha) `TURN_USERNAME` / `TURN_CREDENTIAL` ga qo'yish mumkin, muddati tugagach almashtirish
-kerak bo'ladi. Shuning uchun hozircha 13.1 yoki 13.3 tavsiya etiladi; Cloudflare kerak bo'lsa ayting —
-API'ga avtomatik yaratishni qo'shamiz.
-
-### 13.3. O'z serveringiz: VPS'da coturn (eng ko'p nazorat)
-1. Har qanday arzon VPS (Hetzner, DigitalOcean va h.k.; 1 GB RAM yetadi), ochiq IP bilan.
-2. Domen (masalan `turn.suhbat.uz`) VPS IP'siga yo'naltiriladi.
-3. VPS'da: `apt install coturn`, `/etc/turnserver.conf` ichida asosiysi:
-   ```
-   listening-port=3478
-   tls-listening-port=5349
-   realm=turn.suhbat.uz
-   use-auth-secret
-   static-auth-secret=<uzun tasodifiy qiymat: openssl rand -hex 32>
-   cert=/etc/letsencrypt/live/turn.suhbat.uz/fullchain.pem
-   pkey=/etc/letsencrypt/live/turn.suhbat.uz/privkey.pem
-   no-cli
-   ```
-   Firewall'da ochiq bo'lsin: 3478 (UDP+TCP), 5349 (TCP), 49152–65535 (UDP).
-4. Railway → API → **Variables**:
-   - `TURN_URLS` = `turn:turn.suhbat.uz:3478?transport=udp,turn:turn.suhbat.uz:3478?transport=tcp,turns:turn.suhbat.uz:5349`
-   - `TURN_SECRET` = coturn'dagi `static-auth-secret` bilan **aynan bir xil** qiymat.
-   API har foydalanuvchiga vaqtinchalik (standart 12 soat, `TURN_TTL_SECONDS`) login/parol yasaydi —
-   secret'ning o'zi ilovalarga hech qachon bormaydi.
-5. VPS sozlashni xohlasangiz, birga qadam-baqadam qilamiz.
-
-### 13.4. Tekshirish
-1. Brauzerda ilovaga kiring va `https://<API manzili>/calls/ice-servers` ni oching — `401` qaytadi (to'g'ri:
-   faqat kirgan foydalanuvchiga). Ilova ichida esa qo'ng'iroq boshlanganda shu ro'yxat olinadi.
-2. Ikki xil tarmoqda (masalan biri Wi-Fi, biri mobil internet) video qo'ng'iroq qilib ko'ring.
-   "Ulanib bo'lmadi" chiqsa — TURN sozlamalari va firewall'ni tekshiring, Railway API logini menga yuboring.
+**Tekshirish:** ikki xil tarmoqda (Wi-Fi va mobil internet) video qo'ng'iroq. Ulanmasa — `turn` va API
+**Deploy Logs** ni yuboring (secret'ni emas).
 
 ## 14. Parolni tiklash uchun email (Resend)
 
