@@ -35,10 +35,11 @@ export class MediaService {
         durationMs: input.kind === 'voice' ? (input.durationMs ?? null) : null,
       },
     });
+    const upload = await this.storage.presignPut(key, input.mime, input.size);
     return {
       attachmentId: id,
-      uploadUrl:    await this.storage.presignPut(key, input.mime, input.size),
-      headers:      { 'Content-Type': input.mime },
+      uploadUrl:    upload.url,
+      headers:      upload.headers,
       expiresAt:    new Date(Date.now() + UPLOAD_URL_TTL_SECONDS * 1000).toISOString(),
     };
   }

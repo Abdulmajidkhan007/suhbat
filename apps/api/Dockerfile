@@ -39,8 +39,10 @@ COPY --from=build --chown=node:node /repo/apps/api/package.json ./apps/api/packa
 COPY --from=build --chown=node:node /repo/apps/api/dist ./apps/api/dist
 COPY --from=build --chown=node:node /repo/apps/api/prisma ./apps/api/prisma
 COPY --from=build --chown=node:node /repo/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
+COPY --chmod=755 apps/api/docker/entrypoint.sh /usr/local/bin/suhbat-api
 USER node
 WORKDIR /repo/apps/api
 EXPOSE 4000
 # Railway PORT beradi (kodda process.env.PORT). Migratsiya, so'ng server.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+# Root bilan ishga tushsa (Volume uchun RAILWAY_RUN_UID=0) — entrypoint `node` ga tushadi.
+CMD ["suhbat-api"]
