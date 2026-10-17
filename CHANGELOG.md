@@ -2,11 +2,32 @@
 
 Release matni shu fayldan olinadi (`release.yml`: `## vX.Y.Z` bo'limi).
 
+## v0.4.0 (chiqarilmagan)
+
+Tashqi xizmatlarga (Cloudflare R2, metered.ca, Firebase, Resend) bog'liqlik kamaytirildi — asosiy yo'l o'zimizda (Railway).
+Hammasi lokal/CI'da tekshirilgan; **Railway'ning o'zida va haqiqiy telefonda hali sinalmagan.**
+
+- **Rasm, fayl va ovozli xabarlar endi o'z serverimizda** (Railway Volume). Yuklab olish havolasi faqat chat
+  a'zosiga va qisqa muddatga beriladi. Cloudflare R2 / boshqa S3 ixtiyoriy qoladi. Volume'siz fayllar har deploy'da
+  o'chadi — `QADAMLAR.md` 4-qadam.
+- **Qo'ng'iroqlar uchun o'z TURN serverimiz** (coturn, `infra/turn/`): Railway'da (faqat TCP — Railway UDP bermaydi)
+  yoki arzon VPS'da bitta buyruq bilan. Mexanizm lokal va CI'da sinalgan; Railway'da va haqiqiy qo'ng'iroqda —
+  hali yo'q, TCP ustida ovoz/videoda kechikish bo'lishi mumkin.
+- **Android: Google xizmatlarisiz bildirishnomalar.** Sozlamalar → "Fonda ulanib turish": ilova yopiq bo'lsa ham
+  yangi xabar va kiruvchi qo'ng'iroq bildirishnomasi (doimiy "Suhbat ulangan" yozuvi bilan), bosilsa chat ochiladi,
+  batareya optimizatsiyasidan chiqarish so'raladi. Haqiqiy telefonda (ayniqsa Xiaomi/Huawei) hali sinalmagan.
+- **Veb va desktop: tizim bildirishnomalari** — ilova boshqa oyna/tab'da bo'lsa yangi xabar va qo'ng'iroq haqida
+  (oldin yo'q edi). Tab yopiq bo'lsa — yo'q.
+- **iPhone:** ilova yopiq bo'lsa bildirishnoma faqat Apple push (Firebase + Apple Developer) orqali — o'zgarmadi.
+- **Parolni tiklash xati:** SMTP (masalan Gmail) yoki Resend. Railway **Hobby** tarifida chiquvchi SMTP yopiq —
+  u yerda Resend kerak. SMTP ulanmasa endi 10 soniyada aniq xato (avval 2 daqiqa kutardi).
+- `QADAMLAR.md` qisqartirildi: majburiy va ixtiyoriy qadamlar alohida.
+
 ## v0.3.0 (chiqarilmagan)
 
 - **"Parolni unutdim?"** (veb, desktop, mobil): email yoki username kiriting → emailga havola keladi
   (30 daqiqa, bir martalik) → vebda yangi parol o'rnatiladi. Parol o'zgargach barcha qurilmalardan chiqiladi.
-  Xat yuborish uchun server sozlanishi kerak (Resend — `QADAMLAR.md` 14); sozlanmagan bo'lsa
+  Xat yuborish uchun server sozlanishi kerak (Resend yoki SMTP — `QADAMLAR.md`, "Parolni tiklash xati"); sozlanmagan bo'lsa
   "Email yuborish hozircha sozlanmagan" chiqadi.
 - **Username:** `@username` (ixtiyoriy) — ro'yxatdan o'tishda yoki profilda; band/bo'shligi darhol ko'rinadi.
   Kirish endi **email yoki username** bilan; qidiruvda `@username` bo'yicha aniq topiladi.

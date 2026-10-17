@@ -42,7 +42,7 @@ iOS'da FCM APNs orqali yetkazadi). Firebase konfiguratsiya fayllari **repoga tus
 | Android | `google-services.json` | `apps/mobile/android/app/google-services.json` | `GOOGLE_SERVICES_JSON` (JSON yoki base64) |
 | iOS | `GoogleService-Info.plist` | `apps/mobile/ios/Suhbat/GoogleService-Info.plist` | `GOOGLE_SERVICE_INFO_PLIST` (base64) |
 
-Fayllarni Firebase konsolidan olish — [`QADAMLAR.md`](../../QADAMLAR.md), "Push bildirishnomalar".
+Fayllarni Firebase konsolidan olish — [`docs/QADAMLAR-TAFSILOT.md`](../../docs/QADAMLAR-TAFSILOT.md), "Firebase (FCM)".
 
 ### Qanday ulangan
 - **Android:** `android/app/build.gradle` — fayl bo'lmasa, lekin `GOOGLE_SERVICES_JSON` env bo'lsa,
