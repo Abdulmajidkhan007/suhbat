@@ -1,6 +1,6 @@
 import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
-import { createMailer, DisabledMailer, RESEND_API_URL, ResendMailer, SmtpMailer } from './mailer';
+import { createMailer, DisabledMailer, RESEND_API_URL, ResendMailer, SMTP_TIMEOUTS, SmtpMailer, withSmtpTimeouts } from './mailer';
 import { passwordResetMail } from './templates';
 
 const config = (env: Record<string, string>) => ({ get: (k: string) => env[k] }) as unknown as ConfigService;
@@ -64,5 +64,20 @@ describe('passwordResetMail', () => {
     expect(m.html).toContain('href="https://suhbat.uz/reset-password?token=abc"');
     expect(m.html).not.toContain('<b>Ali</b>');
     expect(m.html).toContain('&lt;b&gt;Ali&lt;/b&gt;');
+  });
+});
+
+describe('SmtpMailer', () => {
+  it('URL\'ga qisqa timeout\'lar qo\'shiladi (berilganlari saqlanadi)', () => {
+    const url = new URL(withSmtpTimeouts('smtps://u%40gmail.com:p@smtp.gmail.com:465?connectionTimeout=5000'));
+    expect(url.searchParams.get('connectionTimeout')).toBe('5000');
+    expect(url.searchParams.get('greetingTimeout')).toBe(String(SMTP_TIMEOUTS.greetingTimeout));
+    expect(url.username).toBe('u%40gmail.com');
+    expect(withSmtpTimeouts('not a url')).toBe('not a url');
+  });
+
+  it('port yopiq bo\'lsa tez va tushunarli xato', async () => {
+    const mailer = new SmtpMailer('smtp://u:p@127.0.0.1:1?connectionTimeout=500', 'S <a@b.uz>');
+    await expect(mailer.send({ to: 'x@y.uz', subject: 's', html: 'h', text: 't' })).rejects.toThrow(/SMTP serverga ulanib bo'lmadi .*RESEND_API_KEY/);
   });
 });
