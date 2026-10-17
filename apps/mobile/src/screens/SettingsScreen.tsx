@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, AppState, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
 import { ListRow } from '../components/ListRow';
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -24,9 +24,10 @@ export const SettingsScreen = () => {
   const styles = useStyles(createStyles);
   const { palette, mode, accent } = useTheme();
   const me = useCurrentUser();
-  const { logout, services: { api } } = useSession();
+  const { logout, services: { api, background } } = useSession();
   const { push } = useNavigation();
   const [preview, setPreview] = useState<boolean | null>(null);
+  const keepAlive = useKeepAlive();
 
   useEffect(() => {
     let cancelled = false;
@@ -107,6 +108,35 @@ export const SettingsScreen = () => {
           />
         </Section>
 
+        {keepAlive.available && (
+          <Section footer={t('settings.keepAliveHint')} inset={58}>
+            <ListRow
+              title={t('settings.keepAlive')}
+              icon="globe-outline"
+              iconColor="#3FB37F"
+              right={
+                <Switch
+                  value={keepAlive.enabled ?? false}
+                  disabled={keepAlive.enabled === null}
+                  onValueChange={keepAlive.toggle}
+                  trackColor={{ true: palette.primary, false: palette.divider }}
+                  accessibilityLabel={t('settings.keepAlive')}
+                />
+              }
+            />
+            {keepAlive.enabled && keepAlive.batteryRestricted && (
+              <ListRow
+                title={t('settings.battery')}
+                subtitle={t('settings.batteryHint')}
+                icon="shield-checkmark-outline"
+                iconColor="#E8A23C"
+                onPress={background.native.requestIgnoreBatteryOptimizations}
+                chevron
+              />
+            )}
+          </Section>
+        )}
+
         <Section inset={58}>
           <ListRow title={t('settings.logout')} icon="log-out-outline" destructive onPress={confirmLogout} />
         </Section>
@@ -115,6 +145,49 @@ export const SettingsScreen = () => {
       </ScrollView>
     </View>
   );
+};
+
+/** Android: fonda ulanib turish (foreground service) va batareya optimizatsiyasi holati. */
+const useKeepAlive = () => {
+  const { services: { background } } = useSession();
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [batteryRestricted, setBatteryRestricted] = useState(false);
+
+  useEffect(() => {
+    if (!background.available) return;
+    let cancelled = false;
+    const refresh = () => {
+      background.isEnabled().then((v) => { if (!cancelled) setEnabled(v); }, () => undefined);
+      background.native.isIgnoringBatteryOptimizations().then(
+        (ignoring) => { if (!cancelled) setBatteryRestricted(!ignoring); },
+        () => undefined,
+      );
+    };
+    refresh();
+    // Tizim sozlamasidan qaytganda (batareya oynasi) yangilanadi.
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') refresh(); });
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, [background]);
+
+  const toggle = (value: boolean) => {
+    setEnabled(value);
+    background.setEnabled(value).then(
+      async () => {
+        if (value && !(await background.native.isIgnoringBatteryOptimizations())) {
+          background.native.requestIgnoreBatteryOptimizations();
+        }
+      },
+      () => {
+        setEnabled(!value);
+        Alert.alert(t('common.error'), t('settings.keepAliveError'));
+      },
+    );
+  };
+
+  return { available: background.available, enabled, batteryRestricted, toggle };
 };
 
 const createStyles = (p: Palette) => StyleSheet.create({

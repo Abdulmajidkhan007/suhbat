@@ -18,7 +18,20 @@ Ishga tushirish va build — [`docs/DEVELOPMENT.md`](../../docs/DEVELOPMENT.md#m
 - Haptics: `utils/haptics.ts` (`react-native-haptic-feedback`) — uzun bosish, tab, yuborish, saqlash.
 - Nusxa olish: `@react-native-clipboard/clipboard`.
 
-## Push bildirishnomalar (FCM)
+## Bildirishnomalar FCM'siz (Android) — asosiy yo'l
+
+`src/background/` + `android/.../background/` (Kotlin): kirgan foydalanuvchi uchun socket'dagi
+`message:new` / `call:invite` ilova ko'rinmay turganda **mahalliy bildirishnoma** bo'ladi (kanallar
+`messages`, `calls`; bosilsa chat ochiladi). **Sozlamalar → "Fonda ulanib turish"** yoqilsa
+foreground service (`remoteMessaging`, doimiy "Suhbat ulangan" bildirishnomasi) jarayonni va
+Socket.IO ulanishini ilova yopilganda ham saqlaydi; telefon qayta yoqilganda `BootReceiver` tiklaydi,
+yoqilganda batareya optimizatsiyasidan chiqarish so'raladi. UI va fon bitta socket'ni ishlatadi
+(`getAppServices`, `ConnectionKeeper`). Matn mantig'i — `@suhbat/client` `createMessageNotifier`.
+
+**iOS:** Apple fonda o'z ulanishini ushlashga ruxsat bermaydi — ilova yopiq/fonda bo'lsa
+bildirishnoma faqat APNs orqali (pastdagi FCM yo'li, Apple Developer akkaunti kerak).
+
+## Push bildirishnomalar (FCM, ixtiyoriy)
 
 Push `@react-native-firebase/messaging` orqali ishlaydi (Android va iOS — ikkalasi ham FCM,
 iOS'da FCM APNs orqali yetkazadi). Firebase konfiguratsiya fayllari **repoga tushmaydi**

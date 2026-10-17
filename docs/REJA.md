@@ -360,6 +360,33 @@ API kodi o'zgarmadi.
 - **Tekshirildi:** unit (timeout'lar URL'ga qo'shiladi, berilgani saqlanadi; yopiq portda tez va tushunarli xato).
   **Tekshirilmadi:** haqiqiy Gmail App Password bilan yuborish, Railway'da.
 
+### O'zimizda: bildirishnomalar FCM'siz (2026-10-17)
+Egasi talabi: Firebase/FCM'ga bog'liq bo'lmaslik. FCM kodi ixtiyoriy qoladi (`GOOGLE_SERVICES_JSON` bo'lsa).
+- **Umumiy:** `@suhbat/client` `createMessageNotifier` — socket `message:new` / `call:invite` dan bildirishnoma
+  (o'zimizniki, tizim xabari, ko'rib turilgan chat — yo'q; chat ma'lumoti va "matnni ko'rsatish" sozlamasi keshlanadi;
+  `call:end` da bekor). Matn — `@suhbat/core` `buildNotification` / `previewText` / `callNotificationBody`
+  (API `push.service` dan ko'chirildi, server ham shuni ishlatadi). Server o'zgarmadi: socket'i bor foydalanuvchiga FCM
+  ketmaydi — dublikat yo'q; FCM ham Android'da `tag = chatId` — bir-birini almashtiradi.
+- **Android:** Kotlin `background/`: `ConnectionService` (foreground service, `remoteMessaging` turi, doimiy
+  "Suhbat ulangan" bildirishnomasi, `START_STICKY`; jarayon qayta yaratilsa `reactHost.start()` bilan JS oynasiz
+  ishga tushadi), `BootReceiver` (qayta yoqilganda/yangilanganda, sozlama yoqilgan bo'lsa), `BackgroundModule`
+  (`SuhbatBackground`: yoqish/o'chirish, mahalliy bildirishnoma, batareya optimizatsiyasi so'rovi, bosilgan chat),
+  `connection` kanali. JS: `src/background/` — `controller` (sessiya + sozlama → tinglash, ulanishni ushlash,
+  service), `BackgroundBridge` (bosilgan chatni ochish, ochilgan chat bildirishnomasini tozalash, Android 13+ ruxsat),
+  `getAppServices()` (UI va `index.js` bitta socket), `ConnectionKeeper` (UI va fon ulanish "egalari").
+  Sozlamalar: "Fonda ulanib turish" + "Batareya cheklovini olib tashlash".
+- **Veb/desktop:** avval tizim bildirishnomasi **yo'q edi** — `useSystemNotifications` (Notification API): sahifa
+  fokusda bo'lmasa; bosilsa oyna fokuslanadi va chat ochiladi; ruxsat birinchi bosishda. Electron: `notifications`
+  ruxsati faqat o'z sahifamizga (`isPermissionAllowed`). Tab/ilova yopiq bo'lsa — yo'q (Web Push qilinmadi).
+- **iOS:** APNs'siz fonda bildirishnoma iloji yo'q — hech narsa qilinmadi (QADAMLAR 12 da ochiq yozilgan).
+- **Tekshirildi:** jest (controller: fon/ochiq, guruh matni, preview, kesh, qo'ng'iroq, ulanish ushlash, chiqish,
+  sessiyasiz; Settings toggle + batareya; bosilgan chat ochilishi), vitest (`notifier`, veb hook, Electron ruxsati),
+  API unit + push/calls e2e (ko'chirilgan matn funksiyalari bilan).
+- **Tekshirilmadi:** Kotlin kodi lokal kompilyatsiya qilinmadi (Android SDK yo'q) — CI `Mobile` workflow quradi;
+  haqiqiy telefonda: fon/yopiq holatda bildirishnoma, Doze'da ulanish saqlanishi, `START_STICKY` va qayta yoqilganda
+  tiklanish (Android 12+ fondan FGS boshlash cheklovlari), Xiaomi/Huawei kabi agressiv batareya boshqaruvlari;
+  Electron va brauzerda haqiqiy bildirishnoma.
+
 ### README — loyiha vitrinasi (2026-10-16)
 - Repo public bo'ldi; `README.md` endi loyiha haqida: nima, imkoniyatlar, platformalar va yuklab olish (veb, Releases),
   holat (beta), texnologiyalar, hujjatlar jadvali, hissa qo'shish, litsenziya (hali tanlanmagan — `LICENSE` fayli yo'q).

@@ -16,6 +16,7 @@ import { useMessages } from '../hooks/useMessages';
 import { usePresence } from '../hooks/usePresence';
 import { useRealtime } from '../hooks/useRealtime';
 import { useCall } from '../hooks/useCall';
+import { useSystemNotifications } from '../hooks/useSystemNotifications';
 import { callManager } from '../services/calls';
 import { selectActiveChat, selectSortedChats } from '../features/chats/chatsSelectors';
 
@@ -90,6 +91,7 @@ const ChatPage: React.FC = () => {
     },
     [dispatch, navigate],
   );
+  useSystemNotifications(handleSelectChat);
 
   // Orqaga: ro'yxatga. Ro'yxatdan kelgan bo'lsak brauzer tarixida bitta qadam orqaga (tarix
   // ikkilanmaydi), to'g'ridan-to'g'ri havoladan ochilgan bo'lsa — `/`.

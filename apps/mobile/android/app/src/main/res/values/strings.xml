@@ -2,4 +2,8 @@
     <string name="app_name">Suhbat</string>
     <string name="notification_channel_messages">Xabarlar</string>
     <string name="notification_channel_calls">Qo\'ng\'iroqlar</string>
+    <string name="notification_channel_connection">Fon ulanishi</string>
+    <string name="notification_channel_connection_description">Ilova yopiq bo\'lsa ham xabarlarni olish uchun doimiy bildirishnoma</string>
+    <string name="connection_title">Suhbat ulangan</string>
+    <string name="connection_text">Yangi xabarlar shu yerda ko\'rinadi</string>
 </resources>

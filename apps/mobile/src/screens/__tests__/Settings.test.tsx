@@ -62,4 +62,53 @@ describe('Sozlamalar', () => {
     await fireEvent(screen.getByLabelText('Xabar matnini ko\'rsatish'), 'valueChange', false);
     await waitFor(() => expect(fake.api.updateNotificationSettings).toHaveBeenCalledWith({ preview: false }));
   });
+
+  it('fonda ulanib turish (Android): yoqilsa batareya so\'rovi, cheklov qatori ko\'rinadi', async () => {
+    const fake = signedIn();
+    let enabled = false;
+    const native = {
+      ...fake.services.background.native,
+      available:                         true,
+      isIgnoringBatteryOptimizations:    jest.fn(async () => false),
+      requestIgnoreBatteryOptimizations: jest.fn(),
+    };
+    Object.assign(fake.services.background, {
+      available:  true,
+      native,
+      isEnabled:  jest.fn(async () => enabled),
+      setEnabled: jest.fn(async (v: boolean) => { enabled = v; }),
+    });
+    await openSettings(fake);
+    const toggle = await screen.findByLabelText('Fonda ulanib turish');
+    await waitFor(() => expect(toggle).not.toBeDisabled());
+    expect(screen.queryByText('Batareya cheklovini olib tashlash')).toBeNull();
+
+    await fireEvent(toggle, 'valueChange', true);
+    await waitFor(() => expect(fake.services.background.setEnabled).toHaveBeenCalledWith(true));
+    await waitFor(() => expect(native.requestIgnoreBatteryOptimizations).toHaveBeenCalledTimes(1));
+    await fireEvent.press(await screen.findByText('Batareya cheklovini olib tashlash'));
+    expect(native.requestIgnoreBatteryOptimizations).toHaveBeenCalledTimes(2);
+  });
+
+  it('fon ulanishi faqat Android native bo\'lsa ko\'rinadi', async () => {
+    await openSettings();
+    expect(screen.queryByText('Fonda ulanib turish')).toBeNull();
+  });
+
+  it('mahalliy bildirishnoma bosilgan chat ochiladi', async () => {
+    const fake = signedIn();
+    let pending: string | null = directChat().id;
+    Object.assign(fake.services.background, {
+      available: true,
+      native:    {
+        ...fake.services.background.native,
+        available:       true,
+        consumeOpenChat: jest.fn(async () => { const id = pending; pending = null; return id; }),
+      },
+    });
+    await render(<App services={fake.services} prefs={memoryPrefs().storage} />);
+    await waitFor(() => expect(fake.api.listMessages).toHaveBeenCalled());
+    expect(fake.services.background.native.consumeOpenChat).toHaveBeenCalled();
+  });
 });
+

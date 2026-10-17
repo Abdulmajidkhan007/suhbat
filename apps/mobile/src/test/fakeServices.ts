@@ -2,7 +2,10 @@ import { createCallManager } from '@suhbat/client';
 import type { ApiClient, CallMediaDevices, CallSignaling, PeerConnection, SocketClient } from '@suhbat/client';
 import type { MediaStream } from 'react-native-webrtc';
 import type { ServerToClientEvents } from '@suhbat/core';
+import { disabledBackgroundNative } from '../background/native';
+import type { BackgroundController } from '../background/controller';
 import type { Services } from '../services/createServices';
+import { createConnectionKeeper } from '../services/connectionKeeper';
 import { disabledPush } from '../services/push';
 import type { PushPlatform } from '../services/push';
 import { ME } from './fixtures';
@@ -122,11 +125,20 @@ export const createFakeServices = (api: Partial<ApiClient> = {}, push: PushPlatf
   });
 
   // Ilova ishlatmaydigan metodlar yo'q — chaqirilsa test TypeError bilan yiqiladi.
-  const services = { api: fakeApi, socket: fakeSocket, push, calls } as unknown as Services;
+  const background: BackgroundController = {
+    available: false,
+    native:    disabledBackgroundNative,
+    sync:      jest.fn(async () => undefined),
+    isEnabled: jest.fn(async () => false),
+    setEnabled: jest.fn(async () => undefined),
+    stop:      jest.fn(),
+  };
+  const connection = createConnectionKeeper(fakeSocket as SocketClient);
+  const services = { api: fakeApi, socket: fakeSocket, push, calls, connection, background } as unknown as Services;
   /** Server bilan aloqa uzildi/tiklandi. */
   const setConnected = (value: boolean) => {
     connected = value;
     connectionListeners.forEach((l) => l(value));
   };
-  return { services, api: fakeApi, socket: fakeSocket, emit, setConnected, signaling, calls, media };
+  return { services, api: fakeApi, socket: fakeSocket, emit, setConnected, signaling, calls, media, background };
 };

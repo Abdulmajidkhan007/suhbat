@@ -1,7 +1,7 @@
 import type { LoginInput, RegisterInput, User } from '@suhbat/core';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { createServices } from '../services/createServices';
+import { getAppServices, onAppSessionExpired } from '../services/createServices';
 import type { Services } from '../services/createServices';
 
 export type SessionState =
@@ -30,16 +30,16 @@ interface Props {
 export const SessionProvider = ({ children, services: injected }: Props) => {
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
   const expiredRef = useRef<() => void>(() => undefined);
-  const [services] = useState<Services>(
-    () => injected ?? createServices({ onSessionExpired: () => expiredRef.current() }),
-  );
-  const { api, socket, push, calls } = services;
+  const [services] = useState<Services>(() => injected ?? getAppServices());
+  const { api, socket, push, calls, connection, background } = services;
 
   expiredRef.current = () => {
+    background.stop();
     calls.hangup();
     socket.disconnect();
     setSession({ status: 'signedOut', expired: true });
   };
+  useEffect(() => (injected ? undefined : onAppSessionExpired(() => expiredRef.current())), [injected]);
 
   // Ishga tushganda: Keychain'da token bo'lsa sessiyani tiklash.
   useEffect(() => {
@@ -59,11 +59,11 @@ export const SessionProvider = ({ children, services: injected }: Props) => {
   }, [api]);
 
   const signedIn = session.status === 'signedIn';
+  // Ochiq UI ulanishni talab qiladi; fon ulanishi (yoqilgan bo'lsa) — o'z talabi bilan.
+  useEffect(() => (signedIn ? connection.hold() : undefined), [signedIn, connection]);
   useEffect(() => {
-    if (!signedIn) return;
-    socket.connect();
-    return () => socket.disconnect();
-  }, [signedIn, socket]);
+    if (signedIn) void background.sync();
+  }, [signedIn, background]);
 
   const login = useCallback(async (input: LoginInput) => {
     setSession({ status: 'signedIn', user: await api.login(input) });
@@ -78,6 +78,7 @@ export const SessionProvider = ({ children, services: injected }: Props) => {
   }, []);
 
   const logout = useCallback(async () => {
+    background.stop();
     calls.hangup();
     socket.disconnect();
     // Shu qurilmaning push tokeni serverdan va FCM'dan o'chadi — chiqqan hisobga push bormaydi.
@@ -85,7 +86,7 @@ export const SessionProvider = ({ children, services: injected }: Props) => {
     await api.logout(deviceToken ? { deviceToken } : {});
     if (deviceToken) await push.deleteToken().catch(() => undefined);
     setSession({ status: 'signedOut', expired: false });
-  }, [api, socket, push, calls]);
+  }, [api, socket, push, calls, background]);
 
   const value = useMemo(
     () => ({ session, services, login, register, logout, updateUser }),
