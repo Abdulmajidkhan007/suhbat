@@ -30,3 +30,6 @@ release/
 # Firebase (push) konfiguratsiyasi — repoga tushmaydi
 google-services.json
 GoogleService-Info.plist
+
+# local media drayveri (dev)
+.data/
