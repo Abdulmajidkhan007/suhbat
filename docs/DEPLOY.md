@@ -1,7 +1,7 @@
 # suhbat — joylash (deploy) qo'llanmasi
 
 > Texnik tafsilot. Oddiy tilda, qadamma-qadam yo'riqnoma — repo ildizidagi
-> [`QADAMLAR.md`](../QADAMLAR.md). **Railway'da, R2'da va GitHub'da bosiladigan qadamlarni
+> [`QADAMLAR.md`](../QADAMLAR.md). **Railway'da va GitHub'da bosiladigan qadamlarni
 > egasi bajaradi**; ularni men (Claude) sinab ko'ra olmadim — pastdagi "Nima sinalgan" bo'limiga qarang.
 
 ## Umumiy rasm
@@ -9,15 +9,15 @@
 ```
  brauzer ──► Railway: Veb (Caddy)   ──┐
  desktop / telefon ───────────────────┼──► Railway: API  ──► Railway: Postgres
-                                      │         │
-                                      └─────────┴──► Cloudflare R2 (rasm, fayl, ovoz)
+                                                │
+                                                └──► Railway Volume /data (rasm, fayl, ovoz)
 ```
 
 | Qism | Qayerda | Nega |
 |---|---|---|
 | API (NestJS + WebSocket) | **Railway** (Docker) | Egasi qarori. WebSocket qo'llanadi. |
 | Baza | **Railway Postgres** | Shu loyihada, ichki tarmoq orqali. |
-| Media (fayllar) | **Cloudflare R2** (yoki Railway Buckets, 3-qadamga qarang) | S3-mos; kod `S3_*` env bilan ishlaydi; R2'da 10 GB bepul va chiqish (egress) puli yo'q. |
+| Media (fayllar) | **Railway Volume** (API diski, `local` drayver) | Tashqi xizmatsiz. Ixtiyoriy: `S3_*` berilsa S3-mos saqlash (R2, MinIO). |
 | Veb | **Railway** (Docker, Caddy) | Egasi qarori: hammasi bitta Railway loyihasida. `apps/web/Dockerfile` vebni quradi va kichik statik server (Caddy) bilan beradi; `apps/web/railway.toml` tayyor. |
 | Desktop, Android | **GitHub Release** | `v*` tegida avtomatik build. |
 
@@ -80,35 +80,34 @@ docker build -f apps/web/Dockerfile --build-arg VITE_API_URL=http://localhost:40
 docker run --rm -e PORT=8080 -p 8080:8080 suhbat-web      # http://localhost:8080
 ```
 
-## 3. Media saqlash (S3-mos)
+## 3. Media saqlash
 
-Saqlash sozlanmasa ham API ishga tushadi (logda ogohlantirish); faqat fayl yuborish
-ishlamaydi — ilova "Fayl saqlash hozir mavjud emas" (503) xatosini oladi.
+Drayver avtomatik tanlanadi: **`S3_ENDPOINT` berilsa — S3**, aks holda **`local`** (asosiy yo'l).
+Saqlash ishlamasa ham API ko'tariladi (logda ogohlantirish); fayl yuborish 503 "Fayl saqlash hozir mavjud emas".
 
-**Variant A — Cloudflare R2 (tavsiya, aniq ishlaydi):**
-1. cloudflare.com → **R2** → bucket yarating (masalan `suhbat-media`).
-2. **Manage R2 API Tokens → Create** (Object Read & Write, shu bucket uchun) → *Access Key ID* va *Secret* ni oling.
-3. Bucket → **Settings → CORS policy**: brauzer to'g'ridan-to'g'ri `PUT` qiladi, shuning uchun ruxsat bering:
-   ```json
-   [{"AllowedOrigins": ["https://VEB-DOMENINGIZ", "suhbat://app"],
-     "AllowedMethods": ["GET", "PUT", "HEAD"],
-     "AllowedHeaders": ["*"], "MaxAgeSeconds": 3600}]
-   ```
-4. Railway API `Variables`:
+**Asosiy — `local` + Railway Volume:**
+1. API xizmatiga Volume ulang, mount path `/data`. Railway `RAILWAY_VOLUME_MOUNT_PATH=/data` ni o'zi beradi;
+   fayllar `/data/media` ga yoziladi (`MEDIA_DIR` bilan almashtirsa bo'ladi).
+2. `RAILWAY_RUN_UID=0`: Volume root egaligida ulanadi, image esa `node` foydalanuvchisi bilan ishlaydi.
+   Root bilan ishga tushganda `apps/api/docker/entrypoint.sh` media papkasini `node` ga beradi va
+   `setpriv` bilan huquqni darhol tushiradi (CI `api-image` jobi shuni tekshiradi).
+3. Imzolangan havolalar `https://$RAILWAY_PUBLIC_DOMAIN` bilan yasaladi. Custom domen ishlatsangiz
+   `PUBLIC_API_URL=https://api.suhbat.uz` qo'ying.
 
-| O'zgaruvchi | Qiymat |
-|---|---|
-| `S3_ENDPOINT` | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
-| `S3_REGION` | `auto` |
-| `S3_BUCKET` | `suhbat-media` |
-| `S3_ACCESS_KEY` / `S3_SECRET_KEY` | R2 token qiymatlari |
+Oqim S3'dagidek: `POST /media/upload-url` → `PUT /media/blob?key&mime&size&exp&sig` (HMAC-SHA256, 10 daqiqa;
+tana xom bayt, hajm aniq mos kelmasa 400/413, mavjud faylni qayta yozib bo'lmaydi — 409) → xabarda
+`attachmentId`. Yuklab olish — `GET /media/blob?...&sig` (1 soat; havola faqat chat a'zosiga beriladi,
+`Range` qo'llanadi; `nosniff`, `CSP sandbox`). Kalit `MEDIA_SIGNING_SECRET` yoki `JWT_SECRET` dan hosil qilinadi.
 
-(`S3_PUBLIC_ENDPOINT` kerak emas — R2 ham API, ham brauzer uchun bitta manzil.)
+Cheklovlar: API **bitta nusxa** (Volume bitta xizmatga ulanadi — Replicas 1 baribir talab). Zaxira nusxa
+(backup) avtomatik emas — Railway Volume backup sozlamasiga qarang. Fayllar API orqali o'tadi (trafik va
+xotira API hisobidan; bitta fayl ≤ 25 MB).
 
-**Variant B — Railway Buckets** (agar akkauntingizda bor bo'lsa): loyihada **+ New → Bucket**,
-bucket o'zgaruvchilarini (endpoint, kalitlar, nom) yuqoridagi `S3_*` ga reference qiling.
-Agar xizmat faqat `bucket.host` uslubini qabul qilsa, `S3_FORCE_PATH_STYLE=false` qo'ying.
-Bu variantni sinab ko'rmadim — brauzer uchun CORS'ni ham shu yerda sozlash kerak.
+**Ixtiyoriy — S3-mos (Cloudflare R2):**
+1. R2 bucket + API token (Object Read & Write).
+2. Bucket CORS: `AllowedOrigins` — veb domeni va `suhbat://app`; `GET, PUT, HEAD`; `AllowedHeaders: *`.
+3. API `Variables`: `S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com`, `S3_REGION=auto`,
+   `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` (`S3_PUBLIC_ENDPOINT` kerak emas).
 
 ## 3b. TURN (qo'ng'iroqlar uchun, ixtiyoriy)
 
@@ -163,18 +162,18 @@ macOS'da Gatekeeper, Windows'da SmartScreen ogohlantiradi. iOS release hali yo'q
 
 - Railway Hobby: **$5/oy** (shuning ichida $5 resurs kreditlari). Kichik API (0,5 GB RAM atrofida) +
   Postgres odatda **~$5–15/oy** ishlatadi; foydalanuvchilar ko'paysa o'sadi.
-- Cloudflare R2: 10 GB gacha bepul, undan keyin ~$0,015/GB-oy, chiqish puli yo'q.
+- Railway Volume: GB-oy bo'yicha hisoblanadi (Railway narxlariga qarang).
 - Veb xizmati (Caddy) juda yengil — odatda bir necha dollar ichida; u ham Railway kreditidan ketadi.
 - GitHub Actions: private repoda macOS daqiqalari qimmatroq hisoblanadi (bepul limitga ta'sir qiladi).
 - **Jami taxminan $5–15/oy.** Bu taxmin, kafolat emas.
 
 ## Nima sinalgan, nima yo'q
 
-Sinalgan (lokal / CI): veb Docker image (Caddy: `$PORT`, SPA fallback, kesh, non-root), API Docker image qurilishi, non-root, `prisma migrate deploy` + `/health`
+Sinalgan (lokal / CI): `local` media drayveri (unit + e2e: yuklash, imzo, hajm, Range, o'chirish), veb Docker image (Caddy: `$PORT`, SPA fallback, kesh, non-root), API Docker image qurilishi, non-root, `prisma migrate deploy` + `/health`
 haqiqiy Postgres bilan, saqlash yo'q holatda API ko'tarilishi va media xatosi 503 ekani;
 Android imzolash yo'li (CI'da vaqtinchalik kalit bilan).
 
-**Sinalmagan:** Railway'ning o'zida deploy (akkauntga kira olmadim), Railway proksisi ortida
-`TRUST_PROXY=1` yetarliligi, R2/Railway Buckets bilan haqiqiy yuklash va CORS, vebning Railway'dagi
+**Sinalmagan:** Railway'ning o'zida deploy (akkauntga kira olmadim), Railway Volume + `RAILWAY_RUN_UID=0` amalda, Railway proksisi ortida
+`TRUST_PROXY=1` yetarliligi, R2 bilan haqiqiy yuklash va CORS, vebning Railway'dagi
 deploy'i (Dockerfile lokal/CI'da tekshirilgan), `v*` tegi bilan to'liq release (macOS/Windows/Android), haqiqiy keystore bilan imzolash.
 Birinchi deploy'da muammo chiqsa — Railway **Deploy logs** matnini yuboring.

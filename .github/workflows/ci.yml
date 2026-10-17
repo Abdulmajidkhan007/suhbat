@@ -157,6 +157,27 @@ jobs:
           done
           docker logs api
           exit 1
+      # Railway Volume root egaligida ulanadi (RAILWAY_RUN_UID=0): entrypoint papkani
+      # `node` ga beradi va huquqni tushiradi; local media drayveri volume'ga yoza oladi.
+      - name: Root + volume (local media)
+        run: |
+          docker volume create suhbat-media
+          docker run -d --name api-root --network host --user 0 \
+            -v suhbat-media:/data \
+            -e PORT=4101 \
+            -e RAILWAY_VOLUME_MOUNT_PATH=/data \
+            -e DATABASE_URL=postgresql://suhbat:suhbat@127.0.0.1:5432/suhbat \
+            -e JWT_SECRET=ci-only-not-a-secret \
+            suhbat-api:ci
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:4101/health | grep -q '"db":"up"'; then break; fi
+            sleep 1
+          done
+          docker logs api-root 2>&1 | tee /tmp/api-root.log
+          grep -q "media saqlash: local" /tmp/api-root.log
+          grep -q "media fayllari: /data/media" /tmp/api-root.log
+          test "$(docker top api-root -eo user,args | grep 'dist/main.js' | grep -v grep | awk '{print $1}')" != "root"
+          test "$(docker exec api-root stat -c %U /data/media)" = "node"
 
   # Veb production image (Railway shu Dockerfile'ni quradi): quriladi, non-root,
   # konteyner javob beradi, SPA fallback va assets keshi ishlaydi.
