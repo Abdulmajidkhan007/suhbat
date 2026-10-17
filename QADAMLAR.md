@@ -72,27 +72,19 @@ https://VEB-MANZIL,suhbat://app
 (`suhbat://app` — desktop ilova uchun.) Saqlang va API qayta deploy bo'lishini kuting.
 Shundan keyin vebda ro'yxatdan o'tib ko'ring.
 
-## 7. (Ixtiyoriy) Fayl saqlash — Cloudflare R2
+## 7. Fayl saqlash — Railway Volume (rasm, fayl, ovoz)
 
-Busiz ham hammasi ishlaydi, faqat **rasm/fayl/ovoz yuborish** ishlamaydi.
+Fayllar API serverining o'zida, Railway **Volume** (doimiy disk) ichida saqlanadi — tashqi xizmat kerak emas.
 
-1. https://cloudflare.com → **R2** → bucket yarating (masalan `suhbat-media`).
-2. **Manage R2 API Tokens → Create** (Object Read & Write, shu bucket) → *Access Key ID* va *Secret*ni saqlang.
-3. Bucket → **Settings → CORS policy**:
-   ```json
-   [{"AllowedOrigins": ["https://VEB-MANZIL", "suhbat://app"],
-     "AllowedMethods": ["GET", "PUT", "HEAD"],
-     "AllowedHeaders": ["*"], "MaxAgeSeconds": 3600}]
-   ```
-4. Railway API **Variables**:
+1. Railway loyihasida **+ New → Volume** (yoki `Ctrl/⌘ + K` → "Volume"). Qaysi xizmatga ulashni
+   so'raganda — **API**. **Mount path** = `/data`.
+2. API → **Variables** → `RAILWAY_RUN_UID` = `0` (Volume root huquqi bilan ulanadi; ilova o'zi keyin
+   oddiy foydalanuvchiga o'tadi).
+3. API qayta deploy bo'lgach **Deploy Logs** da `media fayllari: /data/media` qatori chiqishi kerak.
+   `Railway Volume ulanmagan` yoki `media papkasiga yozib bo'lmaydi` chiqsa — 1–2 qadamni tekshiring.
 
-| Nomi | Qiymati |
-|---|---|
-| `S3_ENDPOINT` | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
-| `S3_REGION` | `auto` |
-| `S3_BUCKET` | `suhbat-media` |
-| `S3_ACCESS_KEY` | R2 *Access Key ID* |
-| `S3_SECRET_KEY` | R2 *Secret* |
+Volume'siz ham ilova ishlaydi, lekin yuborilgan fayllar **har deploy'da o'chib ketadi**.
+Ixtiyoriy muqobil — Cloudflare R2 / boshqa S3: `docs/DEPLOY.md` 3-bo'lim (`S3_*` berilsa Volume ishlatilmaydi).
 
 ## 8. GitHub: API manzili
 

@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-17 (email: SMTP — pastdagi "O'zimizda: email")
+> Oxirgi yangilanish: 2026-10-17 (tashqi xizmatlarsiz — pastdagi "O'zimizda: ..." bo'limlari)
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -103,7 +103,7 @@
   qidiruv, chat a'zolari, WS voqealari; `User` (email bilan) faqat `/auth/me` va
   login/register/refresh javoblarida. Xom HTTP/WS javoblarida email yo'qligi e2e
   bilan tekshiriladi (qasddan sizdirilsa test yiqiladi).
-- **MinIO tarqatilishi:** MinIO rasm va binary nashr qilmaydi; biz manbadan quramiz
+- **MinIO tarqatilishi** (2026-10-17 dan S3 ixtiyoriy, asosiy — `local` drayver): MinIO rasm va binary nashr qilmaydi; biz manbadan quramiz
   (`docker/minio`, pin qilingan; CI'da qatlamlar GitHub Actions keshida, lokal
   birinchi qurish sekin). Uzoq muddatda S3-mos muqobilga
   (SeaweedFS, Garage) yoki boshqariladigan S3 (R2, Backblaze) ga o'tish ko'rib chiqilsin
@@ -128,7 +128,7 @@
 - Veb `VITE_API_URL` ni build vaqtida qotiradi; deploy sinalmagan; API hali hech qayerga joylanmagan (tayyorgarlik — pastdagi "Deploy" bo'limi).
 
 ### Deploy tayyorgarligi (4-fazadan oldin)
-- **Qaror:** API + Postgres — **Railway** (Docker); media — **Cloudflare R2** (yoki Railway Buckets, sinalmagan);
+- **Qaror:** API + Postgres — **Railway** (Docker); media — ~~Cloudflare R2~~ → 2026-10-17 dan **Railway Volume** (`local` drayver, pastda);
   veb — **Railway** (2026-10-13 egasi qarori: Netlify emas; API va Postgres bilan bitta loyiha).
   Qadamlar: `QADAMLAR.md` (egasi uchun, oddiy tilda) va `docs/DEPLOY.md` (texnik tafsilot);
   egasi bajaradi — Railway/R2/GitHub akkauntlariga men kira olmayman.
@@ -302,6 +302,31 @@
   tugaydi); bir nechta API nusxasi (registr va presence — Redis); guruh qo'ng'iroqlari (SFU kerak);
   qo'ng'iroqlar tarixi alohida jadvalda emas (faqat tizim xabari); Cloudflare TURN credential'ini avtomatik
   yaratish.
+
+### O'zimizda: tashqi xizmatlarsiz (2026-10-17, egasi talabi)
+Maqsad: R2, metered.ca, FCM, Resend'ga bog'liq bo'lmaslik — hammasi Railway'da (API + Postgres + Volume).
+Tashqi variantlar kodda ixtiyoriy qoladi. Qismlar alohida PR: 1) media, 2) TURN, 3) Android push FCM'siz, 4) email SMTP.
+
+**1) Media — `local` drayver (PR `claude/media-local`):**
+- `StorageService` drayverni tanlaydi: `S3_ENDPOINT` bo'lsa `S3StorageDriver` (avvalgi kod), aks holda
+  `LocalStorageDriver`. Umumiy interfeys `StorageDriver` (`presignPut` → `{url, headers}`, `presignGet`, `head`, `delete`).
+- Papka: `MEDIA_DIR` → `$RAILWAY_VOLUME_MOUNT_PATH/media` → `./.data/media`. Har fayl yonida `.meta.json` (`mime`, `size`).
+- `PUT /media/blob?key&mime&size&exp&sig` (JWT'siz, HMAC-SHA256 imzo, 10 daqiqa): tana xom bayt
+  (`application/octet-stream` — JSON fayl body-parser'ga tushmaydi), avval `.tmp` ga, hajm aniq mos bo'lsa
+  `link` bilan joyiga (mavjud bo'lsa 409; ortiq — 413, kam — 400).
+- `GET /media/blob?...&sig` (1 soat, throttle'siz): `res.sendFile` — `Range`/206, `nosniff`, `CSP sandbox`,
+  `Content-Disposition` (rasm/ovoz inline, fayl attachment). Havola faqat chat a'zosiga beriladi (S3 kabi).
+- Havoladagi manzil: `PUBLIC_API_URL` → `https://$RAILWAY_PUBLIC_DOMAIN` → `http://localhost:$PORT`.
+- Docker: `apps/api/docker/entrypoint.sh` — root bilan ishga tushsa (Railway Volume uchun `RAILWAY_RUN_UID=0`)
+  media papkasini `node` ga berib `setpriv` bilan huquqni tushiradi; oddiy holatda `USER node`.
+- Klientlar o'zgarmadi: veb/desktop `api.uploadAttachment` `upload.headers` bilan yuklaydi; mobil faqat `attachment.url` ni ochadi.
+- **Tekshirildi:** unit (imzo/muddat/hajm/409/path traversal), e2e `media-local.e2e-spec.ts` (haqiqiy Postgres:
+  a'zo emas — 404, buzilgan imzo — 403, 413/400/409, CORS preflight, yuklab olish baytlari va sarlavhalar, Range 206,
+  JSON fayl, ovoz, xabar o'chirilganda fayl diskdan o'chadi); S3 e2e (MinIO, CI) o'zgarishsiz o'tadi.
+  CI `api-image`: root + volume bilan ishga tushish, `node` ga tushish, `/data/media` yozilishi.
+- **Tekshirilmadi:** Railway'ning o'zida Volume + `RAILWAY_RUN_UID=0` (akkaunt yo'q), haqiqiy telefonda/desktopda
+  local havolalar bilan rasm/ovoz ko'rinishi (kod yo'li S3 bilan bir xil — faqat URL boshqa).
+- Cheklov: fayllar API orqali o'tadi (trafik/xotira API hisobidan), avtomatik backup yo'q, bitta API nusxasi.
 
 ### O'zimizda: email — SMTP (2026-10-17)
 - Kod avvaldan ikkala yo'lni qo'llaydi (`createMailer`: `RESEND_API_KEY` → Resend, aks holda `SMTP_URL` → nodemailer).

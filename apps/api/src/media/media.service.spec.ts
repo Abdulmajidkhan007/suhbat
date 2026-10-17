@@ -19,7 +19,7 @@ describe('MediaService', () => {
   });
 
   it('createUpload: kalitda foydalanuvchi nomi yo\'q; imzo hajm va turga bog\'langan', async () => {
-    storage.presignPut.mockResolvedValue('http://s3/put');
+    storage.presignPut.mockResolvedValue({ url: 'http://s3/put', headers: { 'Content-Type': 'image/png' } });
     const res = await service.createUpload(me, {
       chatId, kind: 'image', name: '../../etc/passwd.png', mime: 'image/png', size: 100,
     });
