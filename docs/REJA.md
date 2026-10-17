@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-16 (username va parolni tiklash — pastdagi "Auth: username va parolni tiklash"; undan oldin v0.1.2 tuzatishlari)
+> Oxirgi yangilanish: 2026-10-17 (email: SMTP — pastdagi "O'zimizda: email")
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -302,6 +302,19 @@
   tugaydi); bir nechta API nusxasi (registr va presence — Redis); guruh qo'ng'iroqlari (SFU kerak);
   qo'ng'iroqlar tarixi alohida jadvalda emas (faqat tizim xabari); Cloudflare TURN credential'ini avtomatik
   yaratish.
+
+### O'zimizda: email — SMTP (2026-10-17)
+- Kod avvaldan ikkala yo'lni qo'llaydi (`createMailer`: `RESEND_API_KEY` → Resend, aks holda `SMTP_URL` → nodemailer).
+  Qo'shildi: SMTP timeout'lari 10 s (nodemailer standarti 2 daqiqa edi; URL query bilan o'zgartirsa bo'ladi) va tarmoq
+  xatosida (`ETIMEDOUT`, `ECONNREFUSED`, ...) logda "port yopiq bo'lishi mumkin — Resend" maslahati.
+- **Railway siyosati:** Hobby/Free/Trial'da chiquvchi SMTP (25, 465, 587, 2525) **yopiq**, faqat Pro+ da ochiq —
+  Railway xodimlarining Central Station javoblaridan (bir nechta mavzu). Rasmiy sahifa
+  (`docs.railway.com/reference/outbound-networking`) sessiya tarmog'idan ochilmadi — so'zma-so'z tekshirilmagan.
+  Natija: Hobby'da SMTP asosiy yo'l bo'la olmaydi — Resend (HTTPS) kerak yoki Pro tarif. QADAMLAR 14 shunga yozildi.
+- **Ochiq gap:** email'ni "butunlay o'zimizda" qilib bo'lmaydi — xatni Gmail/Outlook'ga yetkazish uchun baribir
+  tashqi pochta provayderi (Gmail SMTP, Resend, ...) yoki o'z pochta serveri + domen DNS (SPF/DKIM) kerak.
+- **Tekshirildi:** unit (timeout'lar URL'ga qo'shiladi, berilgani saqlanadi; yopiq portda tez va tushunarli xato).
+  **Tekshirilmadi:** haqiqiy Gmail App Password bilan yuborish, Railway'da.
 
 ### README — loyiha vitrinasi (2026-10-16)
 - Repo public bo'ldi; `README.md` endi loyiha haqida: nima, imkoniyatlar, platformalar va yuklab olish (veb, Releases),
