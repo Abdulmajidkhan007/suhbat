@@ -95,7 +95,7 @@ export class SmtpMailer extends Mailer {
       if (code && NETWORK_ERRORS.has(code)) {
         throw new Error(
           `SMTP serverga ulanib bo'lmadi (${code}). Hosting chiquvchi SMTP portlarini yopgan bo'lishi mumkin ` +
-          `(Railway Hobby'da 25/465/587/2525 yopiq) — RESEND_API_KEY ishlating (QADAMLAR.md 14): ${(e as Error).message}`,
+          `(Railway Hobby'da 25/465/587/2525 yopiq) — RESEND_API_KEY ishlating (QADAMLAR.md, "Parolni tiklash xati"): ${(e as Error).message}`,
         );
       }
       throw e;

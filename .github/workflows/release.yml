@@ -135,7 +135,7 @@ jobs:
           if [ -n "$GOOGLE_SERVICES_JSON" ]; then
             echo "GOOGLE_SERVICES_JSON bor — APK push bildirishnomalar bilan quriladi"
           else
-            echo "::warning::GOOGLE_SERVICES_JSON secret'i yo'q — APK push bildirishnomalarsiz quriladi (QADAMLAR.md 12)"
+            echo "::warning::GOOGLE_SERVICES_JSON secret'i yo'q — APK push bildirishnomalarsiz quriladi (docs/QADAMLAR-TAFSILOT.md, Firebase)"
           fi
       - run: npm ci
       - name: Versiya tegdan

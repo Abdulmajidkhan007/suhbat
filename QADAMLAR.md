@@ -1,319 +1,77 @@
-# suhbat — joylash qadamlari (egasi uchun)
+# suhbat — egasi qiladigan ishlar
 
-Hammasi **Railway**'da: Postgres, API va veb — bitta loyihada. Kod tayyor, siz faqat
-quyidagi tugmalarni bosasiz. Texnik tafsilot: [`docs/DEPLOY.md`](docs/DEPLOY.md).
+Hammasi **Railway**'da (bitta loyiha): Postgres, API (+ Volume), veb. Tashqi xizmat shart emas.
+Texnik tafsilot: [`docs/DEPLOY.md`](docs/DEPLOY.md). Uzun ixtiyoriy yo'riqnomalar:
+[`docs/QADAMLAR-TAFSILOT.md`](docs/QADAMLAR-TAFSILOT.md).
 
-> Ochiq gap: Railway'dagi deploy'ni men sinab ko'ra olmadim (akkauntga kira olmayman).
-> Kod va Docker image'lar lokal/CI'da tekshirilgan. Biror qadamda xato chiqsa — **10-qadamga** qarang.
+> Railway'ning o'zida men sinab ko'ra olmadim (akkauntga kira olmayman) — kod va Docker image'lar
+> lokal/CI'da tekshirilgan. Xato chiqsa — oxirgi bo'lim.
+> **Kalit, parol, `JWT_SECRET`, `DATABASE_URL` ni hech kimga (menga ham) yubormang** — faqat Railway Variables / GitHub Secrets.
 
-## 1. Railway akkaunti
+## Majburiy
 
-1. https://railway.com ga **GitHub bilan** kiring.
-2. **Hobby** tarifini yoqing (karta kerak, $5/oy). Bepul tarif uzoq ishlamaydi.
+**1. Railway.** https://railway.com ga GitHub bilan kiring, **Hobby** tarifini yoqing ($5/oy).
+**New Project → Deploy from GitHub repo → `suhbat`.** Railway har workspace uchun xizmat yaratishi mumkin —
+faqat API va veb qolsin (`desktop`, `mobile` → **Settings → Delete service**).
 
-## 2. Loyiha
+**2. Postgres.** **+ New → Database → Add PostgreSQL** (nomi `Postgres` qolsin).
 
-1. **New Project → Deploy from GitHub repo →** `suhbat` ni tanlang
-   (Railway GitHub'ga ruxsat so'raydi — bering).
-2. Bu **API xizmatini** yaratadi. Hozircha u xato bilan to'xtashi mumkin — normal, baza hali yo'q.
-
-## 3. Postgres
-
-1. Loyiha ichida **+ New → Database → Add PostgreSQL**.
-2. Xizmat nomi `Postgres` bo'lib qolsin (pastdagi jadvalda shu nom ishlatilgan).
-
-## 4. API xizmati
-
-API xizmatini oching → **Settings**:
-- **Root Directory** — *bo'sh qoldiring*.
-- **Config file path** (Config-as-code) = `/apps/api/railway.toml`
-- **Replicas** = `1` (bittadan ko'p bo'lmasin).
-
-So'ng **Variables** → quyidagilarni qo'shing:
+**3. API xizmati.** **Settings:** Root Directory — bo'sh; Config file path = `/apps/api/railway.toml`;
+Replicas = `1`; Custom Build/Start Command — bo'sh. **Variables:**
 
 | Nomi | Qiymati |
 |---|---|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (aynan shunday yozing, qo'lda ko'chirmang) |
-| `JWT_SECRET` | uzun tasodifiy qator. Terminalda: `openssl rand -base64 48` |
-| `CORS_ORIGIN` | hozircha `suhbat://app` (veb domenini 6-qadamda qo'shamiz) |
+| `RAILWAY_DOCKERFILE_PATH` | `apps/api/Dockerfile` |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (aynan shunday) |
+| `JWT_SECRET` | `openssl rand -base64 48` natijasi |
 | `TRUST_PROXY` | `1` |
+| `CORS_ORIGIN` | hozircha `suhbat://app` (5-qadamda veb qo'shiladi) |
+| `RAILWAY_RUN_UID` | `0` (4-qadamdagi Volume uchun) |
 
-`PORT` ni **qo'ymang** — Railway o'zi beradi.
+`PORT` ni qo'ymang. **Networking → Generate Domain** → API manzilini nusxalang.
+Tekshiruv: `https://API-MANZIL/health` → `{"status":"ok","db":"up"}`.
 
-Keyin **Settings → Networking → Generate Domain** — API manzili chiqadi
-(`https://....up.railway.app`). **Shu manzilni nusxalab qo'ying** — 5, 8 qadamlarda kerak.
-O'z domeningiz bo'lsa (masalan `api.suhbat.uz`) — **Custom Domain** va ko'rsatilgan DNS yozuvini qo'shing.
+**4. Fayllar uchun Volume.** **+ New → Volume** → xizmat **API**, Mount path = `/data`.
+Deploy Logs'da `media fayllari: /data/media` chiqishi kerak (busiz yuborilgan fayllar har deploy'da o'chadi).
 
-**Tekshiruv:** brauzerda `https://API-MANZIL/health` oching. Quyidagi chiqishi kerak:
-```
-{"status":"ok","db":"up"}
-```
-Chiqmasa — 10-qadam.
+**5. Veb xizmati.** **+ New → GitHub Repo → `suhbat`**. Settings: Root Directory — bo'sh, Config file path =
+`/apps/web/railway.toml`. Variables: `RAILWAY_DOCKERFILE_PATH` = `apps/web/Dockerfile`,
+`VITE_API_URL` = API manzili (oxirida `/` siz; o'zgartirsangiz vebni qayta deploy qiling).
+**Generate Domain** → so'ng API'da `CORS_ORIGIN` = `https://VEB-MANZIL,suhbat://app` (vergul, probelsiz).
 
-## 5. Veb xizmati
+**6. GitHub.** Repo → **Settings → Secrets and variables → Actions → Variables → New repository variable**:
+`SUHBAT_API_URL` = API manzili, `https://` bilan, oxirida `/` siz (masalan `https://suhbatapi-production.up.railway.app`).
+Bo'lmasa yoki noto'g'ri bo'lsa release ataylab yiqiladi.
 
-1. Loyihada **+ New → GitHub Repo →** `suhbat` (yana bir xizmat — ikkinchi nusxa).
-2. **Settings:**
-   - **Root Directory** — *bo'sh*.
-   - **Config file path** = `/apps/web/railway.toml`
-3. **Variables:** `VITE_API_URL` = 4-qadamdagi **API manzili**, oxirida `/` **siz**
-   (masalan `https://suhbat-api.up.railway.app`).
-   Bu qiymat build vaqtida qotadi: keyin o'zgartirsangiz vebni qayta deploy qiling.
-4. **Settings → Networking → Generate Domain** (yoki Custom Domain, masalan `suhbat.uz`).
-   Veb manzilini nusxalang.
-5. Deploy tugagach veb manzilini oching — kirish ekrani chiqishi kerak.
+**7. Release.** `CHANGELOG.md` da teg nomli bo'lim bo'lsin (masalan `## v0.3.0`). GitHub → **Actions → Release →
+Run workflow** → branch `main`, tag `v0.3.0`. 20–40 daqiqada **Releases** sahifasida macOS `dmg`, Windows `exe`,
+Android `apk`. Ilovalar imzosiz — macOS/Windows ogohlantiradi (normal).
 
-## 6. API'ga veb manzilini bildirish (CORS)
+## Ixtiyoriy
 
-API xizmati → **Variables** → `CORS_ORIGIN` ni shunday qiling (vergul bilan, probelsiz):
-```
-https://VEB-MANZIL,suhbat://app
-```
-(`suhbat://app` — desktop ilova uchun.) Saqlang va API qayta deploy bo'lishini kuting.
-Shundan keyin vebda ro'yxatdan o'tib ko'ring.
+**Bildirishnomalar.** Android — sozlash shart emas: ilovada **Sozlamalar → "Fonda ulanib turish"** → batareya
+so'roviga **Ruxsat berish** (Xiaomi/Huawei'da yana **Avtomatik ishga tushish**). Veb/desktop — ilova ochiq
+bo'lsa o'zi ishlaydi. **iPhone'da ilova yopiq bo'lsa** bildirishnoma faqat Apple push orqali: Firebase +
+Apple Developer ($99/yil) — [tafsilot 2](docs/QADAMLAR-TAFSILOT.md#2-firebase-fcm--ios-push-uchun-yoki-androidda-fon-ulanishisiz).
 
-## 7. Fayl saqlash — Railway Volume (rasm, fayl, ovoz)
+**Qo'ng'iroqlar uchun TURN** (mobil internet / ofis tarmog'ida ulanish uchun). Railway'da (faqat TCP, Railway'da
+hali sinalmagan): **+ New → GitHub Repo → `suhbat`**, nomi `turn`, Config file path = `/infra/turn/railway.toml`,
+Variables `TURN_MODE=railway`, `TURN_SECRET=<openssl rand -hex 32>`; **Networking → TCP Proxy → 3478** →
+API Variables: `TURN_URLS=turn:<proxy-manzil>:<port>?transport=tcp`, `TURN_SECRET=${{turn.TURN_SECRET}}`.
+Sifatliroq — arzon VPS'da bitta buyruq: [`infra/turn/README.md`](infra/turn/README.md).
 
-Fayllar API serverining o'zida, Railway **Volume** (doimiy disk) ichida saqlanadi — tashqi xizmat kerak emas.
+**Parolni tiklash xati.** ⚠️ Railway **Hobby**'da chiquvchi SMTP yopiq (faqat Pro+; Railway xodimlari javobi,
+rasmiy sahifani tekshira olmadim). Hobby'da — **Resend**: https://resend.com → API Keys → API Variables
+`RESEND_API_KEY=re_...`, `MAIL_FROM=Suhbat <onboarding@resend.dev>` (sinovda xat faqat o'zingizga; boshqalarga —
+Resend'da domen tasdiqlang), `WEB_URL=<veb manzili>`. Pro'da — **Gmail SMTP**: App Password
+(https://myaccount.google.com/apppasswords) → `SMTP_URL=smtps://email%40gmail.com:APPPAROL@smtp.gmail.com:465`,
+`MAIL_FROM=Suhbat <email@gmail.com>`, `WEB_URL`. Logda `SMTP serverga ulanib bo'lmadi` — port yopiq, Resend'ga o'ting.
 
-1. Railway loyihasida **+ New → Volume** (yoki `Ctrl/⌘ + K` → "Volume"). Qaysi xizmatga ulashni
-   so'raganda — **API**. **Mount path** = `/data`.
-2. API → **Variables** → `RAILWAY_RUN_UID` = `0` (Volume root huquqi bilan ulanadi; ilova o'zi keyin
-   oddiy foydalanuvchiga o'tadi).
-3. API qayta deploy bo'lgach **Deploy Logs** da `media fayllari: /data/media` qatori chiqishi kerak.
-   `Railway Volume ulanmagan` yoki `media papkasiga yozib bo'lmaydi` chiqsa — 1–2 qadamni tekshiring.
+**Android doimiy imzo kaliti** (busiz har release'da eski APK'ni o'chirib qayta o'rnatish kerak):
+[tafsilot 1 — Termux bilan telefonda](docs/QADAMLAR-TAFSILOT.md#1-android-imzosi--telefonda-termux-bilan).
 
-Volume'siz ham ilova ishlaydi, lekin yuborilgan fayllar **har deploy'da o'chib ketadi**.
-Ixtiyoriy muqobil — Cloudflare R2 / boshqa S3: `docs/DEPLOY.md` 3-bo'lim (`S3_*` berilsa Volume ishlatilmaydi).
+## Muammo bo'lsa
 
-## 8. GitHub: API manzili
-
-GitHub repo → **Settings → Secrets and variables → Actions → Variables → New repository variable**:
-- Nomi `SUHBAT_API_URL`
-- Qiymati — API manzili **to'liq**, `https://` bilan boshlanib, oxirida `/` **siz**:
-
-| | Qiymat |
-|---|---|
-| ✅ To'g'ri | `https://suhbatapi-production.up.railway.app` |
-| ❌ Noto'g'ri | `suhbatapi-production.up.railway.app` (`https://` yo'q — telefonda "Tarmoq xatosi") |
-| ❌ Noto'g'ri | `https://suhbatapi-production.up.railway.app/` (oxirida `/`) |
-| ❌ Noto'g'ri | `http://...` (Android release faqat `https://` bilan ishlaydi) |
-
-Desktop va Android ilovalar shu manzilga ulanadigan qilib quriladi (manzil ilova ichiga qotadi —
-o'zgartirsangiz, yangi release kerak). Qiymat bo'sh yoki `https://` siz bo'lsa **release build ataylab
-yiqiladi** va Actions logida sababi yoziladi.
-
-## 9. (Ixtiyoriy) Android imzosi — telefonda, Termux bilan
-
-Bo'lmasa APK vaqtinchalik kalit bilan imzolanadi (fayl nomi `...-sinov-uchun-debug-imzo.apk`) —
-sinash uchun yetadi, lekin **har release'da kalit boshqa**: yangi versiyani o'rnatish uchun eskisini
-o'chirish kerak bo'ladi. Doimiy kalit bir marta yaratiladi va keyin hamma release shu kalit bilan
-imzolanadi.
-
-> ⚠️ **Muhim:**
-> - Keystore fayli va parollarni **hech qachon** chatga (shu jumladan Claude'ga), repoga, issue/PR'ga
->   yubormang va skrinshot qilmang. Ular faqat GitHub **Secrets** ga kiritiladi.
-> - Keystore'ning **zaxira nusxasini** saqlang (masalan, shifrlangan arxivda bulutga + kompyuterga) va
->   parollarni parol menejeriga yozib qo'ying. Kalit yoki parol yo'qolsa, o'rnatilgan ilovani **yangilab
->   bo'lmaydi** — hamma foydalanuvchi uni o'chirib qayta o'rnatishi kerak bo'ladi (Play Market'ga
->   chiqqandan keyin esa umuman yangilab bo'lmaydi).
-
-### 9.1. Termux'ni o'rnatish
-Termux'ni **F-Droid** dan o'rnating (https://f-droid.org/packages/com.termux/). Play Market'dagi
-versiyasi eskirgan va paketlar o'rnatilmasligi mumkin.
-
-### 9.2. Kalit yaratish
-Termux'ni oching va buyruqlarni birma-bir kiriting:
-```bash
-pkg update -y
-pkg install -y openjdk-17
-termux-setup-storage            # telefon xotirasiga ruxsat so'raydi — "Ruxsat berish"
-cd ~
-keytool -genkeypair -v -keystore suhbat-release.keystore -alias suhbat \
-  -keyalg RSA -keysize 2048 -validity 10000
-```
-`keytool` so'raydi:
-1. **Keystore paroli** (kamida 6 belgi) — ikki marta. Bu `ANDROID_KEYSTORE_PASSWORD`.
-2. Ism, tashkilot, shahar, mamlakat (`UZ`) — ixtiyoriy, Enter bosib o'tsa ham bo'ladi; oxirida `yes`.
-
-Kalit paroli alohida so'ralmaydi (PKCS12 formatida u keystore paroli bilan bir xil) —
-`ANDROID_KEY_PASSWORD` ham shu parol.
-
-Kompyuterda bo'lsangiz ham xuddi shu `keytool` buyrug'i (JDK 17+ kerak); macOS'da base64: `base64 -i suhbat-release.keystore`.
-
-### 9.3. base64 matnini olish
-```bash
-base64 -w0 suhbat-release.keystore > suhbat-release.keystore.b64
-cp suhbat-release.keystore suhbat-release.keystore.b64 ~/storage/downloads/
-```
-Endi telefonning **Downloads** papkasida ikki fayl bor: `suhbat-release.keystore` (zaxiralang!) va
-`suhbat-release.keystore.b64` (bir qatorli matn). `.b64` faylni matn muharririda oching va **butun
-matnni** nusxalang (yoki Termux'da `cat suhbat-release.keystore.b64` — uzun bitta qator).
-
-### 9.4. GitHub secret'lari
-GitHub → repo → **Settings → Secrets and variables → Actions → Secrets → New repository secret**.
-To'rttasi ham shart (bittasi yo'q bo'lsa vaqtinchalik kalit ishlatiladi):
-
-| Nomi | Qiymati |
-|---|---|
-| `ANDROID_KEYSTORE_BASE64` | `.b64` fayldagi butun matn |
-| `ANDROID_KEYSTORE_PASSWORD` | 9.2 dagi keystore paroli |
-| `ANDROID_KEY_ALIAS` | `suhbat` |
-| `ANDROID_KEY_PASSWORD` | keystore paroli bilan bir xil |
-
-### 9.5. Tozalash
-Secret'larni saqlagach, `.b64` faylini o'chiring (keystore'ning o'zi zaxirada qolsin):
-```bash
-rm ~/suhbat-release.keystore.b64 ~/storage/downloads/suhbat-release.keystore.b64
-```
-Keyingi release'da APK nomi `suhbat-vX.Y.Z.apk` bo'ladi (`sinov-uchun` so'zisiz). Vaqtinchalik kalit
-bilan imzolangan eski APK o'rnatilgan bo'lsa, birinchi marta uni o'chirib, yangisini o'rnating.
-
-## 10. Birinchi release (`v0.1.0`)
-
-PR'lar `main`ga merge bo'lgach. **Telefondan (terminalsiz):** GitHub → **Actions → Release →
-Run workflow** → Branch: `main`, *tag* = `v0.1.0` → **Run workflow**. Workflow `main` dagi commit'ga
-`v0.1.0` tegi va release'ni o'zi yaratadi.
-(Terminalda: `git checkout main && git pull && git tag v0.1.0 && git push origin v0.1.0`. Yoki GitHub →
-**Releases → Draft a new release** → yangi teg → **Publish**: release oldindan bo'lsa ham, workflow
-fayllarni unga yuklab qo'yadi.)
-GitHub **Actions → Release** ishlaydi (taxminan 20–40 daqiqa); macOS `dmg`, Windows `exe` va Android `apk`
-**Releases** sahifasiga yuklanadi. Keyingi versiyalar: `v0.1.1`, `v0.2.0`, ...
-Ilovalar imzosiz: macOS/Windows ogohlantirish ko'rsatadi (normal). iOS hali yo'q.
-
-**Har release'dan oldin:** `CHANGELOG.md` da shu teg nomli bo'lim bo'lsin (masalan `## v0.3.0`) — release
-matni shundan olinadi; bo'lim bo'lmasa workflow birinchi qadamda to'xtaydi. Versiya raqami (desktop fayl nomi,
-ilovadagi "Suhbat v…") tegdan avtomatik olinadi — `package.json` ni qo'lda o'zgartirish shart emas.
-
-## Railway tuzoqlari (amalda uchragan)
-
-- Railway monorepoda **har workspace uchun avtomatik service** yaratadi — kerakmaslarini
-  (`desktop`, `mobile`) **Settings → Delete service** bilan o'chiring. Faqat API va Web qoladi.
-- **Railpack** (avtomatik build) o'zi taxmin qilgan yoki qo'lda yozilgan *Custom Build Command* /
-  *Custom Start Command* larni ishlatadi: Settings'da ikkalasini ham **tozalang** (bo'sh qoldiring).
-- Ishonchli yechim — service **Variables**'ga Dockerfile yo'lini berish:
-  API uchun `RAILWAY_DOCKERFILE_PATH=apps/api/Dockerfile`, Web uchun
-  `RAILWAY_DOCKERFILE_PATH=apps/web/Dockerfile`. Shunda Railway Railpack o'rniga Dockerfile bilan quradi.
-  Bu usul amalda ishladi (`/health` ok).
-
-## 11. Muammo bo'lsa nima yuborish kerak
-
-Menga quyidagini yuboring:
-1. **Qaysi xizmat** (API yoki Web) va **qaysi qadam**da to'xtadi.
-2. Railway'da xizmat → **Deployments** → oxirgi deploy → **Build Logs** va **Deploy Logs** matni
-   (ekran rasmi emas, matnni nusxalang; oxirgi ~50 qator yetadi).
-3. Brauzer xatosi bo'lsa: sahifada **F12 → Console** dagi qizil xato matni.
-
-**Parol, `JWT_SECRET`, `S3_SECRET_KEY` va `DATABASE_URL` ni yubormang** — logda ular ko'rinib qolsa, o'chirib yuboring.
-
-## 12. Bildirishnomalar
-
-**Android — Firebase'siz (asosiy):** hech narsa sozlash shart emas. Telefonda ilova →
-**Sozlamalar → "Fonda ulanib turish"** ni yoqing → "Batareya optimizatsiyasidan chiqarilsinmi?" →
-**Ruxsat berish**. Shundan keyin ilova yopiq bo'lsa ham xabar va qo'ng'iroq bildirishnomasi keladi
-(yuqorida doimiy "Suhbat ulangan" yozuvi turadi). Xiaomi/Huawei kabi telefonlarda qo'shimcha:
-ilova sozlamalarida **Avtomatik ishga tushish** ni yoqing.
-
-**iOS:** Apple fonda o'z ulanishimizni ushlashga ruxsat bermaydi — iPhone'da ilova yopiq bo'lsa
-bildirishnoma **faqat** Apple push (APNs) orqali keladi: pastdagi Firebase + Apple Developer ($99/yil)
-qadamlari. Busiz iPhone'da bildirishnoma faqat ilova ochiq paytda.
-
-**Veb / desktop:** ilova ochiq (boshqa oyna/tab'da) bo'lsa tizim bildirishnomasi chiqadi — birinchi
-bosishda brauzer ruxsat so'raydi. Tab yopiq bo'lsa — yo'q.
-
-### Ixtiyoriy: Firebase (FCM) — iOS uchun yoki Android'da fon ulanishisiz
-
-#### 12.1. Firebase loyiha
-1. https://console.firebase.google.com → **Add project** → nomi `suhbat` (Google Analytics kerak emas).
-
-#### 12.2. Android ilova
-1. Loyiha ichida **Add app → Android**.
-2. **Package name** = `uz.suhbat.app` (aynan shunday). Qolganlari bo'sh qolsin → **Register app**.
-3. **`google-services.json`** ni yuklab oling. **Repoga qo'shmang.**
-4. GitHub → **Settings → Secrets and variables → Actions → Secrets → New repository secret**:
-   nomi `GOOGLE_SERVICES_JSON`, qiymati — faylning **butun matni** (ochib, hammasini nusxalang).
-
-#### 12.3. iOS ilova (iPhone uchun; Apple Developer akkaunti kerak — $99/yil)
-1. Firebase → **Add app → iOS**, **Bundle ID** = `uz.suhbat.app` → **Register app**.
-2. **`GoogleService-Info.plist`** ni yuklab oling. **Repoga qo'shmang.**
-3. Terminalda base64 qiling: `base64 -i GoogleService-Info.plist` (macOS) va natijani GitHub secret
-   `GOOGLE_SERVICE_INFO_PLIST` ga qo'ying.
-4. https://developer.apple.com → **Certificates, IDs & Profiles → Keys → +** →
-   **Apple Push Notifications service (APNs)** belgilang → kalitni (`.p8`) yuklab oling,
-   **Key ID** va **Team ID** ni yozib oling.
-5. Firebase → **Project settings → Cloud Messaging → Apple app configuration → APNs Authentication Key →
-   Upload**: `.p8` fayl, Key ID, Team ID.
-6. developer.apple.com → **Identifiers** → `uz.suhbat.app` → **Push Notifications** yoqilgan bo'lsin.
-
-#### 12.4. Server kaliti (API'ga)
-1. Firebase → **Project settings → Service accounts → Generate new private key** → JSON fayl yuklanadi.
-   **Bu maxfiy kalit** — hech kimga yubormang, repoga qo'shmang.
-2. Railway → API xizmati → **Variables → New Variable**:
-   nomi `FCM_SERVICE_ACCOUNT_JSON`, qiymati — JSON faylning **butun matni**
-   (yoki base64: `base64 -w0 key.json`; macOS: `base64 -i key.json`).
-3. API qayta deploy bo'ladi. Logda `FCM_SERVICE_ACCOUNT_JSON yo'q` ogohlantirishi **chiqmasa** — ulandi.
-
-#### 12.5. Tekshirish
-1. Yangi APK'ni o'rnating (secret'lar qo'yilgandan **keyin** qurilgan build kerak).
-2. Telefonda kiring → "Bildirishnomalarga ruxsat berasizmi?" → **Ruxsat berish**.
-3. Ilovani yoping, boshqa hisobdan (masalan vebdan) xabar yozing — telefonga bildirishnoma kelishi kerak.
-   Bosilganda shu chat ochiladi.
-4. Kelmasa: Railway API **Deploy Logs** dagi `FcmClient` / `PushService` qatorlarini menga yuboring
-   (kalit matnini emas).
-
-> Eslatma: GitHub'dagi **Release** (`release.yml`) build'iga `GOOGLE_SERVICES_JSON` hali ulanmagan —
-> u alohida ish sifatida qo'shiladi. Hozircha push faqat `Mobile` workflow APK'sida va lokal build'da ishlaydi.
-
-## 13. Qo'ng'iroqlar uchun TURN server (o'zimizniki)
-
-Busiz ham qo'ng'iroq ishlaydi, lekin mobil internet / ofis tarmog'ida "Ulanib bo'lmadi" bo'lishi mumkin.
-TURN — shunday paytda ovoz/videoni o'zi orqali uzatadigan server (coturn, `infra/turn/`).
-Railway UDP bermaydi, shuning uchun ikki variant bor — batafsil: [`infra/turn/README.md`](infra/turn/README.md).
-
-**A) Railway'da (TCP orqali; Railway'da hali sinalmagan):**
-1. **+ New → GitHub Repo →** `suhbat`, xizmat nomi `turn`. **Settings → Config file path** = `/infra/turn/railway.toml`.
-2. `turn` **Variables:** `TURN_MODE` = `railway`, `TURN_SECRET` = uzun tasodifiy qator (`openssl rand -hex 32`).
-3. `turn` **Settings → Networking → TCP Proxy** → port `3478`. Chiqqan manzilni yozib oling (`xxx.proxy.rlwy.net:12345`).
-4. **API Variables:** `TURN_URLS` = `turn:xxx.proxy.rlwy.net:12345?transport=tcp`,
-   `TURN_SECRET` = `${{turn.TURN_SECRET}}`.
-
-**B) Arzon VPS'da (UDP — sifatliroq):** VPS'da `cd suhbat/infra/turn && cp .env.example .env`, `.env` ga
-`TURN_SECRET` yozing, `docker compose up -d --build`. API Variables — README'dagi `TURN_URLS`/`TURN_SECRET`/`STUN_URLS`.
-
-**Tekshirish:** ikki xil tarmoqda (Wi-Fi va mobil internet) video qo'ng'iroq. Ulanmasa — `turn` va API
-**Deploy Logs** ni yuboring (secret'ni emas).
-
-## 14. Parolni tiklash uchun email
-
-Busiz ham ilova ishlaydi, faqat **"Parolni unutdim?"** da "Email yuborish hozircha sozlanmagan" chiqadi.
-
-> ⚠️ **Railway Hobby tarifida chiquvchi SMTP yopiq** (25, 465, 587, 2525 portlar; faqat Pro va undan yuqori).
-> Bu Railway xodimlarining Central Station'dagi javoblaridan; rasmiy sahifani
-> (docs.railway.com/reference/outbound-networking) men ochib tekshira olmadim.
-> Demak: **Hobby'da — B variant (Resend)**, **Pro'da — A variant (SMTP)**.
-> Kalit/parolni hech kimga (menga ham) yubormang — faqat Railway **Variables** ga.
-
-**A) SMTP (Railway Pro yoki SMTP ochiq hosting) — masalan Gmail:**
-1. Google hisobida **2 bosqichli tasdiqlash** yoqilgan bo'lsin → https://myaccount.google.com/apppasswords →
-   nom `suhbat` → 16 belgili **App Password** chiqadi (probellarsiz yozing).
-2. Railway → API → **Variables:**
-
-| Nomi | Qiymati |
-|---|---|
-| `SMTP_URL` | `smtps://sizning.email%40gmail.com:APPPAROL@smtp.gmail.com:465` (`@` o'rniga `%40`) |
-| `MAIL_FROM` | `Suhbat <sizning.email@gmail.com>` (Gmail faqat o'z manzilidan yuboradi) |
-| `WEB_URL` | veb manzili, oxirida `/` siz |
-
-Gmail'da kuniga ~500 xat cheklovi bor — kichik loyiha uchun yetadi.
-
-**B) Resend (Hobby'da yagona yo'l — HTTPS orqali):**
-1. https://resend.com → ro'yxatdan o'ting → **API Keys → Create** (Sending access) → `re_...` kalit.
-2. Railway → API → **Variables:** `RESEND_API_KEY` = kalit, `MAIL_FROM` = `Suhbat <onboarding@resend.dev>`
-   (sinov: xat faqat Resend akkaunt emailingizga boradi; boshqalarga — Resend'da o'z domeningizni
-   **Domains → Add** bilan tasdiqlab, `Suhbat <noreply@domeningiz>`), `WEB_URL` = veb manzili.
-
-`RESEND_API_KEY` va `SMTP_URL` ikkalasi bo'lsa Resend ishlatiladi.
-
-**Tekshirish:** vebda **Kirish → Parolni unutdim?** → emailingiz → xat kelishi kerak (Spam'ni ham ko'ring).
-Kelmasa — API **Deploy Logs** dagi `PasswordResetService` qatorini yuboring. `SMTP serverga ulanib bo'lmadi`
-chiqsa — port yopiq: B variantga o'ting.
+Yuboring: qaysi xizmat (API / veb / turn) va qaysi qadam; Railway → xizmat → **Deployments → Build Logs** va
+**Deploy Logs** matni (oxirgi ~50 qator, ekran rasmi emas); brauzerda bo'lsa **F12 → Console** dagi qizil xato.
+Logda kalit/parol ko'rinib qolsa — o'chirib yuboring.

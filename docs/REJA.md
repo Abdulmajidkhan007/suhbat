@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-17 (tashqi xizmatlarsiz — pastdagi "O'zimizda: ..." bo'limlari)
+> Oxirgi yangilanish: 2026-10-17 (tashqi xizmatlarsiz — pastdagi "O'zimizda: ..." bo'limlari; QADAMLAR qisqartirildi)
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -359,6 +359,13 @@ API kodi o'zgarmadi.
   tashqi pochta provayderi (Gmail SMTP, Resend, ...) yoki o'z pochta serveri + domen DNS (SPF/DKIM) kerak.
 - **Tekshirildi:** unit (timeout'lar URL'ga qo'shiladi, berilgani saqlanadi; yopiq portda tez va tushunarli xato).
   **Tekshirilmadi:** haqiqiy Gmail App Password bilan yuborish, Railway'da.
+
+### O'zimizda: QADAMLAR qisqartirildi (2026-10-17)
+- `QADAMLAR.md` 366 → ~80 qator: "Majburiy" (Railway, Postgres, API + Variables jadvali, Volume, veb + CORS, GitHub
+  `SUHBAT_API_URL`, release) va "Ixtiyoriy" (bildirishnomalar, TURN, parolni tiklash xati, Android imzo kaliti).
+  "Railway tuzoqlari" qadamlarga kiritildi (`RAILWAY_DOCKERFILE_PATH`, Custom Build/Start bo'sh, ortiqcha xizmatlarni o'chirish).
+- Uzun yo'riqnomalar o'zgartirilmasdan `docs/QADAMLAR-TAFSILOT.md` ga ko'chdi (Termux bilan keystore, Firebase/APNs).
+  Bo'lim raqamlariga ishora qilgan joylar (`release.yml`, `mailer.ts`, `.env.example`) bo'lim nomiga o'zgardi.
 
 ### O'zimizda: bildirishnomalar FCM'siz (2026-10-17)
 Egasi talabi: Firebase/FCM'ga bog'liq bo'lmaslik. FCM kodi ixtiyoriy qoladi (`GOOGLE_SERVICES_JSON` bo'lsa).
@@ -766,7 +773,7 @@ packages/
 
 ## Keyingi sessiya uchun
 4b (qo'ng'iroqlar) PR #11 da. Merge'dan keyin taklif etiladigan navbat:
-1. **Egasi:** TURN sozlash — o'z coturn'imiz (`QADAMLAR.md` 13, `infra/turn/`) — busiz mobil internet/NAT ortida qo'ng'iroq
+1. **Egasi:** TURN sozlash — o'z coturn'imiz (`QADAMLAR.md` "Ixtiyoriy", `infra/turn/`) — busiz mobil internet/NAT ortida qo'ng'iroq
    ulanmasligi mumkin. Keyin ikki xil tarmoqda va haqiqiy telefonda sinash.
 2. **4c (qo'ng'iroq sifati):** jiringlash ovozi (veb + mobil), karnay/quloqchin (`react-native-incall-manager`),
    CallKit / ConnectionService (qulflangan ekranda jiringlash, data-only push), socket qisqa uzilganda va
