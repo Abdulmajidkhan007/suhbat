@@ -301,7 +301,9 @@ describe('Qo\'ng\'iroqlar (e2e)', () => {
 
   it('token muddati tugasa ham faol qo\'ng\'iroq socket\'i uzilmaydi; tugagach uziladi', async () => {
     const jwt = app.get(JwtService);
-    const token = await jwt.signAsync({ sub: user.ali.id }, { expiresIn: '1s' });
+    // `exp` soniya aniqligida: '1s' soniya oxirida imzolansa token handshake'gacha tugab qolishi
+    // mumkin (ulanish rad etiladi). '2s' — ulanish uchun kamida 1 s qoladi.
+    const token = await jwt.signAsync({ sub: user.ali.id }, { expiresIn: '2s' });
     const ali = createSocketClient({ url, getAccessToken: async () => token, refreshAccessToken: api.ali.refreshAccessToken });
     open.push(ali);
     const drops: string[] = [];
@@ -316,14 +318,14 @@ describe('Qo\'ng\'iroqlar (e2e)', () => {
     await invite;
     await vali.acceptCall(callId);
 
-    await new Promise((r) => setTimeout(r, 2200)); // token tugadi
+    await new Promise((r) => setTimeout(r, 3200)); // token tugadi (exp ≤ imzo + 2 s)
     expect(drops).toEqual([]);
     expect(gateway.activeCalls).toBe(1);
 
     await vali.endCall(callId);
     // Qo'ng'iroq tugadi — keyingi tekshiruvda (≤ 5 s) uziladi
     await vi.waitUntil(() => drops.length > 0, { timeout: 7_000, interval: 200 });
-  }, 15_000);
+  }, 20_000);
 
   it('GET /calls/ice-servers: auth kerak, standart — Google STUN', async () => {
     expect((await fetch(`${url}/calls/ice-servers`)).status).toBe(401);

@@ -1,0 +1,19 @@
+# Ochiq IP'li VPS'da TURN (UDP + TCP, ixtiyoriy TLS). Repo ildizidan emas, shu papkadan:
+#   cd infra/turn && cp .env.example .env   # TURN_SECRET ni yozing
+#   docker compose up -d --build
+# Firewall: 3478/udp, 3478/tcp, 5349/tcp (TLS bo'lsa), 49152-65535/udp.
+services:
+  turn:
+    build:
+      context: ../..
+      dockerfile: infra/turn/Dockerfile
+    image: suhbat-turn:local
+    # Relay portlari ko'p (49152-65535) — host tarmog'i NAT/port xaritasisiz eng ishonchli.
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TURN_MODE: vps
+    # TLS: Let's Encrypt sertifikatlari (TURN_TLS_CERT/KEY shu yo'llarga ishora qilsin).
+    # volumes:
+    #   - /etc/letsencrypt:/etc/letsencrypt:ro

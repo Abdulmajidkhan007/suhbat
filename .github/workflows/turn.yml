@@ -1,0 +1,59 @@
+name: TURN
+
+# infra/turn (coturn image) — faqat shu papka o'zgarganda.
+on:
+  pull_request:
+    paths: ["infra/turn/**", ".github/workflows/turn.yml"]
+  push:
+    branches: [main]
+    paths: ["infra/turn/**", ".github/workflows/turn.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: turn-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  turn-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/turn/Dockerfile
+          load: true
+          tags: suhbat-turn:ci
+      # Railway rejimi: faqat TCP; ikki mijoz TURN orqali bir-biriga (relay ↔ relay) yetadi;
+      # boshqa manzillarga (loopback, ichki tarmoq, internet) relay taqiqlangan.
+      - name: railway rejimi (TCP, relay ↔ relay)
+        run: |
+          docker run -d --name turn --network host -e TURN_MODE=railway -e TURN_SECRET=ci-only -e TURN_PORT=3479 suhbat-turn:ci
+          sleep 3
+          docker logs turn 2>&1 | tee /tmp/turn.log
+          relay=$(grep -o 'relay-ip=[0-9.]*' /tmp/turn.log | head -1 | cut -d= -f2)
+          test -n "$relay"
+          docker exec turn turnutils_uclient -t -y -n 20 -m 2 -l 120 -W ci-only -u ci -p 3479 "$relay" 2>&1 | tee /tmp/ok.log
+          grep -Eq 'tot_recv_msgs=[1-9]' /tmp/ok.log
+          for peer in 127.0.0.1 10.0.0.5 1.1.1.1; do
+            docker exec turn turnutils_uclient -t -n 2 -m 1 -e "$peer" -r 5000 -W ci-only -u ci -p 3479 "$relay" 2>&1 | grep -q 'Forbidden IP'
+          done
+          # Noto'g'ri secret — allocation yo'q
+          ! docker exec turn turnutils_uclient -t -y -n 2 -m 1 -W wrong -u ci -p 3479 "$relay" 2>&1 | grep -Eq 'tot_recv_msgs=[1-9]'
+          docker rm -f turn
+      - name: vps rejimi (UDP + TCP)
+        run: |
+          # Runner IP'si xususiy (10.x) — vps rejimida taqiqlangan; sinov uchun ochiq ko'rinishdagi manzil.
+          ip=192.0.2.10
+          sudo ip addr add "$ip/32" dev lo
+          docker run -d --name turn --network host -e TURN_MODE=vps -e TURN_SECRET=ci-only -e TURN_PORT=3480 \
+            -e TURN_RELAY_IP="$ip" suhbat-turn:ci
+          sleep 3
+          for t in "" "-t"; do
+            docker exec turn turnutils_uclient $t -y -n 20 -m 1 -l 120 -W ci-only -u ci -p 3480 "$ip" 2>&1 | tee /tmp/vps.log
+            grep -Eq 'tot_recv_msgs=[1-9]' /tmp/vps.log
+          done
+          docker exec turn turnutils_uclient -n 2 -m 1 -e 127.0.0.1 -r 5000 -W ci-only -u ci -p 3480 "$ip" 2>&1 | grep -q 'Forbidden IP'
+          docker logs turn | tail -20
+          docker rm -f turn
