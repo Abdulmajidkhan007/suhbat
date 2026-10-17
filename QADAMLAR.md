@@ -214,22 +214,34 @@ Menga quyidagini yuboring:
 
 **Parol, `JWT_SECRET`, `S3_SECRET_KEY` va `DATABASE_URL` ni yubormang** — logda ular ko'rinib qolsa, o'chirib yuboring.
 
-## 12. Push bildirishnomalar (Firebase)
+## 12. Bildirishnomalar
 
-Busiz ham ilova ishlaydi — faqat telefonga "yangi xabar" bildirishnomasi kelmaydi.
-Kod tayyor; quyidagilarni **siz** qilasiz (Firebase va Apple akkauntlariga men kira olmayman).
+**Android — Firebase'siz (asosiy):** hech narsa sozlash shart emas. Telefonda ilova →
+**Sozlamalar → "Fonda ulanib turish"** ni yoqing → "Batareya optimizatsiyasidan chiqarilsinmi?" →
+**Ruxsat berish**. Shundan keyin ilova yopiq bo'lsa ham xabar va qo'ng'iroq bildirishnomasi keladi
+(yuqorida doimiy "Suhbat ulangan" yozuvi turadi). Xiaomi/Huawei kabi telefonlarda qo'shimcha:
+ilova sozlamalarida **Avtomatik ishga tushish** ni yoqing.
 
-### 12.1. Firebase loyiha
+**iOS:** Apple fonda o'z ulanishimizni ushlashga ruxsat bermaydi — iPhone'da ilova yopiq bo'lsa
+bildirishnoma **faqat** Apple push (APNs) orqali keladi: pastdagi Firebase + Apple Developer ($99/yil)
+qadamlari. Busiz iPhone'da bildirishnoma faqat ilova ochiq paytda.
+
+**Veb / desktop:** ilova ochiq (boshqa oyna/tab'da) bo'lsa tizim bildirishnomasi chiqadi — birinchi
+bosishda brauzer ruxsat so'raydi. Tab yopiq bo'lsa — yo'q.
+
+### Ixtiyoriy: Firebase (FCM) — iOS uchun yoki Android'da fon ulanishisiz
+
+#### 12.1. Firebase loyiha
 1. https://console.firebase.google.com → **Add project** → nomi `suhbat` (Google Analytics kerak emas).
 
-### 12.2. Android ilova
+#### 12.2. Android ilova
 1. Loyiha ichida **Add app → Android**.
 2. **Package name** = `uz.suhbat.app` (aynan shunday). Qolganlari bo'sh qolsin → **Register app**.
 3. **`google-services.json`** ni yuklab oling. **Repoga qo'shmang.**
 4. GitHub → **Settings → Secrets and variables → Actions → Secrets → New repository secret**:
    nomi `GOOGLE_SERVICES_JSON`, qiymati — faylning **butun matni** (ochib, hammasini nusxalang).
 
-### 12.3. iOS ilova (iPhone uchun; Apple Developer akkaunti kerak — $99/yil)
+#### 12.3. iOS ilova (iPhone uchun; Apple Developer akkaunti kerak — $99/yil)
 1. Firebase → **Add app → iOS**, **Bundle ID** = `uz.suhbat.app` → **Register app**.
 2. **`GoogleService-Info.plist`** ni yuklab oling. **Repoga qo'shmang.**
 3. Terminalda base64 qiling: `base64 -i GoogleService-Info.plist` (macOS) va natijani GitHub secret
@@ -241,7 +253,7 @@ Kod tayyor; quyidagilarni **siz** qilasiz (Firebase va Apple akkauntlariga men k
    Upload**: `.p8` fayl, Key ID, Team ID.
 6. developer.apple.com → **Identifiers** → `uz.suhbat.app` → **Push Notifications** yoqilgan bo'lsin.
 
-### 12.4. Server kaliti (API'ga)
+#### 12.4. Server kaliti (API'ga)
 1. Firebase → **Project settings → Service accounts → Generate new private key** → JSON fayl yuklanadi.
    **Bu maxfiy kalit** — hech kimga yubormang, repoga qo'shmang.
 2. Railway → API xizmati → **Variables → New Variable**:
@@ -249,7 +261,7 @@ Kod tayyor; quyidagilarni **siz** qilasiz (Firebase va Apple akkauntlariga men k
    (yoki base64: `base64 -w0 key.json`; macOS: `base64 -i key.json`).
 3. API qayta deploy bo'ladi. Logda `FCM_SERVICE_ACCOUNT_JSON yo'q` ogohlantirishi **chiqmasa** — ulandi.
 
-### 12.5. Tekshirish
+#### 12.5. Tekshirish
 1. Yangi APK'ni o'rnating (secret'lar qo'yilgandan **keyin** qurilgan build kerak).
 2. Telefonda kiring → "Bildirishnomalarga ruxsat berasizmi?" → **Ruxsat berish**.
 3. Ilovani yoping, boshqa hisobdan (masalan vebdan) xabar yozing — telefonga bildirishnoma kelishi kerak.

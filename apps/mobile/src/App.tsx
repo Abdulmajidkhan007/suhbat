@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { BackgroundBridge } from './background/BackgroundBridge';
 import { CallOverlay } from './calls/CallOverlay';
 import { LoadingState } from './components/EmptyState';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -71,6 +72,7 @@ const Root = () => {
       <NavigationProvider>
         <Screens />
         <PushNotifications />
+        <BackgroundBridge />
         <CallOverlay />
       </NavigationProvider>
     </ChatStoreProvider>

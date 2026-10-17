@@ -1,14 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PUSH_HIDDEN_BODY, PUSH_HIDDEN_TITLE } from '@suhbat/core';
-import type { CallMedia, ChatType, Message, PushCallData, PushMessageData } from '@suhbat/core';
+import { PUSH_HIDDEN_BODY, PUSH_HIDDEN_TITLE, buildNotification, callNotificationBody } from '@suhbat/core';
+import type { CallMedia, Message, PushCallData, PushMessageData } from '@suhbat/core';
 import { PrismaService } from '../prisma/prisma.service';
 import { FcmClient } from './fcm.client';
 import type { FcmMessage } from './fcm.client';
 
 /** Bitta SQL so'rovdagi `IN (...)` hajmi (katta kanal bo'laklab o'qiladi). */
 const QUERY_CHUNK = 1000;
-const BODY_MAX = 200;
 
 const chunks = <T>(items: T[], size: number): T[][] => {
   const out: T[][] = [];
@@ -16,19 +15,8 @@ const chunks = <T>(items: T[], size: number): T[][] => {
   return out;
 };
 
-const truncate = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
-
-/** Xabarning qisqa matni: matn bo'lmasa biriktirma turi. */
-export const previewText = (message: Pick<Message, 'type' | 'content'>): string => {
-  const text = message.content.trim().replace(/\s+/g, ' ');
-  const label = { image: '📷 Rasm', file: '📎 Fayl', voice: '🎤 Ovozli xabar' }[message.type as string];
-  if (label) return text ? `${label}: ${truncate(text, BODY_MAX)}` : label;
-  return truncate(text, BODY_MAX);
-};
-
-/** Kiruvchi qo'ng'iroq bildirishnomasi matni. */
-export const callNotificationBody = (media: CallMedia) =>
-  media === 'video' ? '🎥 Kiruvchi video qo\'ng\'iroq' : '📞 Kiruvchi qo\'ng\'iroq';
+export { buildNotification, callNotificationBody, previewText } from '@suhbat/core';
+export type { NotificationContext as PushContext } from '@suhbat/core';
 
 export interface IncomingCallPush {
   callId:     string;
@@ -39,20 +27,6 @@ export interface IncomingCallPush {
   /** Shundan keyin yetkazish ma'nosiz (jiringlash tugagan). */
   ttlSeconds: number;
 }
-
-export interface PushContext {
-  chatType:   ChatType;
-  chatTitle:  string | null;
-  senderName: string;
-}
-
-/** Preview yoqilgan foydalanuvchi uchun sarlavha/matn (Telegram'dagidek). */
-export const buildNotification = (ctx: PushContext, message: Pick<Message, 'type' | 'content'>) => {
-  const text = previewText(message);
-  if (ctx.chatType === 'direct') return { title: ctx.senderName, body: text };
-  if (ctx.chatType === 'channel') return { title: ctx.chatTitle ?? PUSH_HIDDEN_TITLE, body: text };
-  return { title: ctx.chatTitle ?? PUSH_HIDDEN_TITLE, body: `${ctx.senderName}: ${text}` };
-};
 
 /** Cheklangan parallellik bilan bajaradi (FCM'ga bir vaqtda `limit` tadan ko'p so'rov ketmaydi). */
 export const runLimited = async <T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> => {
