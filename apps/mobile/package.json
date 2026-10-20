@@ -2,6 +2,7 @@
   "name": "@suhbat/mobile",
   "version": "0.2.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "description": "suhbat — mobil ilova (bare React Native CLI: Android, iOS)",
   "scripts": {
     "android": "react-native run-android",

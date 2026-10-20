@@ -1,6 +1,7 @@
 {
   "name": "suhbat",
   "private": true,
+  "license": "AGPL-3.0-only",
   "packageManager": "npm@10.9.4",
   "engines": {
     "node": ">=22"

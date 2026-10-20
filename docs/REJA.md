@@ -396,7 +396,7 @@ Egasi talabi: Firebase/FCM'ga bog'liq bo'lmaslik. FCM kodi ixtiyoriy qoladi (`GO
 
 ### README — loyiha vitrinasi (2026-10-16)
 - Repo public bo'ldi; `README.md` endi loyiha haqida: nima, imkoniyatlar, platformalar va yuklab olish (veb, Releases),
-  holat (beta), texnologiyalar, hujjatlar jadvali, hissa qo'shish, litsenziya (hali tanlanmagan — `LICENSE` fayli yo'q).
+  holat (beta), texnologiyalar, hujjatlar jadvali, hissa qo'shish, litsenziya (2026-10-20 dan — AGPL-3.0-only, `LICENSE`).
 - Texnik qism ko'chdi: `docs/DEVELOPMENT.md` (tuzilish, ishga tushirish, tekshiruvlar, env, desktop/mobil build),
   `docs/API.md` (REST, WebSocket, qo'ng'iroq signallari). Ichki havolalar yangilandi (`apps/mobile/README.md`, REJA); nisbiy
   havolalar skript bilan tekshirildi. Skrinshot bo'limi yo'q (hozircha tayyor skrinshot yo'q).

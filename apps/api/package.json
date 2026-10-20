@@ -2,6 +2,7 @@
   "name": "@suhbat/api",
   "version": "0.0.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "scripts": {
     "postinstall": "prisma generate",
     "build": "nest build",
