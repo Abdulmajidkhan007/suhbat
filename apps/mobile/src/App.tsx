@@ -18,6 +18,8 @@ import { ChatScreen } from './screens/ChatScreen';
 import { NewChatScreen } from './screens/NewChatScreen';
 import { NewGroupScreen } from './screens/NewGroupScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
+import { RecoveryCodesScreen } from './screens/RecoveryCodesScreen';
+import { SecurityScreen } from './screens/SecurityScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import type { Services } from './services/createServices';
 import { ChatStoreProvider, useChatStore } from './state/ChatStoreProvider';
@@ -52,6 +54,7 @@ const Screens = () => {
       case 'newGroup':   return <NewGroupScreen kind={route.kind} />;
       case 'profile':    return <ProfileScreen />;
       case 'appearance': return <AppearanceScreen />;
+      case 'security':   return <SecurityScreen />;
     }
   })();
   // Har yangi ekran o'tish animatsiyasi bilan; tablarga qaytish — animatsiyasiz.
@@ -63,9 +66,10 @@ const Screens = () => {
 };
 
 const Root = () => {
-  const { session } = useSession();
+  const { session, recoveryCodes } = useSession();
   if (session.status === 'loading') return <LoadingState />;
   if (session.status === 'signedOut') return <AuthScreen expired={session.expired} />;
+  if (recoveryCodes) return <RecoveryCodesScreen codes={recoveryCodes} />;
   return (
     // Foydalanuvchi almashsa holat noldan boshlanadi.
     <ChatStoreProvider key={session.user.id}>

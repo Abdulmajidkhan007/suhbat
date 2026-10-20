@@ -16,7 +16,8 @@ export type Route =
   | { name: 'newChat' }
   | { name: 'newGroup'; kind: 'group' | 'channel' }
   | { name: 'profile' }
-  | { name: 'appearance' };
+  | { name: 'appearance' }
+  | { name: 'security' };
 
 interface NavigationValue {
   route:   Route;

@@ -2,20 +2,35 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Typography } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
-import { signIn, signUp, clearError } from '../features/auth/authSlice';
+import { signIn, signUp, clearError, recoveryCodesAcknowledged } from '../features/auth/authSlice';
 import AuthLayout from '../layouts/AuthLayout';
 import AuthForm from '../components/auth/AuthForm';
+import RecoveryCodesView from '../components/auth/RecoveryCodesView';
 import type { AuthFormData } from '../components/auth/AuthForm';
 
 const LoginPage: React.FC = () => {
   const dispatch  = useAppDispatch();
   const navigate  = useNavigate();
   const location  = useLocation();
-  const { user, loading, error } = useAppSelector((s) => s.auth);
+  const { user, loading, error, recoveryCodes } = useAppSelector((s) => s.auth);
   const [formMode, setFormMode]  = useState<'login' | 'signup'>('login');
 
   const from = (location.state as { from?: Location })?.from?.pathname ?? '/';
 
+  // Ro'yxatdan o'tgach — avval tiklash kodlari (bir marta), keyin ilova.
+  if (user && recoveryCodes) {
+    return (
+      <AuthLayout title="Tiklash kodlari" subtitle="Parolni unutsangiz — email'siz tiklash uchun">
+        <RecoveryCodesView
+          codes={recoveryCodes}
+          onDone={() => {
+            dispatch(recoveryCodesAcknowledged());
+            navigate(from, { replace: true });
+          }}
+        />
+      </AuthLayout>
+    );
+  }
   if (user) return <Navigate to={from} replace />;
 
   const handleSubmit = async (data: AuthFormData) => {
@@ -25,7 +40,8 @@ const LoginPage: React.FC = () => {
         email: data.login, password: data.password, displayName: data.displayName ?? '',
         ...(data.username ? { username: data.username } : {}),
       }));
-    if (result.meta.requestStatus === 'fulfilled') {
+    // Ro'yxatdan o'tishda kodlar ekrani chiqadi (yuqorida), u yerdan davom etiladi.
+    if (result.meta.requestStatus === 'fulfilled' && formMode === 'login') {
       navigate(from, { replace: true });
     }
   };

@@ -54,9 +54,9 @@ describe('Chat (e2e)', () => {
     const ali = mkApi();
     const vali = mkApi();
     const gani = mkApi();
-    const aliUser = await ali.register({ email: emails.ali, password: '12345678', displayName: `Botir ${stamp}` });
-    const valiUser = await vali.register({ email: emails.vali, password: '12345678', displayName: `Vali ${stamp}` });
-    const ganiUser = await gani.register({ email: emails.gani, password: '12345678', displayName: 'Gani E2E' });
+    const aliUser = (await ali.register({ email: emails.ali, password: '12345678', displayName: `Botir ${stamp}` })).user;
+    const valiUser = (await vali.register({ email: emails.vali, password: '12345678', displayName: `Vali ${stamp}` })).user;
+    const ganiUser = (await gani.register({ email: emails.gani, password: '12345678', displayName: 'Gani E2E' })).user;
 
     // Qidiruv: katta-kichik harf farqsiz, o'zini qaytarmaydi
     const found = await ali.searchUsers(`VALI ${stamp}`);

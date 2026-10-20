@@ -147,6 +147,60 @@ export const ResetPasswordInputSchema = z.object({
 });
 export type ResetPasswordInput = z.infer<typeof ResetPasswordInputSchema>;
 
+// --- Tiklash kodlari (emailsiz parol tiklash) ---
+export const RECOVERY_CODE_COUNT = 10;
+/** Crockford base32 (0/O, 1/I/L chalkashmaydi): 12 belgi = 60 bit. Ko'rinishi `XXXX-XXXX-XXXX`. */
+export const RECOVERY_CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+export const RECOVERY_CODE_LENGTH = 12;
+
+/**
+ * Foydalanuvchi kiritgan kodni normallashtiradi: katta harf, ajratgichlar olib tashlanadi,
+ * O→0, I/L→1. Noto'g'ri belgi yoki uzunlik bo'lsa `null`.
+ */
+export const normalizeRecoveryCode = (raw: string): string | null => {
+  const v = raw.toUpperCase().replace(/[\s-]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
+  if (v.length !== RECOVERY_CODE_LENGTH) return null;
+  for (const ch of v) if (!RECOVERY_CODE_ALPHABET.includes(ch)) return null;
+  return v;
+};
+
+/** `XXXXXXXXXXXX` → `XXXX-XXXX-XXXX`. */
+export const formatRecoveryCode = (code: string): string => code.match(/.{1,4}/g)?.join('-') ?? code;
+
+/** `POST /auth/recover`: login + bir martalik kod + yangi parol. Javob hisob borligini oshkor qilmaydi. */
+export const RecoverInputSchema = z.object({
+  login:       LoginIdentifierSchema,
+  code:        z.string().trim().min(1).max(32),
+  newPassword: PasswordSchema,
+});
+export type RecoverInput = z.infer<typeof RecoverInputSchema>;
+
+/** `GET /auth/recovery-codes`: nechta ishlatilmagan kod qoldi (kodlarning o'zi qaytarilmaydi). */
+export const RecoveryCodesStatusSchema = z.object({
+  remaining:   z.number().int().min(0),
+  /** Oxirgi marta yaratilgan vaqt; hech yaratilmagan bo'lsa `null`. */
+  generatedAt: isoDate.nullable(),
+});
+export type RecoveryCodesStatus = z.infer<typeof RecoveryCodesStatusSchema>;
+
+/** `POST /auth/recovery-codes`: joriy parol bilan — eskilari bekor, yangi kodlar bir marta qaytadi. */
+export const RegenerateRecoveryCodesInputSchema = z.object({
+  password: z.string().min(1).max(PASSWORD_MAX),
+});
+export type RegenerateRecoveryCodesInput = z.infer<typeof RegenerateRecoveryCodesInputSchema>;
+
+export const RecoveryCodesResponseSchema = z.object({
+  codes: z.array(z.string()).length(RECOVERY_CODE_COUNT),
+});
+export type RecoveryCodesResponse = z.infer<typeof RecoveryCodesResponseSchema>;
+
+/** `POST /auth/change-password`: boshqa qurilmalardagi sessiyalar yopiladi, shu qurilmaga yangi tokenlar. */
+export const ChangePasswordInputSchema = z.object({
+  currentPassword: z.string().min(1).max(PASSWORD_MAX),
+  newPassword:     PasswordSchema,
+});
+export type ChangePasswordInput = z.infer<typeof ChangePasswordInputSchema>;
+
 /** `GET /users/username-available?u=` */
 export const UsernameAvailabilityQuerySchema = z.object({ u: z.string().max(64) });
 export type UsernameAvailabilityQuery = z.infer<typeof UsernameAvailabilityQuerySchema>;
@@ -165,6 +219,8 @@ export const AuthResponseSchema = z.object({
   /** Opaque, bir martalik: `/auth/refresh` da yangisiga almashtiriladi (rotatsiya). */
   refreshToken: z.string(),
   user:         UserSchema,
+  /** Faqat `/auth/register` javobida: parolni tiklash kodlari (bir marta ko'rsatiladi). */
+  recoveryCodes: z.array(z.string()).optional(),
 });
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 

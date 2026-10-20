@@ -49,7 +49,7 @@ describe('Guruh, kanal, media (e2e)', () => {
 
     for (const n of names) {
       api[n] = mkApi();
-      user[n] = await api[n].register({ email: emailOf(n), password: '12345678', displayName: `${n} ${stamp}` });
+      user[n] = (await api[n].register({ email: emailOf(n), password: '12345678', displayName: `${n} ${stamp}` })).user;
       ws[n] = mkSocket(api[n]);
       ws[n].connect();
       await waitConnected(ws[n]);

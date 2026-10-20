@@ -40,7 +40,7 @@ describe('Media: local drayver (e2e)', () => {
     prisma = app.get(PrismaService);
     for (const n of ['ali', 'vali', 'begona'] as const) {
       api[n] = createApiClient({ baseUrl: url, storage: memoryTokenStorage() });
-      user[n] = await api[n].register({ email: emailOf(n), password: '12345678', displayName: `${n} ${stamp}` });
+      user[n] = (await api[n].register({ email: emailOf(n), password: '12345678', displayName: `${n} ${stamp}` })).user;
     }
   });
 

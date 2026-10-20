@@ -8,6 +8,7 @@ import { UsernameInput } from '../components/UsernameInput';
 import { usernameAcceptable, useUsernameCheck } from '../hooks/useUsernameCheck';
 import { useSession } from '../state/SessionProvider';
 import { ForgotPasswordScreen } from './ForgotPasswordScreen';
+import { RecoverWithCodeScreen } from './RecoverWithCodeScreen';
 import { Icon } from '../components/icon/Icon';
 import { radii, shadows, space } from '../theme/metrics';
 import { textStyles } from '../theme/typography';
@@ -19,12 +20,23 @@ type Mode = 'login' | 'register';
 const errorText = (e: unknown): string =>
   e instanceof ApiError ? e.message : 'Kutilmagan xato. Qayta urinib ko\'ring.';
 
-/** Kirish/ro'yxatdan o'tish va "Parolni unutdim" (tizimga kirmagan holat). */
+type Flow = { step: 'form' } | { step: 'forgot' | 'recover'; value: string };
+
+/** Kirish/ro'yxatdan o'tish, "Parolni unutdim" (email) va tiklash kodi bilan (tizimga kirmagan holat). */
 export const AuthScreen = ({ expired = false }: { expired?: boolean }) => {
-  const [forgot, setForgot] = useState<{ value: string } | null>(null);
-  const closeForgot = useCallback(() => setForgot(null), []);
-  if (forgot) return <ForgotPasswordScreen onBack={closeForgot} initialValue={forgot.value} />;
-  return <AuthForm expired={expired} onForgot={(value) => setForgot({ value })} />;
+  const [flow, setFlow] = useState<Flow>({ step: 'form' });
+  const toForm = useCallback(() => setFlow({ step: 'form' }), []);
+  if (flow.step === 'recover') return <RecoverWithCodeScreen onBack={toForm} initialLogin={flow.value} />;
+  if (flow.step === 'forgot') {
+    return (
+      <ForgotPasswordScreen
+        onBack={toForm}
+        onRecoverWithCode={(value) => setFlow({ step: 'recover', value })}
+        initialValue={flow.value}
+      />
+    );
+  }
+  return <AuthForm expired={expired} onForgot={(value) => setFlow({ step: 'forgot', value })} />;
 };
 
 const AuthForm = ({ expired, onForgot }: { expired: boolean; onForgot: (value: string) => void }) => {

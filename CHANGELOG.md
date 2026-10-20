@@ -2,6 +2,17 @@
 
 Release matni shu fayldan olinadi (`release.yml`: `## vX.Y.Z` bo'limi).
 
+## v0.5.0 (chiqarilmagan)
+
+- **Parolni email'siz tiklash — tiklash kodlari** (veb, desktop, mobil): ro'yxatdan o'tgach 10 ta bir martalik kod
+  bir marta ko'rsatiladi (nusxa olish, `.txt` yuklab olish / ulashish, "saqladim" tasdig'i). Parolni unutsangiz:
+  **Kirish → Parolni unutdim? → Tiklash kodi bilan** — login, kod va yangi parol. Email sozlanmagan bo'lsa ham ishlaydi.
+  Har bir kod bir marta ishlaydi; tiklangach barcha qurilmalardan chiqiladi.
+- **Sozlamalar → Xavfsizlik:** qolgan kodlar soni, joriy parol bilan yangi kodlar yaratish (eskilari bekor bo'ladi),
+  **parolni o'zgartirish** (boshqa qurilmalardan chiqiladi). Avval ro'yxatdan o'tgan foydalanuvchilarga kod yaratish taklifi.
+- Email orqali tiklash ixtiyoriy bo'lib qoladi (sozlangan bo'lsa ishlaydi).
+- Haqiqiy telefonda va desktop ilovada (nusxa olish, `.txt` saqlash, ulashish) hali sinalmagan.
+
 ## v0.4.0 (chiqarilmagan)
 
 Tashqi xizmatlarga (Cloudflare R2, metered.ca, Firebase, Resend) bog'liqlik kamaytirildi — asosiy yo'l o'zimizda (Railway).

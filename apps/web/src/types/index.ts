@@ -95,6 +95,8 @@ export interface AuthState {
   loading:     boolean;
   error:       string | null;
   initialized: boolean;
+  /** Ro'yxatdan o'tgach bir marta ko'rsatiladigan tiklash kodlari (foydalanuvchi tasdiqlaguncha). */
+  recoveryCodes?: string[] | null;
 }
 
 export interface ChatsState {

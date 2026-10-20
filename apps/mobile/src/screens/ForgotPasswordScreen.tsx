@@ -11,7 +11,7 @@ import type { Palette } from '../theme/ThemeProvider';
 
 const failureText = (e: unknown): string => {
   if (e instanceof ApiError) {
-    if (e.status === 503) return 'Email yuborish hozircha sozlanmagan. Keyinroq urinib ko\'ring.';
+    if (e.status === 503) return 'Email yuborish hozircha sozlanmagan. "Tiklash kodi bilan" yo\'lidan foydalaning.';
     if (e.status === 429) return 'Juda ko\'p urinish. Birozdan keyin qayta urinib ko\'ring.';
     if (e.status === 0) return e.message;
   }
@@ -22,7 +22,12 @@ const failureText = (e: unknown): string => {
  * "Parolni unutdim": email yoki username → xatda havola. Havola **vebda** ochiladi
  * (yangi parol o'sha yerda o'rnatiladi), keyin ilovada yangi parol bilan kiriladi.
  */
-export const ForgotPasswordScreen = ({ onBack, initialValue = '' }: { onBack: () => void; initialValue?: string }) => {
+export const ForgotPasswordScreen = ({ onBack, onRecoverWithCode, initialValue = '' }: {
+  onBack: () => void;
+  /** Emailsiz yo'l: bir martalik tiklash kodi bilan (email sozlanmagan bo'lsa ham ishlaydi). */
+  onRecoverWithCode: (value: string) => void;
+  initialValue?: string;
+}) => {
   const styles = useStyles(createStyles);
   const { palette } = useTheme();
   const { services: { api } } = useSession();
@@ -75,6 +80,9 @@ export const ForgotPasswordScreen = ({ onBack, initialValue = '' }: { onBack: ()
               <Pressable style={[styles.button, busy && styles.buttonBusy]} onPress={submit} disabled={busy} accessibilityRole="button">
                 {busy ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Havola yuborish</Text>}
               </Pressable>
+              <Pressable style={styles.outline} onPress={() => onRecoverWithCode(value.trim())} disabled={busy} accessibilityRole="button">
+                <Text style={styles.outlineText}>Tiklash kodi bilan</Text>
+              </Pressable>
             </>
           )}
           <Pressable onPress={onBack} disabled={busy} accessibilityRole="button">
@@ -98,5 +106,7 @@ const createStyles = (p: Palette) => StyleSheet.create({
   button:     { minHeight: 48, backgroundColor: p.primary, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' },
   buttonBusy: { opacity: 0.7 },
   buttonText: { ...textStyles.button, color: p.onPrimary },
+  outline:    { minHeight: 48, borderRadius: radii.md, borderWidth: 1, borderColor: p.primary, alignItems: 'center', justifyContent: 'center' },
+  outlineText: { ...textStyles.button, color: p.primary },
   link:       { ...textStyles.bodySmall, color: p.primary, textAlign: 'center', paddingVertical: space.xs },
 });

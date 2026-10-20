@@ -17,6 +17,9 @@ interface SessionContextValue {
   logout:   () => Promise<void>;
   /** Profil tahrirlangach joriy foydalanuvchini yangilaydi. */
   updateUser: (user: User) => void;
+  /** Ro'yxatdan o'tgach bir marta ko'rsatiladigan tiklash kodlari (tasdiqlanguncha). */
+  recoveryCodes: string[] | null;
+  acknowledgeRecoveryCodes: () => void;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -29,6 +32,7 @@ interface Props {
 
 export const SessionProvider = ({ children, services: injected }: Props) => {
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const expiredRef = useRef<() => void>(() => undefined);
   const [services] = useState<Services>(() => injected ?? getAppServices());
   const { api, socket, push, calls, connection, background } = services;
@@ -70,8 +74,12 @@ export const SessionProvider = ({ children, services: injected }: Props) => {
   }, [api]);
 
   const register = useCallback(async (input: RegisterInput) => {
-    setSession({ status: 'signedIn', user: await api.register(input) });
+    const res = await api.register(input);
+    setRecoveryCodes(res.recoveryCodes.length > 0 ? res.recoveryCodes : null);
+    setSession({ status: 'signedIn', user: res.user });
   }, [api]);
+
+  const acknowledgeRecoveryCodes = useCallback(() => setRecoveryCodes(null), []);
 
   const updateUser = useCallback((user: User) => {
     setSession((s) => (s.status === 'signedIn' ? { status: 'signedIn', user } : s));
@@ -85,12 +93,13 @@ export const SessionProvider = ({ children, services: injected }: Props) => {
     const deviceToken = push.available ? await push.getToken().catch(() => null) : null;
     await api.logout(deviceToken ? { deviceToken } : {});
     if (deviceToken) await push.deleteToken().catch(() => undefined);
+    setRecoveryCodes(null);
     setSession({ status: 'signedOut', expired: false });
   }, [api, socket, push, calls, background]);
 
   const value = useMemo(
-    () => ({ session, services, login, register, logout, updateUser }),
-    [session, services, login, register, logout, updateUser],
+    () => ({ session, services, login, register, logout, updateUser, recoveryCodes, acknowledgeRecoveryCodes }),
+    [session, services, login, register, logout, updateUser, recoveryCodes, acknowledgeRecoveryCodes],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };
