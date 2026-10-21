@@ -13,6 +13,9 @@ vi.mock('react-hot-toast', () => ({ default: { success: vi.fn(), error: vi.fn() 
 
 const { default: SettingsPanel } = await import('./SettingsPanel');
 
+// To'liq panel (MUI + dialoglar + framer-motion): sekin CI runner'da render 5 s dan oshadi (AuthPages.test kabi).
+vi.setConfig({ testTimeout: 20_000 });
+
 describe('SettingsPanel', () => {
   beforeEach(() => vi.clearAllMocks());
 
