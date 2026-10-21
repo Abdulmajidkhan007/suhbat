@@ -1,5 +1,6 @@
 # suhbat — reja
 
+> Hujjat tekshiruvi: 2026-10-21 (4a/4b PR holati tuzatildi).
 > Oxirgi yangilanish: 2026-10-20 (emailsiz parol tiklash — pastdagi "Emailsiz parol tiklash — tiklash kodlari")
 
 ## Hozirgi holat (koddan)
@@ -792,9 +793,9 @@ packages/
   APK va iOS simulyator build, crash ekrani; `packages/ui-tokens`. Qurilmada sinalmagan — yuqorida.
 
 **4. Bildirishnomalar va qo'ng'iroqlar**
-- **4a (push) — PR ko'rib chiqishda (2026-10-13):** API + mobil (FCM HTTP v1, iOS ham FCM orqali),
+- **4a (push) — ✅ main'ga qo'shildi (PR #9, 2026-10-13):** API + mobil (FCM HTTP v1, iOS ham FCM orqali),
   preview sozlamasi, bloklash. Qurilmada sinalmagan; Web Push — keyin. Yuqorida "4-faza".
-- **4b (1:1 qo'ng'iroqlar) — PR #11 ko'rib chiqishda (2026-10-14):** signal (Socket.IO), ICE/TURN env,
+- **4b (1:1 qo'ng'iroqlar) — ✅ main'ga qo'shildi (PR #11, 2026-10-14):** signal (Socket.IO), ICE/TURN env,
   `CallSession`, veb/desktop va mobil UI. Qurilmada va NAT/TURN orqali sinalmagan. Yuqorida "4b-faza".
 
 ## Keyingi sessiya uchun
