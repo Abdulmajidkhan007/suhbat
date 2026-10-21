@@ -1,6 +1,6 @@
 # suhbat — reja
 
-> Oxirgi yangilanish: 2026-10-17 (tashqi xizmatlarsiz — pastdagi "O'zimizda: ..." bo'limlari; QADAMLAR qisqartirildi)
+> Oxirgi yangilanish: 2026-10-20 (emailsiz parol tiklash — pastdagi "Emailsiz parol tiklash — tiklash kodlari")
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -359,6 +359,32 @@ API kodi o'zgarmadi.
   tashqi pochta provayderi (Gmail SMTP, Resend, ...) yoki o'z pochta serveri + domen DNS (SPF/DKIM) kerak.
 - **Tekshirildi:** unit (timeout'lar URL'ga qo'shiladi, berilgani saqlanadi; yopiq portda tez va tushunarli xato).
   **Tekshirilmadi:** haqiqiy Gmail App Password bilan yuborish, Railway'da.
+
+### Emailsiz parol tiklash — tiklash kodlari (2026-10-20)
+- **API:** `RecoveryCode` (userId, codeHash, usedAt; unique `(userId, codeHash)`), migratsiya `*_recovery_codes`.
+  `RecoveryCodesService`: 10 ta kod, Crockford base32 12 belgi (60 bit, `randomBytes`, `& 31` — bir tekis), `XXXX-XXXX-XXXX`;
+  kiritishda normallashtirish (katta harf, ajratgichsiz, O→0, I/L→1 — `@suhbat/core` `normalizeRecoveryCode`).
+  **Saqlash — HMAC-SHA256 + pepper** (`RECOVERY_CODE_PEPPER` yoki `JWT_SECRET` dan hosil): kodlar yuqori entropiyali, sekin
+  hash kerak emas; argon2 bilan har urinishda 10 tagacha sekin tekshiruv (CPU DoS) bo'lardi; pepper bazada yo'q — baza sizsa
+  ham offlayn terib bo'lmaydi. Kamchilik: `JWT_SECRET` almashtirilsa (pepper berilmagan bo'lsa) kodlar yaroqsiz bo'ladi.
+  Endpointlar: `POST /auth/recover`, `GET|POST /auth/recovery-codes`, `POST /auth/change-password`; `/auth/register`
+  javobida `recoveryCodes` (bir marta). Recover: kod shartli `updateMany` bilan olinadi (poyga — faqat bittasi), parol
+  yangilanadi, barcha refresh token va email tiklash havolalari bekor; xato — doim bir xil 400; cheklov IP (10/15 daq) va
+  login (5/soat; mavjud bo'lmagan login ham sanaladi) bo'yicha, xotirada + `@AuthThrottle`. Parolni o'zgartirish — joriy
+  parol bilan, boshqa sessiyalar bekor, shu qurilmaga yangi tokenlar.
+- **Klientlar:** `@suhbat/client` — `register` endi `{ user, recoveryCodes }`, `recoverWithCode`, `getRecoveryCodesStatus`,
+  `regenerateRecoveryCodes`, `changePassword` (yangi tokenlarni saqlaydi). Veb/desktop: ro'yxatdan o'tgach kodlar ekrani
+  (`RecoveryCodesView`: nusxa, `.txt`, "saqladim"), `/recover` sahifasi, "Parolni unutdim" da "Tiklash kodi bilan" (503 da ham),
+  Sozlamalar → Xavfsizlik (`SecuritySection`: holat, qayta yaratish dialogi, parolni o'zgartirish). Mobil: `RecoveryCodesScreen`
+  (nusxa, `Share` bilan ulashish), `RecoverWithCodeScreen`, `SecurityScreen` (Sozlamalar → Xavfsizlik, kodsiz hisobga taklif).
+- **Tekshirildi:** API e2e `recovery.e2e-spec.ts` (haqiqiy Postgres: 10 kod, bazada ochiq kod yo'q; to'g'ri kod → parol,
+  refresh bekor; qayta ishlatish — 400; noto'g'ri kod / yo'q email / yo'q username / noto'g'ri format — bir xil 400 va matn;
+  parallel ikki so'rov — faqat bittasi 204; qayta yaratish joriy parol bilan, eski kod bekor; parolni o'zgartirish — boshqa
+  sessiya 401, yangi token ishlaydi; login limiti — to'g'ri kod ham 429, mavjud bo'lmagan login ham 429, kod sarflanmaydi).
+  Unit: kod generatori (taqsimot, takrorlanmaslik), normallashtirish. Veb vitest va mobil jest: kodlar ekrani, tiklash oqimi,
+  Sozlamalar → Xavfsizlik. Mavjud e2e'lar `register` javobi o'zgargani bilan yangilandi.
+- **Tekshirilmadi:** haqiqiy telefonda (Share, nusxa), desktop'da `.txt` yuklab olish; cheklovlar bir nechta API nusxasida
+  (xotirada — Redis kerak bo'ladi).
 
 ### O'zimizda: QADAMLAR qisqartirildi (2026-10-17)
 - `QADAMLAR.md` 366 → ~80 qator: "Majburiy" (Railway, Postgres, API + Variables jadvali, Volume, veb + CORS, GitHub

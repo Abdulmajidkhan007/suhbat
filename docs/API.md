@@ -11,10 +11,14 @@ standart 15m); refresh token — body'da, bir martalik (rotatsiya).
 | Metod | Yo'l                   | Izoh                                                    |
 |-------|------------------------|---------------------------------------------------------|
 | GET   | `/health`              | API va DB holati                                        |
-| POST  | `/auth/register`       | `{ email, password, displayName, username? }` → `{ accessToken, refreshToken, user }`; 409 — email yoki username band |
+| POST  | `/auth/register`       | `{ email, password, displayName, username? }` → `{ accessToken, refreshToken, user, recoveryCodes }` (10 ta tiklash kodi — faqat shu javobda); 409 — email yoki username band |
 | POST  | `/auth/login`          | `{ login, password }` (`login` — email yoki username, `@` bilan ham; eski `{ email }` ham qabul qilinadi) → `{ accessToken, refreshToken, user }` |
 | POST  | `/auth/forgot-password` | `{ emailOrUsername }` → 200 doim bir xil `{ message }` (hisob borligi oshkor qilinmaydi); 503 — email sozlanmagan; 429 — IP limiti |
 | POST  | `/auth/reset-password` | `{ token, newPassword }` → 204; token bir martalik, 30 daqiqa; **barcha sessiyalar** (refresh token oilalari) bekor; 400 — yaroqsiz/muddati o'tgan |
+| POST  | `/auth/recover` | Emailsiz tiklash: `{ login, code, newPassword }` → 204; kod bir martalik (shartli `updateMany`); **barcha sessiyalar** bekor. Har qanday xato — bir xil 400 `Login yoki tiklash kodi noto'g'ri` (hisob borligi oshkor qilinmaydi); 429 — IP (`RECOVER_IP_LIMIT`, 10/15 daq) yoki login (`RECOVER_ACCOUNT_LIMIT`, 5/soat, mavjud bo'lmagan login ham sanaladi) limiti |
+| GET   | `/auth/recovery-codes` | JWT. `{ remaining, generatedAt }` — kodlarning o'zi qaytmaydi |
+| POST  | `/auth/recovery-codes` | JWT. `{ password }` (joriy) → `{ codes: string[10] }`; eskilari o'chadi; 400 — parol noto'g'ri |
+| POST  | `/auth/change-password` | JWT. `{ currentPassword, newPassword }` → `AuthResponse` (shu qurilmaga yangi tokenlar); boshqa barcha refresh tokenlar va email tiklash havolalari bekor; 400 — joriy parol noto'g'ri |
 | POST  | `/auth/refresh`        | `{ refreshToken }` → yangi `{ accessToken, refreshToken }` |
 | POST  | `/auth/logout`         | `{ refreshToken, deviceToken? }` → 204 (shu sessiya yopiladi; push tokeni ham o'chadi) |
 | GET   | `/auth/me`             | joriy foydalanuvchi                                     |

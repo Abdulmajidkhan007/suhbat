@@ -6,12 +6,15 @@ import { renderWithStore } from '../test/render';
 
 const mocks = vi.hoisted(() => ({
   login: vi.fn(), register: vi.fn(), forgotPassword: vi.fn(), resetPassword: vi.fn(), checkUsername: vi.fn(), logout: vi.fn(),
+  recoverWithCode: vi.fn(),
 }));
 vi.mock('../services/api', () => ({ api: mocks }));
 
 const { default: LoginPage } = await import('./LoginPage');
 const { default: ForgotPasswordPage } = await import('./ForgotPasswordPage');
 const { default: ResetPasswordPage } = await import('./ResetPasswordPage');
+const { default: RecoverWithCodePage } = await import('./RecoverWithCodePage');
+vi.mock('react-hot-toast', () => ({ default: { success: vi.fn(), error: vi.fn() } }));
 
 // To'liq sahifalar (MUI + framer-motion + router): sekin CI runner'da birinchi render 5 s dan oshadi.
 vi.setConfig({ testTimeout: 20_000 });
@@ -25,6 +28,7 @@ const renderAt = (path: string, signedIn = false) =>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/recover" element={<RecoverWithCodePage />} />
         <Route path="/" element={<div>Bosh sahifa</div>} />
       </Routes>
       <LocationProbe />
@@ -66,7 +70,7 @@ describe('Kirish sahifasi', () => {
   it('ro\'yxatdan o\'tish: username jonli tekshiruv (format darhol, bandlik serverdan)', async () => {
     mocks.checkUsername.mockImplementation(async (u: string) =>
       ({ username: u, available: u !== 'band_user', reason: u === 'band_user' ? 'Bu username band' : null }));
-    mocks.register.mockResolvedValue(apiUser);
+    mocks.register.mockResolvedValue({ user: apiUser, recoveryCodes: [] });
     renderAt('/login');
     fireEvent.click(screen.getByRole('button', { name: 'Ro\'yxatdan o\'tish' }));
     const field = screen.getByLabelText('Username');
@@ -88,6 +92,75 @@ describe('Kirish sahifasi', () => {
     fireEvent.change(screen.getByLabelText(/^Parol/, { selector: 'input' }), { target: { value: 'parol1234' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Ro\'yxatdan o\'tish' })[0]);
     await waitFor(() => expect(mocks.register).toHaveBeenCalledWith({ email: 'a@b.uz', password: 'parol1234', displayName: 'Ali', username: 'yangi_ali' }));
+  });
+});
+
+describe('Tiklash kodlari: ro\'yxatdan o\'tgach', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('kodlar ko\'rsatiladi; "saqladim" belgilanmaguncha davom etib bo\'lmaydi', async () => {
+    const codes = Array.from({ length: 10 }, (_, i) => `AAAA-BBBB-CC${String(i).padStart(2, '0')}`);
+    mocks.register.mockResolvedValue({ user: apiUser, recoveryCodes: codes });
+    mocks.checkUsername.mockResolvedValue({ username: '', available: true, reason: null });
+    const { store } = renderAt('/login');
+    fireEvent.click(screen.getByRole('button', { name: 'Ro\'yxatdan o\'tish' }));
+    fireEvent.change(screen.getByLabelText(/^Ism/), { target: { value: 'Ali' } });
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'a@b.uz' } });
+    fireEvent.change(screen.getByLabelText(/^Parol/, { selector: 'input' }), { target: { value: 'parol1234' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ro\'yxatdan o\'tish' })[0]);
+
+    expect(await screen.findByRole('heading', { name: 'Tiklash kodlari' })).toBeInTheDocument();
+    for (const c of codes) expect(screen.getByText(c)).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('/login');
+    const next = screen.getByRole('button', { name: 'Davom etish' });
+    expect(next).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('Kodlarni xavfsiz joyga saqladim'));
+    fireEvent.click(next);
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/));
+    expect(store.getState().auth.recoveryCodes).toBeNull();
+  });
+});
+
+describe('Tiklash kodi bilan sahifasi', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('"Parolni unutdim" sahifasidan o\'tiladi; login + kod + yangi parol yuboriladi', async () => {
+    mocks.recoverWithCode.mockResolvedValue(undefined);
+    renderAt('/forgot-password');
+    fireEvent.click(screen.getByRole('link', { name: 'Tiklash kodi bilan' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/recover');
+
+    fireEvent.change(screen.getByLabelText(/Email yoki username/), { target: { value: ' ali_v ' } });
+    fireEvent.change(screen.getByLabelText(/^Tiklash kodi/), { target: { value: 'abcd-efgh-jkmn' } });
+    fireEvent.change(screen.getByLabelText(/^Yangi parol/), { target: { value: 'Yangi-Parol-77' } });
+    fireEvent.change(screen.getByLabelText(/^Parolni tasdiqlang/), { target: { value: 'Yangi-Parol-77' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Parolni tiklash' }));
+    await waitFor(() => expect(mocks.recoverWithCode).toHaveBeenCalledWith('ali_v', 'abcd-efgh-jkmn', 'Yangi-Parol-77'));
+    expect(await screen.findByText(/ishlatilgan kod endi yaroqsiz/)).toBeInTheDocument();
+  });
+
+  it('noto\'g\'ri formatdagi kod — so\'rov ketmaydi; server 400 — umumiy xabar', async () => {
+    renderAt('/recover');
+    fireEvent.change(screen.getByLabelText(/Email yoki username/), { target: { value: 'ali_v' } });
+    fireEvent.change(screen.getByLabelText(/^Tiklash kodi/), { target: { value: '123' } });
+    expect(screen.getByText('12 belgi: harf va raqamlar')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Parolni tiklash' }));
+    expect(mocks.recoverWithCode).not.toHaveBeenCalled();
+
+    mocks.recoverWithCode.mockRejectedValue(new ApiError(400, 'x'));
+    fireEvent.change(screen.getByLabelText(/^Tiklash kodi/), { target: { value: 'AAAA-BBBB-CCCC' } });
+    fireEvent.change(screen.getByLabelText(/^Yangi parol/), { target: { value: 'parol12345' } });
+    fireEvent.change(screen.getByLabelText(/^Parolni tasdiqlang/), { target: { value: 'parol12345' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Parolni tiklash' }));
+    expect(await screen.findByText(/Login yoki tiklash kodi noto'g'ri/)).toBeInTheDocument();
+  });
+
+  it('email sozlanmagan (503) — "Kod bilan" yo\'li taklif qilinadi', async () => {
+    mocks.forgotPassword.mockRejectedValue(new ApiError(503, 'x'));
+    renderAt('/forgot-password');
+    fireEvent.change(screen.getByLabelText(/Email yoki username/), { target: { value: 'a@b.uz' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Havola yuborish' }));
+    expect(await screen.findByRole('link', { name: 'Kod bilan' })).toHaveAttribute('href', '/recover');
   });
 });
 

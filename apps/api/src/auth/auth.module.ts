@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { PasswordResetService } from './password-reset.service';
+import { RecoveryCodesService } from './recovery-codes.service';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { PasswordResetService } from './password-reset.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, PasswordResetService, JwtAuthGuard],
+  providers: [AuthService, PasswordResetService, RecoveryCodesService, JwtAuthGuard],
   exports:   [JwtModule, JwtAuthGuard, AuthService],
 })
 export class AuthModule {}

@@ -30,6 +30,7 @@ model User {
   attachments   Attachment[]
   refreshTokens RefreshToken[]
   passwordResets PasswordResetToken[]
+  recoveryCodes RecoveryCode[]
   devices       DeviceToken[]
   blocking      UserBlock[] @relation("blocker")
   blockedBy     UserBlock[] @relation("blocked")
@@ -58,6 +59,20 @@ model RefreshToken {
 
 /// Parolni tiklash: bazada faqat sha256 hash. Bir martalik (`usedAt`), 30 daqiqa;
 /// yangisi so'ralganda yoki parol o'zgarganda eskilari ham `usedAt` bilan yopiladi.
+/// Emailsiz parol tiklash: bir martalik kodlar. Faqat HMAC-SHA256 (pepper bilan) saqlanadi.
+model RecoveryCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash")
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, codeHash])
+  @@map("recovery_codes")
+}
+
 model PasswordResetToken {
   id        String    @id @default(uuid()) @db.Uuid
   userId    String    @map("user_id") @db.Uuid

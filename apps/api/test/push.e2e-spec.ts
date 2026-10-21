@@ -67,7 +67,7 @@ describe('Push bildirishnomalar (e2e)', () => {
 
     for (const n of names) {
       api[n] = createApiClient({ baseUrl: url, storage: memoryTokenStorage() });
-      user[n] = await api[n].register({ email: emailOf(n), password: '12345678', displayName: `${n} ${stamp}` });
+      user[n] = (await api[n].register({ email: emailOf(n), password: '12345678', displayName: `${n} ${stamp}` })).user;
     }
   });
 

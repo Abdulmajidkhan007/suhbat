@@ -52,10 +52,10 @@ describe('WS cheklovi va yuklashlarni tozalash (e2e)', () => {
 
   it('message:send: limitdan keyin ack xato, REST zaxira ta\'sirlanmaydi', async () => {
     const api = createApiClient({ baseUrl: url, storage: memoryTokenStorage() });
-    const ali = await api.register({ email: emailOf('ali'), password: '12345678', displayName: `Ali ${stamp}` });
-    const vali = await createApiClient({ baseUrl: url, storage: memoryTokenStorage() }).register({
+    const ali = (await api.register({ email: emailOf('ali'), password: '12345678', displayName: `Ali ${stamp}` })).user;
+    const vali = (await createApiClient({ baseUrl: url, storage: memoryTokenStorage() }).register({
       email: emailOf('vali'), password: '12345678', displayName: `Vali ${stamp}`,
-    });
+    })).user;
     const chat = await api.createDirectChat(vali.id);
     const ws = createSocketClient({ url, getAccessToken: api.getAccessToken, refreshAccessToken: api.refreshAccessToken });
     sockets.push(ws);

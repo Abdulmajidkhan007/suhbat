@@ -9,12 +9,15 @@ import {
   NotificationSettingsSchema,
   PublicChannelSchema,
   PublicUserSchema,
+  RecoveryCodesResponseSchema,
+  RecoveryCodesStatusSchema,
   TokenPairSchema,
   UploadUrlResponseSchema,
   UsernameAvailabilitySchema,
   UserSchema,
 } from '@suhbat/core';
 import type {
+  RecoveryCodesStatus,
   ChatMember,
   ChatSummary,
   CreateChannelInput,
@@ -171,16 +174,45 @@ export const createApiClient = (opts: ApiClientOptions) => {
     }
   }
 
-  async function signIn(path: string, body: unknown): Promise<User> {
+  async function signIn(path: string, body: unknown) {
     const res = await request('POST', path, AuthResponseSchema, { body });
     await storage.set({ accessToken: res.accessToken, refreshToken: res.refreshToken });
-    return res.user;
+    return res;
   }
 
   return {
-    register: (input: RegisterInput) => signIn('/auth/register', input),
+    /**
+     * `recoveryCodes` — parolni tiklash kodlari: faqat shu javobda keladi, foydalanuvchiga
+     * darhol ko'rsatib saqlatish kerak (qayta olib bo'lmaydi, faqat yangisini yaratish mumkin).
+     */
+    register: async (input: RegisterInput): Promise<{ user: User; recoveryCodes: string[] }> => {
+      const res = await signIn('/auth/register', input);
+      return { user: res.user, recoveryCodes: res.recoveryCodes ?? [] };
+    },
     /** `login` — email yoki username. */
-    login:    (input: LoginInput) => signIn('/auth/login', input),
+    login:    async (input: LoginInput): Promise<User> => (await signIn('/auth/login', input)).user,
+
+    /**
+     * Emailsiz tiklash: login + bir martalik kod. Xato (400) hisob bor-yo'qligidan qat'i nazar bir xil;
+     * 429 — ko'p urinish. Muvaffaqiyatda barcha qurilmalardagi sessiyalar yopiladi.
+     */
+    recoverWithCode: (login: string, code: string, newPassword: string): Promise<void> =>
+      request('POST', '/auth/recover', null, { body: { login, code, newPassword } }),
+
+    /** Nechta ishlatilmagan tiklash kodi qolgan (kodlarning o'zi qaytmaydi). */
+    getRecoveryCodesStatus: (): Promise<RecoveryCodesStatus> =>
+      authed('GET', '/auth/recovery-codes', RecoveryCodesStatusSchema),
+
+    /** Joriy parol bilan: eski kodlar bekor, yangilari qaytadi (bir marta ko'rsatiladi). */
+    regenerateRecoveryCodes: async (password: string): Promise<string[]> =>
+      (await authed('POST', '/auth/recovery-codes', RecoveryCodesResponseSchema, { body: { password } })).codes,
+
+    /** Boshqa qurilmalardan chiqiladi; shu qurilmaning tokenlari yangilanadi. */
+    changePassword: async (currentPassword: string, newPassword: string): Promise<User> => {
+      const res = await authed('POST', '/auth/change-password', AuthResponseSchema, { body: { currentPassword, newPassword } });
+      await storage.set({ accessToken: res.accessToken, refreshToken: res.refreshToken });
+      return res.user;
+    },
 
     /** Javob hisob bor-yo'qligidan qat'i nazar bir xil; 503 — email sozlanmagan, 429 — ko'p urinish. */
     forgotPassword: (emailOrUsername: string): Promise<ForgotPasswordResponse> =>

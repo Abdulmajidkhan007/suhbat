@@ -19,6 +19,7 @@ import { getAvatarColor } from '../../utils/colors';
 import { getInitials } from '../../utils/formatters';
 import { ThemeMode } from '../../types';
 import UsernameField from '../auth/UsernameField';
+import SecuritySection from './SecuritySection';
 import { usernameAcceptable, useUsernameCheck } from '../../hooks/useUsernameCheck';
 
 const SettingsPanel: React.FC = () => {
@@ -147,6 +148,10 @@ const SettingsPanel: React.FC = () => {
             </Typography>
           </Box>
         </div>
+
+        <Divider />
+
+        <SecuritySection />
 
         <Divider />
 

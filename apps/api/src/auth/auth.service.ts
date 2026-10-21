@@ -1,8 +1,8 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { parseLoginIdentifier } from '@suhbat/core';
-import type { AuthResponse, LoginInput, PublicUser, RegisterInput, TokenPair, User } from '@suhbat/core';
+import type { AuthResponse, ChangePasswordInput, LoginInput, PublicUser, RegisterInput, TokenPair, User } from '@suhbat/core';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client';
@@ -79,6 +79,26 @@ export class AuthService {
       throw new UnauthorizedException(LOGIN_FAILED_MESSAGE);
     }
     return this.issue(user);
+  }
+
+  /**
+   * Joriy parol bilan almashtirish: barcha refresh tokenlar (boshqa qurilmalar) bekor qilinadi,
+   * shu qurilmaga yangi juftlik qaytadi. Email tiklash havolalari ham bekor.
+   */
+  async changePassword(userId: string, input: ChangePasswordInput): Promise<AuthResponse> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException();
+    if (!(await argon2.verify(user.passwordHash, input.currentPassword))) {
+      throw new BadRequestException('Joriy parol noto\'g\'ri');
+    }
+    const passwordHash = await argon2.hash(input.newPassword);
+    const now = new Date();
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+      await tx.passwordResetToken.updateMany({ where: { userId, usedAt: null }, data: { usedAt: now } });
+      return tx.user.update({ where: { id: userId }, data: { passwordHash } });
+    });
+    return this.issue(updated);
   }
 
   async usernameTaken(username: string): Promise<boolean> {

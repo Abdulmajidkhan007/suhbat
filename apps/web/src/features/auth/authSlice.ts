@@ -52,7 +52,8 @@ export const signUp = createAsyncThunk(
   'auth/signUp',
   async (input: RegisterInput, { rejectWithValue }) => {
     try {
-      return toAppUser(await api.register(input));
+      const res = await api.register(input);
+      return { user: toAppUser(res.user), recoveryCodes: res.recoveryCodes };
     } catch (err) {
       return rejectWithValue(messageOf(err));
     }
@@ -83,6 +84,10 @@ const authSlice = createSlice({
     clearError(state) {
       state.error = null;
     },
+    /** Foydalanuvchi tiklash kodlarini saqlaganini tasdiqladi — ular xotiradan o'chadi. */
+    recoveryCodesAcknowledged(state) {
+      state.recoveryCodes = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -102,9 +107,10 @@ const authSlice = createSlice({
       })
       .addCase(signUp.pending,   (state) => { state.loading = true;  state.error = null; })
       .addCase(signUp.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user    = action.payload;
-        state.error   = null;
+        state.loading       = false;
+        state.user          = action.payload.user;
+        state.recoveryCodes = action.payload.recoveryCodes.length > 0 ? action.payload.recoveryCodes : null;
+        state.error         = null;
       })
       .addCase(signUp.rejected,  (state, action) => {
         state.loading = false;
@@ -112,11 +118,12 @@ const authSlice = createSlice({
       })
       .addCase(signOut.fulfilled, (state) => {
         state.user    = null;
+        state.recoveryCodes = null;
         state.loading = false;
         state.error   = null;
       });
   },
 });
 
-export const { setUser, userUpdated, setInitialized, clearError } = authSlice.actions;
+export const { setUser, userUpdated, setInitialized, clearError, recoveryCodesAcknowledged } = authSlice.actions;
 export default authSlice.reducer;

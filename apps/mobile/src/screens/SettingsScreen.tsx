@@ -27,7 +27,20 @@ export const SettingsScreen = () => {
   const { logout, services: { api, background } } = useSession();
   const { push } = useNavigation();
   const [preview, setPreview] = useState<boolean | null>(null);
+  const [noCodes, setNoCodes] = useState(false);
   const keepAlive = useKeepAlive();
+
+  // Kodsiz (eski) hisoblarga tiklash kodlarini yaratish taklifi.
+  useEffect(() => {
+    let cancelled = false;
+    api.getRecoveryCodesStatus().then(
+      (s) => { if (!cancelled) setNoCodes(s.generatedAt === null || s.remaining === 0); },
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +92,14 @@ export const SettingsScreen = () => {
             icon="person-outline"
             iconColor="#3390EC"
             onPress={() => push({ name: 'profile' })}
+            chevron
+          />
+          <ListRow
+            title={t('settings.security')}
+            subtitle={noCodes ? t('settings.noCodes') : t('settings.securityHint')}
+            icon="lock-closed-outline"
+            iconColor="#E8A23C"
+            onPress={() => push({ name: 'security' })}
             chevron
           />
           <ListRow

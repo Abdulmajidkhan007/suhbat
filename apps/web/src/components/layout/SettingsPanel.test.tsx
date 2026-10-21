@@ -2,11 +2,19 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithStore } from '../../test/render';
 
-const mocks = vi.hoisted(() => ({ updateProfile: vi.fn(), checkUsername: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  updateProfile: vi.fn(), checkUsername: vi.fn(),
+  getRecoveryCodesStatus: vi.fn(async (): Promise<{ remaining: number; generatedAt: string | null }> =>
+    ({ remaining: 10, generatedAt: '2026-10-01T10:00:00.000Z' })),
+  regenerateRecoveryCodes: vi.fn(), changePassword: vi.fn(),
+}));
 vi.mock('../../services/api', () => ({ api: mocks }));
 vi.mock('react-hot-toast', () => ({ default: { success: vi.fn(), error: vi.fn() } }));
 
 const { default: SettingsPanel } = await import('./SettingsPanel');
+
+// To'liq panel (MUI + dialoglar + framer-motion): sekin CI runner'da render 5 s dan oshadi (AuthPages.test kabi).
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('SettingsPanel', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -68,5 +76,40 @@ describe('SettingsPanel', () => {
     await waitFor(() => expect(mocks.updateProfile).toHaveBeenCalledWith({ displayName: 'Ali Valiyev', bio: '', username: 'ali_yangi' }));
     await waitFor(() => expect(store.getState().auth.user?.username).toBe('ali_yangi'));
     expect(screen.getByText('Joriy username')).toBeInTheDocument();
+  });
+
+  it('xavfsizlik: kod yo\'q bo\'lsa taklif; joriy parol bilan yangi kodlar bir marta ko\'rsatiladi', async () => {
+    mocks.getRecoveryCodesStatus.mockResolvedValueOnce({ remaining: 0, generatedAt: null });
+    const codes = Array.from({ length: 10 }, (_, i) => `ZZZZ-YYYY-XX${String(i).padStart(2, '0')}`);
+    mocks.regenerateRecoveryCodes.mockResolvedValue(codes);
+    renderWithStore(<SettingsPanel />);
+    expect(await screen.findByText('Hali yaratilmagan')).toBeInTheDocument();
+    expect(screen.getByText(/email'siz tiklash uchun tiklash kodlarini yarating/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Yaratish' }));
+    fireEvent.change(screen.getByLabelText('Joriy parol'), { target: { value: 'parol1234' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Yaratish' }));
+    await waitFor(() => expect(mocks.regenerateRecoveryCodes).toHaveBeenCalledWith('parol1234'));
+    expect(await screen.findByText(codes[0]!)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tayyor' })).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('Kodlarni xavfsiz joyga saqladim'));
+    fireEvent.click(screen.getByRole('button', { name: 'Tayyor' }));
+    await waitFor(() => expect(screen.queryByText(codes[0]!)).not.toBeInTheDocument());
+  });
+
+  it('parolni o\'zgartirish: joriy parol noto\'g\'ri — xabar; to\'g\'ri — saqlanadi', async () => {
+    const { ApiError } = await import('@suhbat/client');
+    mocks.changePassword.mockRejectedValueOnce(new ApiError(400, 'x')).mockResolvedValueOnce({});
+    renderWithStore(<SettingsPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Parolni o\'zgartirish' }));
+    fireEvent.change(screen.getByLabelText('Joriy parol'), { target: { value: 'xato' } });
+    fireEvent.change(screen.getByLabelText(/^Yangi parol/), { target: { value: 'Yangi-Parol-77' } });
+    fireEvent.change(screen.getByLabelText(/^Parolni tasdiqlang/), { target: { value: 'Yangi-Parol-77' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Saqlash' }));
+    expect(await screen.findByText('Joriy parol noto\'g\'ri.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Joriy parol'), { target: { value: 'parol1234' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Saqlash' }));
+    await waitFor(() => expect(mocks.changePassword).toHaveBeenLastCalledWith('parol1234', 'Yangi-Parol-77'));
+    await waitFor(() => expect(screen.queryByLabelText('Joriy parol')).not.toBeInTheDocument());
   });
 });

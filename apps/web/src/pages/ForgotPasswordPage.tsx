@@ -9,7 +9,7 @@ import { api } from '../services/api';
 
 const failureText = (e: unknown): string => {
   if (e instanceof ApiError) {
-    if (e.status === 503) return 'Email yuborish hozircha sozlanmagan. Keyinroq urinib ko\'ring yoki administratorga yozing.';
+    if (e.status === 503) return 'Email yuborish hozircha sozlanmagan. Tiklash kodi bilan tiklang.';
     if (e.status === 429) return 'Juda ko\'p urinish. Birozdan keyin qayta urinib ko\'ring.';
     if (e.status === 0) return e.message;
   }
@@ -54,7 +54,18 @@ const ForgotPasswordPage: React.FC = () => {
         </div>
       ) : (
         <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-          {error && <Alert severity="error" sx={{ borderRadius: '10px' }} onClose={() => setError(null)}>{error}</Alert>}
+          {error && (
+            <Alert
+              severity="error"
+              sx={{ borderRadius: '10px' }}
+              onClose={() => setError(null)}
+              action={error.includes('Tiklash kodi') ? (
+                <Button component={RouterLink} to="/recover" color="inherit" size="small">Kod bilan</Button>
+              ) : undefined}
+            >
+              {error}
+            </Alert>
+          )}
           <TextField
             label="Email yoki username"
             value={value}
@@ -77,6 +88,16 @@ const ForgotPasswordPage: React.FC = () => {
           <LoadingButton type="submit" variant="contained" fullWidth loading={loading} size="large">
             Havola yuborish
           </LoadingButton>
+          <Button
+            component={RouterLink}
+            to="/recover"
+            variant="outlined"
+            fullWidth
+            size="large"
+            sx={{ textTransform: 'none', borderRadius: '10px' }}
+          >
+            Tiklash kodi bilan
+          </Button>
           <Typography variant="body2" align="center">
             <Typography component={RouterLink} to="/login" variant="body2" sx={{ color: 'primary.main', fontWeight: 600, textDecoration: 'none' }}>
               Kirish sahifasiga qaytish

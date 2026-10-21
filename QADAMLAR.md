@@ -60,7 +60,8 @@ Variables `TURN_MODE=railway`, `TURN_SECRET=<openssl rand -hex 32>`; **Networkin
 API Variables: `TURN_URLS=turn:<proxy-manzil>:<port>?transport=tcp`, `TURN_SECRET=${{turn.TURN_SECRET}}`.
 Sifatliroq — arzon VPS'da bitta buyruq: [`infra/turn/README.md`](infra/turn/README.md).
 
-**Parolni tiklash xati.** ⚠️ Railway **Hobby**'da chiquvchi SMTP yopiq (faqat Pro+; Railway xodimlari javobi,
+**Parolni tiklash xati** (ixtiyoriy — busiz ham parolni **tiklash kodlari** bilan tiklash mumkin: ro'yxatdan o'tishda
+beriladi, Sozlamalar → Xavfsizlik'da yangilanadi). ⚠️ Railway **Hobby**'da chiquvchi SMTP yopiq (faqat Pro+; Railway xodimlari javobi,
 rasmiy sahifani tekshira olmadim). Hobby'da — **Resend**: https://resend.com → API Keys → API Variables
 `RESEND_API_KEY=re_...`, `MAIL_FROM=Suhbat <onboarding@resend.dev>` (sinovda xat faqat o'zingizga; boshqalarga —
 Resend'da domen tasdiqlang), `WEB_URL=<veb manzili>`. Pro'da — **Gmail SMTP**: App Password
