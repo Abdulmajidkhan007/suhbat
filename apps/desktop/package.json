@@ -2,6 +2,7 @@
   "name": "@suhbat/desktop",
   "version": "0.2.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "description": "suhbat — desktop ilova (Electron, veb build'ini o'raydi)",
   "author": "suhbat",
   "main": "dist/main/index.js",

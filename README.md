@@ -66,5 +66,8 @@ Pull request'lar `main` ga ochiladi; o'zgarishdan oldin `npx turbo run lint type
 
 ## Litsenziya
 
-Litsenziya hali tanlanmagan: kod ochiq ko'rish uchun, lekin undan foydalanish, nusxalash va tarqatish huquqlari
-muallifda qoladi.
+[GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`). Copyright (C) 2026 Abdulmajid.
+
+Kodni ishlatish, o'zgartirish va tarqatish mumkin, lekin o'zgartirilgan versiya ham AGPL-3.0 ostida bo'lishi
+shart; uni tarmoq orqali xizmat sifatida ishga tushirsangiz (masalan, o'z serveringizda), foydalanuvchilarga
+o'zgartirilgan manba kodini ochib berishingiz kerak. To'liq shartlar — [`LICENSE`](LICENSE).
