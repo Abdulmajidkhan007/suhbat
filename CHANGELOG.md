@@ -2,7 +2,7 @@
 
 Release matni shu fayldan olinadi (`release.yml`: `## vX.Y.Z` bo'limi).
 
-## v0.5.0 (chiqarilmagan)
+## v0.5.0 (2026-10-21)
 
 - **Parolni email'siz tiklash — tiklash kodlari** (veb, desktop, mobil): ro'yxatdan o'tgach 10 ta bir martalik kod
   bir marta ko'rsatiladi (nusxa olish, `.txt` yuklab olish / ulashish, "saqladim" tasdig'i). Parolni unutsangiz:
@@ -13,7 +13,7 @@ Release matni shu fayldan olinadi (`release.yml`: `## vX.Y.Z` bo'limi).
 - Email orqali tiklash ixtiyoriy bo'lib qoladi (sozlangan bo'lsa ishlaydi).
 - Haqiqiy telefonda va desktop ilovada (nusxa olish, `.txt` saqlash, ulashish) hali sinalmagan.
 
-## v0.4.0 (chiqarilmagan)
+## v0.4.0 (2026-10-17)
 
 Tashqi xizmatlarga (Cloudflare R2, metered.ca, Firebase, Resend) bog'liqlik kamaytirildi — asosiy yo'l o'zimizda (Railway).
 Hammasi lokal/CI'da tekshirilgan; **Railway'ning o'zida va haqiqiy telefonda hali sinalmagan.**
@@ -34,7 +34,7 @@ Hammasi lokal/CI'da tekshirilgan; **Railway'ning o'zida va haqiqiy telefonda hal
   u yerda Resend kerak. SMTP ulanmasa endi 10 soniyada aniq xato (avval 2 daqiqa kutardi).
 - `QADAMLAR.md` qisqartirildi: majburiy va ixtiyoriy qadamlar alohida.
 
-## v0.3.0 (chiqarilmagan)
+## v0.3.0 (2026-10-16)
 
 - **"Parolni unutdim?"** (veb, desktop, mobil): email yoki username kiriting → emailga havola keladi
   (30 daqiqa, bir martalik) → vebda yangi parol o'rnatiladi. Parol o'zgargach barcha qurilmalardan chiqiladi.
