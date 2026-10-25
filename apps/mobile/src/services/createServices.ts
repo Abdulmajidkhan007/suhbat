@@ -1,10 +1,13 @@
 import { createApiClient, createCallManager, createSocketClient } from '@suhbat/client';
 import type { ApiClient, CallManager, SocketClient, TokenStorage } from '@suhbat/client';
+import InCallManager from 'react-native-incall-manager';
 import type { MediaStream } from 'react-native-webrtc';
 import { createBackgroundController } from '../background/controller';
 import type { BackgroundController } from '../background/controller';
 import { createBackgroundNative } from '../background/native';
 import { appUiState } from '../background/uiState';
+import { createCallAudio } from '../calls/callAudio';
+import type { CallAudio } from '../calls/callAudio';
 import { createNativePeer, nativeMediaDevices } from '../calls/nativeWebrtc';
 import { API_URL } from '../config/env';
 import { createConnectionKeeper } from './connectionKeeper';
@@ -19,6 +22,8 @@ export interface Services {
   push:   PushPlatform;
   /** 1:1 qo'ng'iroqlar (WebRTC). */
   calls:  CallManager<MediaStream>;
+  /** Jiringlash, kutish ovozi, karnay/quloqchin (`react-native-incall-manager`). */
+  callAudio: CallAudio;
   /** Socket ulanishi egalari: UI va fon ulanishi. */
   connection: ConnectionKeeper;
   /** Android: FCM'siz bildirishnomalar va fon ulanishi. */
@@ -47,11 +52,13 @@ export const createServices = ({ onSessionExpired, baseUrl = API_URL, storage }:
     createPeer:    createNativePeer,
     getIceServers: async () => (await api.getIceServers()).iceServers,
   });
+  const callAudio = createCallAudio(InCallManager);
+  calls.subscribe(callAudio.sync);
   const connection = createConnectionKeeper(socket);
   const background = createBackgroundController({
     api, socket, connection, native: createBackgroundNative(), ui: appUiState,
   });
-  return { api, socket, push: createFirebasePush(), calls, connection, background };
+  return { api, socket, push: createFirebasePush(), calls, callAudio, connection, background };
 };
 
 const expiredListeners = new Set<() => void>();

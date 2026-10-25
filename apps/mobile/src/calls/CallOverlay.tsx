@@ -12,7 +12,7 @@ import { radii, space } from '../theme/metrics';
 import { textStyles } from '../theme/typography';
 import { useTheme } from '../theme/ThemeProvider';
 import { useSession } from '../state/SessionProvider';
-import { useCall, useNow } from './useCall';
+import { useCall, useNow, useSpeaker } from './useCall';
 
 // Qo'ng'iroq ekrani doim qorong'i (video ustida o'qilsin); fon chuqurligi asosiy rangdan.
 const COLORS = { text: '#ffffff', muted: 'rgba(255,255,255,0.75)', button: 'rgba(255,255,255,0.18)', active: '#ffffff', danger: '#E53935', accept: '#43A047' };
@@ -84,7 +84,8 @@ const Incoming = ({ state }: { state: CallState<MediaStream> }) => {
 };
 
 const Active = ({ state }: { state: CallState<MediaStream> }) => {
-  const { services: { calls } } = useSession();
+  const { services: { calls, callAudio } } = useSession();
+  const speaker = useSpeaker();
   const now = useNow(state.phase === 'connected');
   const ended = state.phase === 'ended';
   const isVideo = state.media === 'video';
@@ -110,6 +111,12 @@ const Active = ({ state }: { state: CallState<MediaStream> }) => {
               icon={state.muted ? 'mic-off-outline' : 'mic-outline'}
               active={state.muted}
               onPress={() => calls.setMuted(!state.muted)}
+            />
+            <RoundButton
+              label={speaker ? 'Karnayni o\'chirish' : 'Karnayni yoqish'}
+              icon={speaker ? 'volume-high-outline' : 'volume-mute-outline'}
+              active={speaker}
+              onPress={() => callAudio.setSpeaker(!speaker)}
             />
             {isVideo ? (
               <RoundButton

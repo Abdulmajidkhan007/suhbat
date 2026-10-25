@@ -19,12 +19,20 @@ describe('Qo\'ng\'iroqlar (mobil UI)', () => {
     }));
     expect(screen.getByText('Kiruvchi video qo\'ng\'iroq')).toBeTruthy();
     expect(fake.signaling.callRinging).toHaveBeenCalledWith(CALL_ID);
+    expect(fake.inCall.startRingtone).toHaveBeenCalledTimes(1); // jiringlash
 
     await fireEvent.press(screen.getByLabelText('Qabul qilish'));
     await waitFor(() => expect(fake.signaling.acceptCall).toHaveBeenCalledWith(CALL_ID));
     expect(fake.media.getLocalStream).toHaveBeenCalledWith('video');
     expect(screen.getByText('Ulanmoqda…')).toBeTruthy();
     expect(screen.getAllByTestId('rtc-view')).toHaveLength(1); // o'z kamerasi (PiP)
+    expect(fake.inCall.stopRingtone).toHaveBeenCalledTimes(1);
+    expect(fake.inCall.start).toHaveBeenCalledWith({ media: 'video' });
+
+    // Video: karnay boshida yoqiq; almashtirish native'ga boradi
+    await fireEvent.press(screen.getByLabelText('Karnayni o\'chirish'));
+    expect(fake.inCall.setForceSpeakerphoneOn).toHaveBeenLastCalledWith(false);
+    expect(screen.getByLabelText('Karnayni yoqish')).toBeTruthy();
 
     await fireEvent.press(screen.getByLabelText('Mikrofonni o\'chirish'));
     expect(fake.media.setAudioEnabled).toHaveBeenCalledWith(expect.anything(), false);
@@ -33,6 +41,7 @@ describe('Qo\'ng\'iroqlar (mobil UI)', () => {
     await fireEvent.press(screen.getByLabelText('Tugatish'));
     expect(fake.signaling.endCall).toHaveBeenCalledWith(CALL_ID);
     expect(screen.getByText('Qo\'ng\'iroq tugadi')).toBeTruthy();
+    expect(fake.inCall.stop).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.queryByText('Qo\'ng\'iroq tugadi')).toBeNull()); // biroz turib yopiladi
   });
 

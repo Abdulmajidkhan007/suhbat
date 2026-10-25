@@ -20,3 +20,9 @@ export const useNow = (active: boolean): number => {
   }, [active]);
   return now;
 };
+
+/** Karnay yoqilganmi (`callAudio`). */
+export const useSpeaker = (): boolean => {
+  const { services: { callAudio } } = useSession();
+  return useSyncExternalStore(callAudio.subscribe, callAudio.isSpeakerOn);
+};

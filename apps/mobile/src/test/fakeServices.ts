@@ -1,4 +1,6 @@
 import { createCallManager } from '@suhbat/client';
+import { createCallAudio } from '../calls/callAudio';
+import type { InCallManagerLike } from '../calls/callAudio';
 import type { ApiClient, CallMediaDevices, CallSignaling, PeerConnection, SocketClient } from '@suhbat/client';
 import type { MediaStream } from 'react-native-webrtc';
 import type { ServerToClientEvents } from '@suhbat/core';
@@ -138,12 +140,18 @@ export const createFakeServices = (api: Partial<ApiClient> = {}, push: PushPlatf
     setEnabled: jest.fn(async () => undefined),
     stop:      jest.fn(),
   };
+  const inCall: { [K in keyof InCallManagerLike]: jest.Mock } = {
+    start: jest.fn(), stop: jest.fn(), startRingtone: jest.fn(), stopRingtone: jest.fn(),
+    stopRingback: jest.fn(), setForceSpeakerphoneOn: jest.fn(),
+  };
+  const callAudio = createCallAudio(inCall);
+  calls.subscribe(callAudio.sync);
   const connection = createConnectionKeeper(fakeSocket as SocketClient);
-  const services = { api: fakeApi, socket: fakeSocket, push, calls, connection, background } as unknown as Services;
+  const services = { api: fakeApi, socket: fakeSocket, push, calls, callAudio, connection, background } as unknown as Services;
   /** Server bilan aloqa uzildi/tiklandi. */
   const setConnected = (value: boolean) => {
     connected = value;
     connectionListeners.forEach((l) => l(value));
   };
-  return { services, api: fakeApi, socket: fakeSocket, emit, setConnected, signaling, calls, media, background };
+  return { services, api: fakeApi, socket: fakeSocket, emit, setConnected, signaling, calls, media, background, inCall };
 };
