@@ -8,6 +8,7 @@ import type {
   WsAck,
   WsCallInvite,
   WsCallRef,
+  WsCallResumed,
   WsSendMessage,
 } from '@suhbat/core';
 import { io } from 'socket.io-client';
@@ -141,6 +142,9 @@ export const createSocketClient = (opts: SocketClientOptions) => {
     },
     async endCall(callId: string): Promise<WsCallRef> {
       return unwrap(await socket.timeout(ackTimeout).emitWithAck('call:end', { callId }));
+    },
+    async resumeCall(callId: string): Promise<WsCallResumed> {
+      return unwrap(await socket.timeout(ackTimeout).emitWithAck('call:resume', { callId }));
     },
     sendCallOffer(callId: string, description: CallSdp): void {
       socket.emit('call:offer', { callId, description });

@@ -16,6 +16,7 @@ import type {
   WsCallIncoming,
   WsCallInvite,
   WsCallRef,
+  WsCallResumed,
   WsCallSdp,
 } from './calls.js';
 
@@ -48,6 +49,7 @@ export const WsEvent = {
   CallAnswer:  'call:answer',
   CallIce:     'call:ice',
   CallBusy:    'call:busy',
+  CallResume:  'call:resume',
 } as const;
 
 // --- mijoz → server ---
@@ -180,6 +182,8 @@ export interface ServerToClientEvents {
   'call:offer':      (e: WsCallSdp) => void;
   'call:answer':     (e: WsCallSdp) => void;
   'call:ice':        (e: WsCallIce) => void;
+  /** Suhbatdosh signal kanalini qayta ulab, qo'ng'iroqni tikladi (chaqiruvchi ICE restart qiladi). */
+  'call:resume':     (e: WsCallRef) => void;
 }
 
 export interface ClientToServerEvents {
@@ -197,4 +201,5 @@ export interface ClientToServerEvents {
   'call:offer':     (p: WsCallSdp) => void;
   'call:answer':    (p: WsCallSdp) => void;
   'call:ice':       (p: WsCallIce) => void;
+  'call:resume':    (p: WsCallRef, ack: (r: WsAck<WsCallResumed>) => void) => void;
 }

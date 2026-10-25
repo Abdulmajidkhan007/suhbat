@@ -20,7 +20,7 @@ globe-outline image-outline information-circle-outline lock-closed-outline log-o
 mic-off-outline mic-outline moon-outline notifications-outline pencil people-outline person-add-outline
 person-outline phone-portrait-outline remove-circle-outline search send settings settings-outline
 shield-checkmark-outline star sunny-outline time-outline trash-outline videocam videocam-off-outline
-videocam-outline
+videocam-outline volume-high-outline volume-mute-outline
 """.split()
 
 NUMERIC = {"cx", "cy", "r", "x", "y", "width", "height", "rx", "ry", "strokeWidth"}

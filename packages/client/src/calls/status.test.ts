@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { callStatusText, isSilentEnd } from './status.js';
+import { callStatusText, callToneFor, isSilentEnd } from './status.js';
 import type { CallState } from './types.js';
 
 const base: Parameters<typeof callStatusText>[0] = {
@@ -34,5 +34,17 @@ describe('isSilentEnd', () => {
     expect(isSilentEnd({ ...ended, endReason: 'hangup' })).toBe(false);
     expect(isSilentEnd({ ...ended, endReason: 'error' })).toBe(false);
     expect(isSilentEnd({ ...ended, direction: 'outgoing', endReason: 'rejected' })).toBe(false);
+  });
+});
+
+describe('callToneFor', () => {
+  it('kiruvchi jiringlash — ring; chiquvchi kutish — ringback; qolgan hamma holatda — jim', () => {
+    expect(callToneFor(null)).toBeNull();
+    expect(callToneFor({ phase: 'ringing', direction: 'incoming' })).toBe('ring');
+    expect(callToneFor({ phase: 'calling', direction: 'outgoing' })).toBe('ringback');
+    for (const phase of ['idle', 'connecting', 'connected', 'ended'] as const) {
+      expect(callToneFor({ phase, direction: 'incoming' })).toBeNull();
+      expect(callToneFor({ phase, direction: 'outgoing' })).toBeNull();
+    }
   });
 });

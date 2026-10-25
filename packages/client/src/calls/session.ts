@@ -23,7 +23,12 @@ export type CallSignal =
   | { type: 'end'; callId: string; reason: CallEndReason }
   | { type: 'offer'; callId: string; description: CallSdp }
   | { type: 'answer'; callId: string; description: CallSdp }
-  | { type: 'ice'; callId: string; candidate: CallIceCandidate | null };
+  | { type: 'ice'; callId: string; candidate: CallIceCandidate | null }
+  /** Suhbatdosh signal kanalini qayta ulab qo'ng'iroqni tikladi. */
+  | { type: 'resume'; callId: string };
+
+/** Ketma-ket nechta ICE restart urinilgach (`failed`) qo'ng'iroq tugatiladi. */
+export const MAX_ICE_RESTARTS = 2;
 
 /** UUID v4: `crypto.randomUUID` bo'lmasa (Hermes) — `getRandomValues` yoki `Math.random`. */
 export const uuidV4 = (): string => {
@@ -59,6 +64,11 @@ export class CallSession<S> {
   /** Remote description o'rnatilguncha kelgan ICE nomzodlar. */
   private pendingIce: (CallIceCandidate | null)[] = [];
   private remoteDescriptionSet = false;
+  /** Server qo'ng'iroqni qabul qilingan deb biladi (chaqiruvchi: `call:accept` keldi; qabul qiluvchi: ack keldi). */
+  private signalAccepted = false;
+  /** Yuborilgan offer'ga javob (answer) kutilmoqda; kutilmagan answer e'tiborsiz qoldiriladi. */
+  private awaitingAnswer = false;
+  private iceRestarts = 0;
   private readonly now: () => number;
 
   constructor(private readonly deps: CallSessionDeps<S>) {
@@ -139,6 +149,7 @@ export class CallSession<S> {
     this.createPeer();
     try {
       await this.deps.signaling.acceptCall(callId);
+      this.signalAccepted = true;
     } catch (e) {
       this.finish('error', errorMessage(e, 'Qo\'ng\'iroqqa ulanib bo\'lmadi'));
     }
@@ -200,18 +211,26 @@ export class CallSession<S> {
         this.finish(signal.reason);
         return;
       case 'accept':
-        if (outgoing && this.state.phase === 'calling') await this.sendOffer();
+        if (outgoing && this.state.phase === 'calling') {
+          this.signalAccepted = true;
+          await this.sendOffer();
+        }
         return;
       case 'offer':
         if (!outgoing) await this.answerOffer(signal.description);
         return;
       case 'answer':
-        if (outgoing && this.peerConnection) {
+        if (outgoing && this.peerConnection && this.awaitingAnswer) {
+          this.awaitingAnswer = false;
           await this.guard(async (pc) => {
             await pc.setRemoteDescription(signal.description);
             await this.remoteDescriptionReady(pc);
           });
         }
+        return;
+      case 'resume':
+        // Suhbatdosh qaytdi: offer beruvchi (chaqiruvchi) ICE'ni qayta boshlaydi.
+        if (outgoing && this.peerConnection) await this.restartIce();
         return;
       case 'ice':
         if (!this.peerConnection || !this.remoteDescriptionSet) {
@@ -221,6 +240,38 @@ export class CallSession<S> {
         await this.peerConnection.addIceCandidate(signal.candidate).catch(() => undefined);
         return;
     }
+  }
+
+  /**
+   * Signal socket'i qayta ulandi. Qabul qilingan qo'ng'iroqda serverga `call:resume` yuboriladi
+   * (server qo'ng'iroqni uzilishdan keyin qisqa muddat kutadi). Server rad etsa (muddat o'tgan) —
+   * tugaydi. Chaqiruvchi suhbatdosh ulangan bo'lsa ICE restart qiladi; aks holda suhbatdosh
+   * qaytganda `resume` signali keladi.
+   */
+  async resumeSignaling(): Promise<void> {
+    const callId = this.state.callId;
+    if (!callId || !this.isActive || !this.signalAccepted || !this.peerConnection) return;
+    let resumed;
+    try {
+      resumed = await this.deps.signaling.resumeCall(callId);
+    } catch (e) {
+      if (this.isActive) this.finish('disconnected', errorMessage(e, 'Aloqa uzildi'));
+      return;
+    }
+    if (!this.isActive) return;
+    if (this.state.direction === 'outgoing' && resumed.peerConnected) await this.restartIce();
+  }
+
+  /** ICE restart: yangi offer (`iceRestart`). Faqat chaqiruvchi (offer beruvchi). */
+  private async restartIce() {
+    const pc = this.peerConnection;
+    if (!pc || !this.isActive || !this.signalAccepted || this.state.direction !== 'outgoing') return;
+    await this.guard(async () => {
+      const offer = await pc.createOffer({ iceRestart: true });
+      await pc.setLocalDescription(offer);
+      this.awaitingAnswer = true;
+      if (this.isActive) this.deps.signaling.sendCallOffer(this.state.callId!, offer);
+    }, pc);
   }
 
   /** Mikrofon/kamera va ICE serverlar. `false` — sessiya tugadi (xato yoki foydalanuvchi bekor qildi). */
@@ -268,6 +319,7 @@ export class CallSession<S> {
     await this.guard(async () => {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      this.awaitingAnswer = true;
       if (this.isActive) this.deps.signaling.sendCallOffer(this.state.callId!, offer);
     }, pc);
   }
@@ -303,13 +355,28 @@ export class CallSession<S> {
   private onConnectionState(s: PeerConnectionState) {
     if (!this.isActive) return;
     if (s === 'connected') {
+      this.iceRestarts = 0;
       this.update({ phase: 'connected', reconnecting: false, connectedAt: this.state.connectedAt ?? this.now() });
     } else if (s === 'disconnected') {
       if (this.state.phase === 'connected') this.update({ reconnecting: true });
     } else if (s === 'failed') {
+      // Bir marta ulangan qo'ng'iroq (tarmoq almashdi): avval ICE restart, ketma-ket MAX_ICE_RESTARTS dan keyin — tugatish.
+      if (this.state.connectedAt !== null && this.iceRestarts < MAX_ICE_RESTARTS) {
+        this.iceRestarts++;
+        this.update({ reconnecting: true });
+        void this.recoverMedia();
+        return;
+      }
       this.deps.signaling.endCall(this.state.callId!).catch(() => undefined);
       this.finish('failed', 'Ulanish uzildi');
     }
+  }
+
+  /** Media yo'li uzildi: chaqiruvchi o'zi restart qiladi, qabul qiluvchi chaqiruvchidan so'raydi (`call:resume`). */
+  private async recoverMedia() {
+    if (this.state.direction === 'outgoing') return this.restartIce();
+    const callId = this.state.callId;
+    if (callId) await this.deps.signaling.resumeCall(callId).catch(() => undefined);
   }
 
   private finish(reason: CallSessionEndReason, error: string | null = null) {
@@ -317,6 +384,7 @@ export class CallSession<S> {
     this.peerConnection?.close();
     this.peerConnection = null;
     this.pendingIce = [];
+    this.awaitingAnswer = false;
     if (this.state.localStream) this.deps.media.stopStream(this.state.localStream);
     this.update({
       phase:         'ended',

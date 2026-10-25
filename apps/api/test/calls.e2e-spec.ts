@@ -23,6 +23,7 @@ const emailOf = (n: string) => `${n}-${stamp}@e2e.uz`;
 const names = ['ali', 'vali', 'gani', 'sobir'] as const;
 type Name = (typeof names)[number];
 const RING_MS = 600;
+const RESUME_GRACE_MS = 700;
 
 class FakeFcm {
   readonly enabled = true;
@@ -63,6 +64,7 @@ describe('Qo\'ng\'iroqlar (e2e)', () => {
 
   beforeAll(async () => {
     process.env.CALL_RING_TIMEOUT_MS = String(RING_MS);
+    process.env.CALL_RESUME_GRACE_MS = String(RESUME_GRACE_MS);
     process.env.CALL_INVITE_LIMIT = '1000';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(FcmClient)
@@ -246,7 +248,7 @@ describe('Qo\'ng\'iroqlar (e2e)', () => {
     await systemMessage(aliSobir, '🎥 Javobsiz video qo\'ng\'iroq');
   });
 
-  it('chaqiruvchi uzilsa — cancelled; gaplashayotganda uzilsa — disconnected', async () => {
+  it('chaqiruvchi uzilsa — cancelled; gaplashayotganda uzilsa va qaytmasa — muddatdan keyin disconnected', async () => {
     const ali = await connect('ali');
     const vali = await connect('vali');
 
@@ -265,11 +267,99 @@ describe('Qo\'ng\'iroqlar (e2e)', () => {
     await invite2;
     await vali.acceptCall(c2);
     const ended2 = next(ali2, 'call:end');
+    const early = never(ali2, 'call:end', RESUME_GRACE_MS - 300); // muddat tugamaguncha tugamaydi
     vali.disconnect();
+    await early;
     const e = await ended2;
     expect(e).toMatchObject({ callId: c2, reason: 'disconnected' });
     expect(e.durationMs).not.toBeNull();
     expect(gateway.activeCalls).toBe(0);
+  });
+
+  it('uzilgan ishtirokchi muddat ichida call:resume qiladi — qo\'ng\'iroq davom etadi, signal yangi socket\'ga boradi', async () => {
+    const ali = await connect('ali');
+    const vali = await connect('vali');
+    const callId = randomUUID();
+    const invite = next(vali, 'call:invite');
+    await ali.inviteCall({ callId, chatId: direct, media: 'audio' });
+    await invite;
+    await vali.acceptCall(callId);
+
+    // Qabul qiluvchi tarmog'i uzildi, yangi socket bilan qaytdi
+    vali.disconnect();
+    const vali2 = await connect('vali');
+    const noEnd = never(ali, 'call:end', RESUME_GRACE_MS + 300);
+    const resumed = next(ali, 'call:resume');
+    expect(await vali2.resumeCall(callId)).toEqual({ callId, peerConnected: true });
+    expect(await resumed).toEqual({ callId });
+    await noEnd; // muddat o'tib ketgan bo'lsa ham tugamadi
+
+    // Signal yangi socket'ga boradi, eskisiga emas
+    const offer = next(vali2, 'call:offer');
+    ali.sendCallOffer(callId, { type: 'offer', sdp: 'v=0 restart' });
+    expect((await offer).description.sdp).toBe('v=0 restart');
+    const answer = next(ali, 'call:answer');
+    vali2.sendCallAnswer(callId, { type: 'answer', sdp: 'v=0 answer' });
+    await answer;
+
+    // Chaqiruvchi ham uzilib qaytdi: suhbatdosh ulangan — peerConnected true; endi tugatish yangi socket bilan
+    ali.disconnect();
+    const ali2 = await connect('ali');
+    const resumed2 = next(vali2, 'call:resume');
+    expect(await ali2.resumeCall(callId)).toEqual({ callId, peerConnected: true });
+    await resumed2;
+    const ended = next(vali2, 'call:end');
+    await ali2.endCall(callId);
+    expect(await ended).toMatchObject({ callId, reason: 'hangup' });
+    expect(gateway.activeCalls).toBe(0);
+  });
+
+  it('ikkala tomon ham uzilsa: birinchi qaytgan peerConnected: false oladi, ikkinchisi qaytganda chaqiruvchi xabar oladi', async () => {
+    const ali = await connect('ali');
+    const vali = await connect('vali');
+    const callId = randomUUID();
+    const invite = next(vali, 'call:invite');
+    await ali.inviteCall({ callId, chatId: direct, media: 'audio' });
+    await invite;
+    await vali.acceptCall(callId);
+    ali.disconnect();
+    vali.disconnect();
+
+    const ali2 = await connect('ali');
+    expect(await ali2.resumeCall(callId)).toEqual({ callId, peerConnected: false });
+    const resumed = next(ali2, 'call:resume');
+    const vali2 = await connect('vali');
+    expect(await vali2.resumeCall(callId)).toEqual({ callId, peerConnected: true });
+    await resumed;
+    await ali2.endCall(callId);
+  });
+
+  it('call:resume ruxsati: begona foydalanuvchi, jiringlayotgan va tugagan qo\'ng\'iroq — rad; muddat tugagach qaytish ham rad', async () => {
+    const ali = await connect('ali');
+    const vali = await connect('vali');
+    const gani = await connect('gani');
+    const callId = randomUUID();
+    const invite = next(vali, 'call:invite');
+    await ali.inviteCall({ callId, chatId: direct, media: 'audio' });
+    await invite;
+    // hali jiringlayapti — resume yo'q
+    await expect(vali.resumeCall(callId)).rejects.toThrow('Qo\'ng\'iroq topilmadi');
+    await vali.acceptCall(callId);
+
+    // begona (ishtirokchi emas) socket'ni bog'lay olmaydi va qo'ng'iroqni buza olmaydi
+    await expect(gani.resumeCall(callId)).rejects.toThrow('Qo\'ng\'iroq topilmadi');
+    await expect(ali.resumeCall(randomUUID())).rejects.toThrow('Qo\'ng\'iroq topilmadi');
+    const strayOffer = never(vali, 'call:offer');
+    gani.sendCallOffer(callId, { type: 'offer', sdp: 'v=0 stray' });
+    await strayOffer;
+    expect(gateway.activeCalls).toBe(1);
+
+    // Muddat o'tdi — qaytish rad etiladi, ikkala tomonga disconnected
+    const ended = next(ali, 'call:end');
+    vali.disconnect();
+    expect(await ended).toMatchObject({ callId, reason: 'disconnected' });
+    const vali2 = await connect('vali');
+    await expect(vali2.resumeCall(callId)).rejects.toThrow('Qo\'ng\'iroq topilmadi');
   });
 
   it('ruxsatsiz: guruhga, a\'zo bo\'lmagan chatga, bloklangan foydalanuvchiga qo\'ng\'iroq yo\'q', async () => {

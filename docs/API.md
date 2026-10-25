@@ -94,10 +94,13 @@ Sxemalar `@suhbat/core` (`calls.ts`), mijoz mantiqi
 | → server  | `call:accept` / `call:reject` / `call:cancel` / `call:end` | `{ callId }` → ack |
 | ↔         | `call:offer` / `call:answer` | `{ callId, description: { type, sdp } }` (faqat qo'ng'iroqqa bog'langan ikki socket orasida) |
 | ↔         | `call:ice`     | `{ callId, candidate \| null }` |
+| → server  | `call:resume`  | `{ callId }` → ack `{ callId, peerConnected }`. Qabul qilingan qo'ng'iroqda socket uzilib qayta ulangach (yoki ICE `failed` bo'lganda). Faqat shu qo'ng'iroq ishtirokchisi; boshqasiga/jiringlayotganga/tugaganga — `Qo'ng'iroq topilmadi` |
+| ← mijoz   | `call:resume`  | `{ callId }` — suhbatdosh qaytdi; chaqiruvchi ICE restart offer'ini yuboradi |
 | ← mijoz   | `call:invite`  | `{ callId, chatId, media, from, createdAt }` (qabul qiluvchining hamma qurilmasiga; ulanganda qayta) |
 | ← mijoz   | `call:ringing` / `call:accept` / `call:busy` | `{ callId }` (chaqiruvchiga) |
 | ← mijoz   | `call:end`     | `{ callId, reason, durationMs }` — `hangup\|rejected\|cancelled\|missed\|busy\|disconnected\|answered_elsewhere` |
 
 Faqat 1:1 chat a'zolari, bloklanmagan; bir vaqtda bitta qo'ng'iroq; 45 s javob bo'lmasa `missed`
-(`CALL_RING_TIMEOUT_MS`). Tugaganda chatga tizim xabari (`type: system`): "📞 Qo'ng'iroq, 3:12",
+(`CALL_RING_TIMEOUT_MS`). Qabul qilingan qo'ng'iroqda signal socket'i uzilsa server `CALL_RESUME_GRACE_MS`
+(standart 15 s) kutadi: shu muddatda `call:resume` kelmasa — `disconnected` bilan tugaydi. Tugaganda chatga tizim xabari (`type: system`): "📞 Qo'ng'iroq, 3:12",
 "Javobsiz/Rad etilgan/Bekor qilingan qo'ng'iroq". Qabul qiluvchi oflayn bo'lsa — push (`data.type = call`).

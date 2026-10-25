@@ -6,6 +6,8 @@ import type { CallPeer, CallSessionDeps, CallState } from './types.js';
 /** Socket voqealariga obuna (`createSocketClient().on` mos keladi). */
 export interface CallEventSource {
   on<E extends keyof ServerToClientEvents>(event: E, listener: ServerToClientEvents[E]): () => void;
+  /** Socket (qayta) ulanganda `true` — faol qo'ng'iroq signal kanalini tiklaydi (`createSocketClient` beradi). */
+  onConnectionChange?(listener: (connected: boolean) => void): () => void;
 }
 
 export interface CallManagerOptions<S> extends CallSessionDeps<S> {
@@ -76,7 +78,13 @@ export const createCallManager = <S>(opts: CallManagerOptions<S>) => {
     opts.events.on('call:offer', ({ callId, description }) => route({ type: 'offer', callId, description })),
     opts.events.on('call:answer', ({ callId, description }) => route({ type: 'answer', callId, description })),
     opts.events.on('call:ice', ({ callId, candidate }) => route({ type: 'ice', callId, candidate })),
+    opts.events.on('call:resume', ({ callId }) => route({ type: 'resume', callId })),
   ];
+  // Socket qayta ulandi: qabul qilingan qo'ng'iroq bo'lsa, serverga `call:resume` (muddat ichida).
+  const offConnection = opts.events.onConnectionChange?.((connected) => {
+    if (connected) void current?.resumeSignaling();
+  });
+  if (offConnection) offs.push(offConnection);
 
   return {
     getState: (): CallState<S> | null => current?.getState() ?? null,

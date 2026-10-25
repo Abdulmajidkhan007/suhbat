@@ -33,6 +33,14 @@ jest.mock('@react-native-firebase/messaging', () => ({
   setBackgroundMessageHandler: jest.fn(),
 }));
 
+jest.mock('react-native-incall-manager', () => ({
+  __esModule: true,
+  default: {
+    start: jest.fn(), stop: jest.fn(), startRingtone: jest.fn(), stopRingtone: jest.fn(),
+    stopRingback: jest.fn(), setForceSpeakerphoneOn: jest.fn(),
+  },
+}));
+
 // react-native-webrtc native moduli testlarda yo'q: oddiy o'rinbosarlar (qo'ng'iroq mantiqi
 // `@suhbat/client` da soxta peer bilan sinaladi, bu yerda — faqat UI).
 jest.mock('react-native-webrtc', () => {

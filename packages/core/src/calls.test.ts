@@ -3,6 +3,8 @@ import {
   IceServersResponseSchema,
   WsCallIceSchema,
   WsCallInviteSchema,
+  WsCallResumedSchema,
+  CALL_RESUME_GRACE_MS,
   WsCallSdpSchema,
   callSummaryText,
   formatCallDuration,
@@ -44,6 +46,13 @@ describe('qo\'ng\'iroq sxemalari', () => {
       }).success,
     ).toBe(true);
     expect(IceServersResponseSchema.safeParse({ iceServers: [{ urls: [] }], ttlSeconds: null }).success).toBe(false);
+  });
+
+  it('resume ack: callId UUID va peerConnected bool', () => {
+    expect(WsCallResumedSchema.safeParse({ callId: id, peerConnected: true }).success).toBe(true);
+    expect(WsCallResumedSchema.safeParse({ callId: id }).success).toBe(false);
+    expect(WsCallResumedSchema.safeParse({ callId: 'x', peerConnected: false }).success).toBe(false);
+    expect(CALL_RESUME_GRACE_MS).toBeGreaterThan(0);
   });
 
   it('push: qo\'ng\'iroq data', () => {

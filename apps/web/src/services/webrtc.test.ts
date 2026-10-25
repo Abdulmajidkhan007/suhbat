@@ -12,7 +12,8 @@ class FakeRtc {
   ice: unknown[] = [];
   constructor(readonly config: RTCConfiguration) { FakeRtc.last = this; }
   addTrack(t: unknown) { this.added.push(t); }
-  async createOffer() { return { type: 'offer', sdp: 'v=0' }; }
+  offerOptions: unknown[] = [];
+  async createOffer(o?: unknown) { this.offerOptions.push(o); return { type: 'offer', sdp: 'v=0' }; }
   async createAnswer() { return { type: 'answer' }; }
   async setLocalDescription() {}
   async setRemoteDescription(d: unknown) { this.remote = d; }
@@ -41,6 +42,8 @@ describe('createBrowserPeer', () => {
     expect(events.onConnectionState).toHaveBeenCalledWith('connected');
 
     expect(await peer.createOffer()).toEqual({ type: 'offer', sdp: 'v=0' });
+    await peer.createOffer({ iceRestart: true });
+    expect(rtc.offerOptions).toEqual([undefined, { iceRestart: true }]);
     await expect(peer.createAnswer()).rejects.toThrow('SDP');
     await peer.addIceCandidate(null);
     expect(rtc.ice).toEqual([undefined]);

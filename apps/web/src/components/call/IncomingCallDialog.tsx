@@ -11,12 +11,14 @@ interface Props {
   open:     boolean;
   peer:     CallPeer;
   media:    CallMedia;
+  /** Jiringlash ovozi ijro etilmadi (brauzer autoplay cheklovi) — ekranda ogohlantirish. */
+  soundBlocked?: boolean;
   onAccept: () => void;
   onReject: () => void;
 }
 
 /** Kiruvchi qo'ng'iroq: qabul qilish yoki rad etish. */
-const IncomingCallDialog: React.FC<Props> = ({ open, peer, media, onAccept, onReject }) => (
+const IncomingCallDialog: React.FC<Props> = ({ open, peer, media, soundBlocked = false, onAccept, onReject }) => (
   <Dialog
     open={open}
     maxWidth="xs"
@@ -36,6 +38,11 @@ const IncomingCallDialog: React.FC<Props> = ({ open, peer, media, onAccept, onRe
           {media === 'video' ? 'Kiruvchi video qo\'ng\'iroq' : 'Kiruvchi qo\'ng\'iroq'}
         </Typography>
       </Box>
+      {soundBlocked && (
+        <Typography variant="caption" role="alert" sx={{ color: 'warning.main', textAlign: 'center' }}>
+          Jiringlash ovozi brauzer tomonidan bloklandi. Sahifaga bir marta bosing — ovoz yoqiladi.
+        </Typography>
+      )}
       <Stack direction="row" spacing={6} sx={{ pt: 1 }}>
         <Stack spacing={0.5} sx={{ alignItems: 'center' }}>
           <IconButton

@@ -1,6 +1,7 @@
 import React from 'react';
 import { isSilentEnd } from '@suhbat/client';
 import { useCall } from '../../hooks/useCall';
+import { useCallTone } from '../../hooks/useCallTone';
 import { callManager } from '../../services/calls';
 import CallScreen from './CallScreen';
 import IncomingCallDialog from './IncomingCallDialog';
@@ -11,6 +12,7 @@ import IncomingCallDialog from './IncomingCallDialog';
  */
 const CallOverlay: React.FC = () => {
   const state = useCall();
+  const soundBlocked = useCallTone();
   if (!state || !state.peer) return null;
 
   if (state.phase === 'ringing' && state.direction === 'incoming') {
@@ -19,6 +21,7 @@ const CallOverlay: React.FC = () => {
         open
         peer={state.peer}
         media={state.media}
+        soundBlocked={soundBlocked}
         onAccept={() => void callManager.accept()}
         onReject={() => callManager.reject()}
       />

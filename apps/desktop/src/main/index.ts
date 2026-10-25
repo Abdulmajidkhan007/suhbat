@@ -93,6 +93,8 @@ function createWindow() {
       nodeIntegration:  false,
       sandbox:          true,
       webSecurity:      true,
+      // Kiruvchi qo'ng'iroq jiringlashi foydalanuvchi oynaga bosmagan bo'lsa ham yangrashi kerak.
+      autoplayPolicy:   'no-user-gesture-required',
     },
   });
   win.once('ready-to-show', () => win.show());

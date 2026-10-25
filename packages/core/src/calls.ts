@@ -9,6 +9,11 @@ import { PublicUserSchema } from './schemas.js';
 // `call:ringing`. Qabul: `call:accept` → chaqiruvchi `call:offer` → `call:answer`,
 // ikki tomon `call:ice`. Tugash: `call:reject` / `call:cancel` / `call:end` —
 // server ikkala tomonga `call:end` (sababi bilan) yuboradi. Band bo'lsa `call:busy`.
+//
+// Tiklash: qabul qilingan qo'ng'iroqda signal socket'i uzilsa, server qo'ng'iroqni
+// `CALL_RESUME_GRACE_MS` kutadi. Yangi socket `call:resume` (ack) yuboradi — faqat
+// qo'ng'iroq ishtirokchisi; server socket'ni qayta bog'laydi va suhbatdoshga `call:resume`
+// yuboradi. Keyin chaqiruvchi (offer beruvchi) ICE restart offer'ini yuboradi.
 
 export const CallMediaSchema = z.enum(['audio', 'video']);
 export type CallMedia = z.infer<typeof CallMediaSchema>;
@@ -72,6 +77,10 @@ export const WsCallIceSchema = z.object({
 });
 export type WsCallIce = z.infer<typeof WsCallIceSchema>;
 
+/** `call:resume` ack'i: suhbatdosh signal kanaliga hozir ulanganmi (ICE restart'ni kim boshlashini hal qiladi). */
+export const WsCallResumedSchema = z.object({ callId, peerConnected: z.boolean() });
+export type WsCallResumed = z.infer<typeof WsCallResumedSchema>;
+
 // --- server → mijoz ---
 /** Kiruvchi qo'ng'iroq (qabul qiluvchining hamma qurilmalariga). */
 export const WsCallIncomingSchema = z.object({
@@ -108,6 +117,12 @@ export type IceServersResponse = z.infer<typeof IceServersResponseSchema>;
 
 /** Qo'ng'iroq qancha jiringlaydi (javob bo'lmasa `missed`). */
 export const CALL_RING_TIMEOUT_MS = 45_000;
+
+/**
+ * Qabul qilingan qo'ng'iroqda signal socket'i uzilsa, server qo'ng'iroqni shuncha kutadi
+ * (`call:resume` bilan qayta ulanish uchun); o'tsa `disconnected` bilan tugaydi.
+ */
+export const CALL_RESUME_GRACE_MS = 15_000;
 
 /** `3:12`, `1:02:05` — davomiylik (millisekund) qo'ng'iroq formatida. */
 export const formatCallDuration = (ms: number): string => {
