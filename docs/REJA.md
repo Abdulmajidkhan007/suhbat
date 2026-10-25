@@ -297,12 +297,56 @@
   ruxsat oynasi; Safari/Firefox; haqiqiy FCM bilan qo'ng'iroq push'i; uzoq qo'ng'iroq. **Haqiqiy media oqimi
   CI'da sinalmaydi** (CI faqat signal e2e, unit va build).
 - **Cheklovlar / keyin:** CallKit (iOS) / ConnectionService (Android) — tizim qo'ng'iroq ekrani, qulflangan
-  ekranda jiringlash, data-only push; karnay/quloqchin almashtirish (`react-native-incall-manager`), fonda
-  davom ettirish (iOS `UIBackgroundModes audio/voip`); jiringlash ovozi (veb ham, mobil ham — hozir ovozsiz,
-  faqat ekran); ICE restart va socket qisqa uzilganda qayta tiklash (hozir bog'langan socket uzilsa qo'ng'iroq
-  tugaydi); bir nechta API nusxasi (registr va presence — Redis); guruh qo'ng'iroqlari (SFU kerak);
+  ekranda jiringlash, data-only push (4c-2); fonda davom ettirish (iOS `UIBackgroundModes audio/voip`);
+  bir nechta API nusxasi (registr va presence — Redis); guruh qo'ng'iroqlari (SFU kerak);
   qo'ng'iroqlar tarixi alohida jadvalda emas (faqat tizim xabari); Cloudflare TURN credential'ini avtomatik
-  yaratish.
+  yaratish. (Jiringlash ovozi, karnay/quloqchin, ICE restart va `call:resume` — pastda "4c-1".)
+
+### 4c-1-faza (qo'ng'iroqni tiklash, jiringlash, karnay) — nima qilindi (PR: `claude/4c-1-call-resume`)
+- **Tiklash — `call:resume` (core `calls.ts`/`ws.ts`, API, `@suhbat/client`):**
+  - Server: qabul qilingan qo'ng'iroqda ishtirokchining signal socket'i uzilsa qo'ng'iroq darhol tugamaydi —
+    shu tomon "uzilgan" bo'ladi va `CALL_RESUME_GRACE_MS` (standart 15 s, env `CALL_RESUME_GRACE_MS`) kutiladi.
+    Muddat ichida yangi socket `call:resume {callId}` (ack: `{callId, peerConnected}`) yuborsa — socket qayta
+    bog'lanadi (`ConnectionHoldService` ham), suhbatdoshga `call:resume` boradi. Muddat o'tsa — `disconnected`
+    (tizim xabari avvalgidek). Ikkala tomon uzilsa muddat bitta; ikkalasi qaytgach to'xtaydi. Jiringlayotgan
+    qo'ng'iroq uzilishi o'zgarmadi (`cancelled`).
+  - Ruxsat: faqat qabul qilingan qo'ng'iroqning chaqiruvchisi/qabul qiluvchisi resume qila oladi; begona
+    foydalanuvchi, jiringlayotgan, mavjud bo'lmagan yoki tugagan qo'ng'iroq — `Qo'ng'iroq topilmadi`. Uzilgan
+    tomonga yo'nalgan signal (offer/ice) tashlab yuboriladi.
+  - Klient: `CallSession.resumeSignaling()` — `createCallManager` socket qayta ulanganda (`onConnectionChange`)
+    chaqiradi; server rad etsa (muddat o'tgan) — `disconnected` bilan tugaydi. Offer beruvchi (chaqiruvchi)
+    ICE restart qiladi (`createOffer({ iceRestart: true })`): resume ack'ida suhbatdosh ulangan bo'lsa darhol,
+    bo'lmasa suhbatdosh qaytganda kelgan `call:resume` bilan. Tarmoq almashib ICE `failed` bo'lsa (bir marta
+    ulangan qo'ng'iroqda) — avval ICE restart (chaqiruvchi o'zi; qabul qiluvchi `call:resume` bilan chaqiruvchidan
+    so'raydi), ketma-ket `MAX_ICE_RESTARTS` (2) dan keyin tugaydi. Kutilmagan `answer` e'tiborsiz qoldiriladi.
+- **Veb/desktop jiringlash:** `scripts/gen-call-sounds.mjs` (o'zimiz sintez qilgan WAV — litsenziya masalasi yo'q)
+  → `apps/web/public/sounds/ring.wav` (kiruvchi) va `ringback.wav` (chiquvchi kutish). `callToneFor` (client,
+  veb va mobil uchun umumiy qoida), `createCallTonePlayer`: brauzer autoplay'ni rad etsa xato `console.warn`
+  qilinadi, qabul oynasida "Jiringlash ovozi brauzer tomonidan bloklandi…" ogohlantirishi chiqadi va keyingi
+  bosish/tugmada qayta uriniladi (jim yutilmaydi). Electron: `autoplayPolicy: 'no-user-gesture-required'`.
+- **Mobil:** `react-native-incall-manager` 4.3.0 — `createCallAudio`: kiruvchi — tizim ringtone'i + tebranish,
+  chiquvchi — `start({ringback})`, gaplashishda audio sessiya (audio qo'ng'iroq — quloqchin, video — karnay,
+  simli/Bluetooth avtomatik), qo'ng'iroq ekranida karnay tugmasi. Android `WAKE_LOCK`. Native xato qo'ng'iroqni
+  buzmaydi, `console.warn` ga yoziladi.
+- **Tekshirildi (lokal):** `turbo run lint typecheck test build` yashil (core 69, client 53, api unit 109, web 126,
+  desktop 13, mobil 92). API e2e `calls.e2e-spec.ts` 11 ta (lokal Postgres 16, haqiqiy Socket.IO): muddat ichida
+  resume (signal yangi socket'ga boradi, eskisiga emas, qo'ng'iroq tugamaydi), ikkala tomon uzilib qaytishi,
+  muddat tugagach `disconnected` va undan keyingi resume rad etilishi, begona/jiringlayotgan/mavjud emas
+  qo'ng'iroqda resume rad etilishi. Registr unit-testlari soxta taymer bilan (muddat 14 999 ms → 15 000 ms).
+  `CallSession` unit: ikki tomonlama resume → ICE restart offer/answer, `failed` → restart → limit, server rad etishi.
+  Chromium'da (Playwright) ikkala WAV dekodlanadi (3 s) va `play()` ishlaydi; `react-native bundle` (android).
+- **Tekshirilmadi:** (1) **hech qaysi qurilmada** — ICE restart haqiqiy `RTCPeerConnection` bilan (testlarda soxta peer),
+  haqiqiy tarmoq almashuvi (Wi-Fi ↔ mobil) va qisqa uzilishda ovoz/video haqiqatan tiklanishi; (2) brauzerning
+  haqiqiy autoplay bloklanishi (headless Chromium baribir ijro etadi — bloklash yo'li faqat soxta `Audio` bilan
+  sinalgan); Electron'da `autoplayPolicy`; jiringlash balandligi va tovush sifati; (3) mobil: `react-native-incall-manager`
+  Android/iOS'da qurilmada ishga tushirilmagan — ringtone, ringback, karnay/quloqchin almashishi, Bluetooth
+  (Android 12+ da `BLUETOOTH_CONNECT` ish vaqti ruxsati so'ralmaydi), tebranish; kutubxona native build'i (Android/iOS
+  pod) faqat CI'da tekshiriladi; (4) ikki qurilma bir vaqtda uzilganda, bir vaqtda ikki offer (glare) — kodda
+  yumshatilgan, lekin sinalmagan.
+- **Cheklovlar:** chiquvchi qo'ng'iroq jiringlayotganda (qabul qilinmagan) chaqiruvchi socket'i uzilsa — oldingidek
+  `cancelled` (tiklash faqat qabul qilingan qo'ng'iroqda). Registr xotirada (bitta API nusxasi). Uzilgan tomon
+  `call:end` tugmasini yangi socket resume qilmaguncha bosa olmaydi (klient lokal tugatadi, suhbatdosh muddat
+  tugagach `disconnected` oladi). 4c-2: CallKit/ConnectionService va data-only push — hali boshlanmagan.
 
 ### O'zimizda: tashqi xizmatlarsiz (2026-10-17, egasi talabi)
 Maqsad: R2, metered.ca, FCM, Resend'ga bog'liq bo'lmaslik — hammasi Railway'da (API + Postgres + Volume).
@@ -797,14 +841,16 @@ packages/
   preview sozlamasi, bloklash. Qurilmada sinalmagan; Web Push — keyin. Yuqorida "4-faza".
 - **4b (1:1 qo'ng'iroqlar) — ✅ main'ga qo'shildi (PR #11, 2026-10-14):** signal (Socket.IO), ICE/TURN env,
   `CallSession`, veb/desktop va mobil UI. Qurilmada va NAT/TURN orqali sinalmagan. Yuqorida "4b-faza".
+- **4c-1 (qo'ng'iroqni tiklash, jiringlash, karnay) — PR'da, tekshiruvda:** `call:resume` + ICE restart,
+  veb/desktop jiringlash va kutish ovozi, mobil `react-native-incall-manager`. Faqat qurilmasiz testlar bilan
+  sinalgan. Yuqorida "4c-1-faza". **4c-2** (CallKit/ConnectionService, data-only push) — keyingi.
 
 ## Keyingi sessiya uchun
 4b (qo'ng'iroqlar) PR #11 da. Merge'dan keyin taklif etiladigan navbat:
 1. **Egasi:** TURN sozlash — o'z coturn'imiz (`QADAMLAR.md` "Ixtiyoriy", `infra/turn/`) — busiz mobil internet/NAT ortida qo'ng'iroq
    ulanmasligi mumkin. Keyin ikki xil tarmoqda va haqiqiy telefonda sinash.
-2. **4c (qo'ng'iroq sifati):** jiringlash ovozi (veb + mobil), karnay/quloqchin (`react-native-incall-manager`),
-   CallKit / ConnectionService (qulflangan ekranda jiringlash, data-only push), socket qisqa uzilganda va
-   tarmoq almashganda qo'ng'iroqni tiklash (ICE restart + `call:resume`).
+2. **4c (qo'ng'iroq sifati):** 4c-1 (jiringlash ovozi, karnay/quloqchin, `call:resume` + ICE restart) — PR'da,
+   qurilmada sinash kerak. **4c-2:** CallKit / ConnectionService (qulflangan ekranda jiringlash, data-only push).
 3. Mobil 3b qoldiqlari: CI'da Android emulyator smoke testi, media yuborish, tahrirlash/o'chirish UI.
 4. Redis (registr, presence, rate limit — ko'p API nusxasi).
 

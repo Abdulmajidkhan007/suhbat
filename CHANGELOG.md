@@ -2,6 +2,16 @@
 
 Release matni shu fayldan olinadi (`release.yml`: `## vX.Y.Z` bo'limi).
 
+## Chiqarilmagan
+
+- **Qo'ng'iroq uzilishda tushib ketmaydi** (veb, desktop, mobil): gaplashayotganda internet qisqa uzilsa yoki Wi-Fi ↔
+  mobil internet almashsa, qo'ng'iroq 15 soniyagacha kutadi va aloqa tiklanadi (ICE restart). Shu muddatda
+  qaytmasa — "Aloqa uzildi". Faqat avtomatik testlar bilan tekshirilgan; haqiqiy tarmoq almashuvida hali sinalmagan.
+- **Jiringlash va kutish ovozi** (veb, desktop): kiruvchi qo'ng'iroqda jiringlash, chiquvchida kutish ovozi.
+  Brauzer ovozni bloklasa, qabul oynasida ogohlantirish chiqadi.
+- **Mobil:** jiringlash (ringtone + tebranish), kutish ovozi va qo'ng'iroq ekranida **karnay/quloqchin** tugmasi.
+  Telefonda hali sinalmagan.
+
 ## v0.5.0 (2026-10-21)
 
 - **Parolni email'siz tiklash — tiklash kodlari** (veb, desktop, mobil): ro'yxatdan o'tgach 10 ta bir martalik kod
