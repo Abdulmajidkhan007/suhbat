@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CallState } from '@suhbat/client';
 
 type Listener = (s: CallState<MediaStream> | null) => void;
-const store = vi.hoisted(() => ({ state: null as CallState<MediaStream> | null, listeners: new Set<Listener>() }));
+const store = vi.hoisted(() => ({ state: null as CallState<MediaStream> | null, listeners: new Set<Listener>(), soundBlocked: false }));
 
 vi.mock('../../services/calls', () => ({
   callManager: {
@@ -19,6 +19,8 @@ vi.mock('../../services/calls', () => ({
     canSwitchCamera: false,
   },
 }));
+
+vi.mock('../../hooks/useCallTone', () => ({ useCallTone: () => store.soundBlocked }));
 
 const { callManager } = await import('../../services/calls');
 const { default: CallOverlay } = await import('./CallOverlay');
@@ -36,6 +38,7 @@ const set = (patch: Partial<CallState<MediaStream>> | null) => {
 describe('CallOverlay', () => {
   beforeEach(() => {
     store.state = null;
+    store.soundBlocked = false;
     vi.clearAllMocks();
   });
 
@@ -60,5 +63,14 @@ describe('CallOverlay', () => {
 
     set({ phase: 'ended', direction: 'outgoing', endReason: 'busy' });
     expect(screen.getByRole('status')).toHaveTextContent('Band');
+  });
+
+  it('jiringlash ovozi bloklangan bo\'lsa — qabul oynasida ogohlantirish', () => {
+    render(<CallOverlay />);
+    set({});
+    expect(screen.queryByRole('alert')).toBeNull();
+    store.soundBlocked = true;
+    set({});
+    expect(screen.getByRole('alert')).toHaveTextContent('bloklandi');
   });
 });

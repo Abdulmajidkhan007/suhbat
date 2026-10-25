@@ -40,3 +40,13 @@ export const isSilentEnd = (state: Pick<CallState<unknown>, 'phase' | 'direction
   state.phase === 'ended' && state.direction === 'incoming' &&
   (state.endReason === 'cancelled' || state.endReason === 'missed' ||
     state.endReason === 'answered_elsewhere' || state.endReason === 'rejected');
+
+/** Qo'ng'iroq ohangi: `ring` — kiruvchi jiringlash, `ringback` — chiquvchi kutish ovozi (veb va mobil uchun bitta qoida). */
+export type CallTone = 'ring' | 'ringback';
+
+export const callToneFor = (state: Pick<CallState<unknown>, 'phase' | 'direction'> | null): CallTone | null => {
+  if (!state) return null;
+  if (state.phase === 'ringing' && state.direction === 'incoming') return 'ring';
+  if (state.phase === 'calling' && state.direction === 'outgoing') return 'ringback';
+  return null;
+};
