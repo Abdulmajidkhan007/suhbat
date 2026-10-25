@@ -31,7 +31,7 @@ export const createNativePeer = (iceServers: IceServer[], events: PeerEvents<Med
   pc.onconnectionstatechange = () => events.onConnectionState(pc.connectionState);
   return {
     addStream:            (stream) => stream.getTracks().forEach((t) => pc.addTrack(t, stream)),
-    createOffer:          async () => toSdp(await pc.createOffer({})),
+    createOffer:          async (options) => toSdp(await pc.createOffer({ iceRestart: options?.iceRestart === true })),
     createAnswer:         async () => toSdp(await pc.createAnswer()),
     setLocalDescription:  (d) => pc.setLocalDescription(d),
     setRemoteDescription: (d) => pc.setRemoteDescription(d),

@@ -7,6 +7,7 @@ import type {
   PublicUser,
   WsCallInvite,
   WsCallRef,
+  WsCallResumed,
 } from '@suhbat/core';
 
 // Platformadan mustaqil qo'ng'iroq mantiqi uchun tashqi bog'liqliklar. Veb/desktop
@@ -56,6 +57,8 @@ export interface CallSignaling {
   rejectCall(callId: string): Promise<WsCallRef>;
   cancelCall(callId: string): Promise<WsCallRef>;
   endCall(callId: string): Promise<WsCallRef>;
+  /** Signal kanali uzilib qayta ulangach (yoki ICE tiklash uchun): qo'ng'iroqqa yangi socket bilan qaytish. */
+  resumeCall(callId: string): Promise<WsCallResumed>;
   sendCallOffer(callId: string, description: CallSdp): void;
   sendCallAnswer(callId: string, description: CallSdp): void;
   sendCallIce(callId: string, candidate: CallIceCandidate | null): void;
@@ -73,7 +76,8 @@ export interface PeerEvents<S> {
 /** `RTCPeerConnection` ustidagi yupqa adapter (platforma yozadi). */
 export interface PeerConnection<S> {
   addStream(stream: S): void;
-  createOffer(): Promise<CallSdp>;
+  /** `iceRestart: true` — yangi ICE kredensiallari (tarmoq almashganda media yo'lini qayta topish). */
+  createOffer(options?: { iceRestart?: boolean }): Promise<CallSdp>;
   createAnswer(): Promise<CallSdp>;
   setLocalDescription(description: CallSdp): Promise<void>;
   setRemoteDescription(description: CallSdp): Promise<void>;

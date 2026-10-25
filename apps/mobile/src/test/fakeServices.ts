@@ -98,6 +98,7 @@ export const createFakeServices = (api: Partial<ApiClient> = {}, push: PushPlatf
     rejectCall:     jest.fn(async (callId: string) => ({ callId })),
     cancelCall:     jest.fn(async (callId: string) => ({ callId })),
     endCall:        jest.fn(async (callId: string) => ({ callId })),
+    resumeCall:     jest.fn(async (callId: string) => ({ callId, peerConnected: true })),
     sendCallOffer:  jest.fn(),
     sendCallAnswer: jest.fn(),
     sendCallIce:    jest.fn(),

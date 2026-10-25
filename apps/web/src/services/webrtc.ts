@@ -23,7 +23,7 @@ export const createBrowserPeer = (
   pc.onconnectionstatechange = () => events.onConnectionState(pc.connectionState);
   return {
     addStream:            (stream) => stream.getTracks().forEach((t) => pc.addTrack(t, stream)),
-    createOffer:          async () => toSdp(await pc.createOffer()),
+    createOffer:          async (options) => toSdp(await pc.createOffer(options?.iceRestart ? { iceRestart: true } : undefined)),
     createAnswer:         async () => toSdp(await pc.createAnswer()),
     setLocalDescription:  (d) => pc.setLocalDescription(d),
     setRemoteDescription: (d) => pc.setRemoteDescription(d),

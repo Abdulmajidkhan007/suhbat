@@ -2,7 +2,7 @@ import type { CallIceCandidate, CallSdp, PublicUser, WsCallIncoming } from '@suh
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { createCallManager } from './manager.js';
-import { CallSession, MEDIA_ERROR, uuidV4 } from './session.js';
+import { CallSession, MAX_ICE_RESTARTS, MEDIA_ERROR, uuidV4 } from './session.js';
 import type { CallSignal } from './session.js';
 import type { CallMediaDevices, CallSessionDeps, CallSignaling, PeerConnection, PeerEvents } from './types.js';
 
@@ -25,7 +25,11 @@ class FakePeer implements PeerConnection<Stream> {
   closed = false;
   constructor(readonly name: string, readonly events: PeerEvents<Stream>, readonly iceServers: unknown) {}
   addStream(s: Stream) { this.added.push(s); }
-  async createOffer(): Promise<CallSdp> { return { type: 'offer', sdp: `${this.name}-offer` }; }
+  offers: ({ iceRestart?: boolean } | undefined)[] = [];
+  async createOffer(options?: { iceRestart?: boolean }): Promise<CallSdp> {
+    this.offers.push(options);
+    return { type: 'offer', sdp: options?.iceRestart ? `${this.name}-offer-restart` : `${this.name}-offer` };
+  }
   async createAnswer(): Promise<CallSdp> { return { type: 'answer', sdp: `${this.name}-answer` }; }
   async setLocalDescription(d: CallSdp) {
     this.local = d;
@@ -72,6 +76,7 @@ const makeSignaling = (): MockSignaling => ({
   rejectCall:     vi.fn<CallSignaling['rejectCall']>(async (callId) => ({ callId })),
   cancelCall:     vi.fn<CallSignaling['cancelCall']>(async (callId) => ({ callId })),
   endCall:        vi.fn<CallSignaling['endCall']>(async (callId) => ({ callId })),
+  resumeCall:     vi.fn<CallSignaling['resumeCall']>(async (callId) => ({ callId, peerConnected: true })),
   sendCallOffer:  vi.fn<CallSignaling['sendCallOffer']>(),
   sendCallAnswer: vi.fn<CallSignaling['sendCallAnswer']>(),
   sendCallIce:    vi.fn<CallSignaling['sendCallIce']>(),
@@ -129,6 +134,11 @@ const pair = () => {
   calleeSig.endCall.mockImplementation(async (callId: string) => {
     to(caller, { type: 'end', callId, reason: 'hangup' });
     return { callId };
+  });
+  callerSig.resumeCall.mockImplementation(async (callId: string) => ({ callId, peerConnected: true }));
+  calleeSig.resumeCall.mockImplementation(async (callId: string) => {
+    to(caller, { type: 'resume', callId });
+    return { callId, peerConnected: true };
   });
   callerSig.sendCallOffer.mockImplementation((callId: string, description: CallSdp) => to(callee, { type: 'offer', callId, description }));
   calleeSig.sendCallAnswer.mockImplementation((callId: string, description: CallSdp) => to(caller, { type: 'answer', callId, description }));
@@ -293,9 +303,24 @@ describe('CallSession', () => {
     expect(s2.getState()).toMatchObject({ phase: 'connected', reconnecting: true });
     peers2[0]!.events.onConnectionState('connected');
     expect(s2.getState().reconnecting).toBe(false);
+    // Bir marta ulangan qo'ng'iroqda `failed` — avval ICE restart, ketma-ket MAX_ICE_RESTARTS dan keyin tugaydi
+    for (let i = 0; i < MAX_ICE_RESTARTS; i++) {
+      peers2[0]!.events.onConnectionState('failed');
+      expect(s2.getState()).toMatchObject({ phase: 'connected', reconnecting: true });
+    }
+    expect(sig2.endCall).not.toHaveBeenCalled();
     peers2[0]!.events.onConnectionState('failed');
     expect(s2.getState()).toMatchObject({ phase: 'ended', endReason: 'failed' });
     expect(sig2.endCall).toHaveBeenCalledWith(CALL);
+
+    // Hech qachon ulanmagan qo'ng'iroqda `failed` — darhol tugaydi
+    const sig3 = makeSignaling();
+    const peers3: FakePeer[] = [];
+    const s3 = new CallSession(deps('ali', sig3, makeMedia().media, peers3));
+    await s3.start({ chatId: CHAT, peer: vali, media: 'audio' });
+    await s3.handleSignal({ type: 'accept', callId: CALL });
+    peers3[0]!.events.onConnectionState('failed');
+    expect(s3.getState()).toMatchObject({ phase: 'ended', endReason: 'failed' });
   });
 
   it('mikrofon/kamera o\'chirish trek\'larga ta\'sir qiladi', async () => {
@@ -309,6 +334,92 @@ describe('CallSession', () => {
     s.setMuted(false);
     expect(m.streams[0]?.audio).toBe(true);
     expect(s.canSwitchCamera).toBe(false);
+  });
+
+  describe('qo\'ng\'iroqni tiklash (call:resume, ICE restart)', () => {
+    const connected = async () => {
+      const ctx = pair();
+      await ctx.caller.start({ chatId: CHAT, peer: vali, media: 'audio' });
+      await flush();
+      await ctx.callee.accept();
+      await vi.waitFor(() => {
+        expect(ctx.caller.getState().phase).toBe('connected');
+        expect(ctx.callee.getState().phase).toBe('connected');
+      });
+      const [calleePeer, callerPeer] = ctx.peers as [FakePeer, FakePeer];
+      return { ...ctx, calleePeer, callerPeer };
+    };
+
+    it('chaqiruvchi socket qayta ulandi: call:resume → ICE restart offer → javob, qo\'ng\'iroq davom etadi', async () => {
+      const { caller, callee, callerSig, callerPeer, calleePeer } = await connected();
+      await caller.resumeSignaling();
+      expect(callerSig.resumeCall).toHaveBeenCalledWith(CALL);
+      expect(callerPeer.offers.at(-1)).toEqual({ iceRestart: true });
+      expect(callerSig.sendCallOffer).toHaveBeenLastCalledWith(CALL, { type: 'offer', sdp: 'ali-offer-restart' });
+      await vi.waitFor(() => expect(calleePeer.remote).toEqual({ type: 'offer', sdp: 'ali-offer-restart' }));
+      await vi.waitFor(() => expect(callerPeer.remote).toEqual({ type: 'answer', sdp: 'vali-answer' }));
+      expect(caller.getState().phase).toBe('connected');
+      expect(callee.getState().phase).toBe('connected');
+    });
+
+    it('qabul qiluvchi qayta ulandi: suhbatdosh resume signalini oladi va chaqiruvchi ICE restart qiladi', async () => {
+      const { callee, calleeSig, callerPeer, calleePeer } = await connected();
+      await callee.resumeSignaling();
+      expect(calleeSig.resumeCall).toHaveBeenCalledWith(CALL);
+      await vi.waitFor(() => expect(callerPeer.offers.at(-1)).toEqual({ iceRestart: true }));
+      await vi.waitFor(() => expect(calleePeer.remote).toEqual({ type: 'offer', sdp: 'ali-offer-restart' }));
+      expect(calleePeer.offers).toEqual([]); // qabul qiluvchi hech qachon offer bermaydi
+    });
+
+    it('suhbatdosh hali ulanmagan (peerConnected: false): chaqiruvchi kutadi, resume signali kelganda restart qiladi', async () => {
+      const { caller, callerSig, callerPeer } = await connected();
+      callerSig.resumeCall.mockResolvedValueOnce({ callId: CALL, peerConnected: false });
+      await caller.resumeSignaling();
+      expect(callerPeer.offers).toEqual([undefined]);
+      await caller.handleSignal({ type: 'resume', callId: CALL });
+      expect(callerPeer.offers.at(-1)).toEqual({ iceRestart: true });
+    });
+
+    it('server rad etdi (muddat o\'tgan) — qo\'ng\'iroq disconnected bilan tugaydi, media to\'xtaydi', async () => {
+      const { caller, callerSig, callerMedia, callerPeer } = await connected();
+      callerSig.resumeCall.mockRejectedValueOnce(new Error('Qo\'ng\'iroq topilmadi'));
+      await caller.resumeSignaling();
+      expect(caller.getState()).toMatchObject({ phase: 'ended', endReason: 'disconnected', error: 'Qo\'ng\'iroq topilmadi' });
+      expect(callerMedia.streams[0]?.stopped).toBe(true);
+      expect(callerPeer.closed).toBe(true);
+    });
+
+    it('qabul qilinmagan qo\'ng\'iroqda (jiringlash, accept kelmagan) resume yuborilmaydi', async () => {
+      const sig = makeSignaling();
+      const s = new CallSession(deps('ali', sig, makeMedia().media, []));
+      await s.start({ chatId: CHAT, peer: vali, media: 'audio' });
+      await s.resumeSignaling();
+      expect(sig.resumeCall).not.toHaveBeenCalled();
+      const calleeSig = makeSignaling();
+      const callee = new CallSession(deps('vali', calleeSig, makeMedia().media, []));
+      callee.receive(invite());
+      await callee.resumeSignaling();
+      expect(calleeSig.resumeCall).not.toHaveBeenCalled();
+    });
+
+    it('ICE failed (tarmoq almashdi): chaqiruvchi o\'zi restart qiladi, qabul qiluvchi chaqiruvchidan so\'raydi', async () => {
+      const { caller, callee, calleeSig, callerPeer, calleePeer } = await connected();
+      callerPeer.events.onConnectionState('failed');
+      expect(caller.getState()).toMatchObject({ phase: 'connected', reconnecting: true });
+      await vi.waitFor(() => expect(callerPeer.offers.at(-1)).toEqual({ iceRestart: true }));
+
+      calleePeer.events.onConnectionState('failed');
+      expect(callee.getState().phase).toBe('connected');
+      await vi.waitFor(() => expect(calleeSig.resumeCall).toHaveBeenCalledWith(CALL));
+    });
+
+    it('kutilmagan answer (offer yuborilmagan) e\'tiborsiz qoldiriladi', async () => {
+      const { caller, callerPeer } = await connected();
+      callerPeer.remote = null;
+      await caller.handleSignal({ type: 'answer', callId: CALL, description: { type: 'answer', sdp: 'buzuq' } });
+      expect(caller.getState().phase).toBe('connected');
+      expect(callerPeer.remote).toBeNull();
+    });
   });
 
   it('uuidV4 formati', () => {
@@ -374,5 +485,42 @@ describe('createCallManager', () => {
     expect(sig.endCall).toHaveBeenCalledWith(CALL);
     expect(events.handlers.size).toBe(0);
     expect(manager.getState()).toBeNull();
+  });
+  it('socket qayta ulandi: faol qo\'ng\'iroq call:resume yuboradi; call:resume voqeasi sessiyaga yo\'naltiriladi', async () => {
+    const events = makeEvents();
+    let connectionListener: ((c: boolean) => void) | null = null;
+    const sig = makeSignaling();
+    const peers: FakePeer[] = [];
+    const manager = createCallManager<Stream>({
+      ...deps('ali', sig, makeMedia().media, peers),
+      events: {
+        ...events,
+        onConnectionChange: (l: (c: boolean) => void) => {
+          connectionListener = l;
+          return () => { connectionListener = null; };
+        },
+      } as never,
+    });
+    connectionListener!(true); // qo'ng'iroq yo'q — hech narsa
+    expect(sig.resumeCall).not.toHaveBeenCalled();
+
+    await manager.startCall({ chatId: CHAT, peer: vali, media: 'audio' });
+    connectionListener!(true); // hali qabul qilinmagan — yuborilmaydi
+    expect(sig.resumeCall).not.toHaveBeenCalled();
+
+    events.fire('call:accept', { callId: CALL });
+    await vi.waitFor(() => expect(sig.sendCallOffer).toHaveBeenCalledTimes(1));
+    connectionListener!(false); // uzildi — hech narsa
+    expect(sig.resumeCall).not.toHaveBeenCalled();
+    connectionListener!(true);
+    await vi.waitFor(() => expect(sig.resumeCall).toHaveBeenCalledWith(CALL));
+    await vi.waitFor(() => expect(sig.sendCallOffer).toHaveBeenCalledTimes(2));
+    expect(peers[0]!.offers.at(-1)).toEqual({ iceRestart: true });
+
+    events.fire('call:resume', { callId: CALL });
+    await vi.waitFor(() => expect(sig.sendCallOffer).toHaveBeenCalledTimes(3));
+
+    manager.dispose();
+    expect(connectionListener).toBeNull();
   });
 });

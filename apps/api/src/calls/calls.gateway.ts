@@ -10,6 +10,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import {
+  CALL_RESUME_GRACE_MS,
   CALL_RING_TIMEOUT_MS,
   WsCallIceSchema,
   WsCallInviteSchema,
@@ -18,7 +19,7 @@ import {
   WsEvent,
   callSummaryText,
 } from '@suhbat/core';
-import type { CallEndReason, WsAck, WsCallIncoming, WsCallRef } from '@suhbat/core';
+import type { CallEndReason, WsAck, WsCallIncoming, WsCallRef, WsCallResumed } from '@suhbat/core';
 import { userRoom } from '../chats/chat.gateway';
 import type { ChatServer, ChatSocket } from '../chats/chat.gateway';
 import { ChatGateway } from '../chats/chat.gateway';
@@ -47,13 +48,16 @@ const positive = (raw: string | undefined, fallback: number) => {
  * Qoidalar: faqat 1:1 chat a'zolari, bloklanmagan; foydalanuvchi bir vaqtda bitta
  * qo'ng'iroqda (qabul qiluvchi band bo'lsa `call:busy`); javob bo'lmasa `CALL_RING_TIMEOUT_MS`
  * dan keyin `missed`; signal (offer/answer/ice) faqat qo'ng'iroqqa bog'langan ikki socket
- * orasida; bog'langan socket uzilsa qo'ng'iroq tugaydi. Natija chatga tizim xabari bo'lib yoziladi.
+ * orasida; jiringlayotganda bog'langan socket uzilsa qo'ng'iroq bekor bo'ladi, qabul qilingan
+ * qo'ng'iroqda esa `CALL_RESUME_GRACE_MS` kutiladi — shu muddatda ishtirokchi yangi socket bilan
+ * `call:resume` qilsa davom etadi, aks holda `disconnected`. Natija chatga tizim xabari bo'lib yoziladi.
  */
 @WebSocketGateway()
 export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy {
   private readonly logger = new Logger(CallsGateway.name);
   private readonly registry: CallRegistry;
   private readonly ringTimeoutMs: number;
+  private readonly resumeGraceMs: number;
   /** `call:invite` — foydalanuvchi bo'yicha (spam qo'ng'iroqqa qarshi). */
   private readonly inviteLimiter: RateLimiter;
 
@@ -68,7 +72,11 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     config: ConfigService,
   ) {
     this.ringTimeoutMs = positive(config.get<string>('CALL_RING_TIMEOUT_MS'), CALL_RING_TIMEOUT_MS);
-    this.registry = new CallRegistry(this.ringTimeoutMs, (call) => this.finish(call.id, 'missed'));
+    this.resumeGraceMs = positive(config.get<string>('CALL_RESUME_GRACE_MS'), CALL_RESUME_GRACE_MS);
+    this.registry = new CallRegistry(this.ringTimeoutMs, (call) => this.finish(call.id, 'missed'), {
+      graceMs:   this.resumeGraceMs,
+      onExpired: (call) => this.finish(call.id, 'disconnected'),
+    });
     this.inviteLimiter = new RateLimiter(
       positive(config.get<string>('CALL_INVITE_LIMIT'), 10),
       positive(config.get<string>('CALL_INVITE_WINDOW_MS'), 60_000),
@@ -90,10 +98,34 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   }
 
   handleDisconnect(socket: ChatSocket) {
+    // Chaqiruvchi javobni kutayotganda chiqib ketdi — bekor.
     for (const call of this.registry.bySocket(socket.id)) {
-      // Chaqiruvchi javobni kutayotganda chiqib ketdi — bekor; gaplashayotganda — uzildi.
-      this.finish(call.id, call.status === 'ringing' ? 'cancelled' : 'disconnected');
+      if (call.status === 'ringing') this.finish(call.id, 'cancelled');
     }
+    // Gaplashayotganda — darhol tugatmaymiz: `call:resume` uchun muddat beriladi.
+    if (this.registry.detach(socket.id).length > 0) this.holds.release(socket.id);
+  }
+
+  /**
+   * Uzilgan (yoki tarmoq almashgan) ishtirokchi yangi socket bilan qo'ng'iroqqa qaytadi.
+   * Faqat qabul qilingan qo'ng'iroqning chaqiruvchisi/qabul qiluvchisi; suhbatdoshga `call:resume`
+   * yuboriladi (chaqiruvchi ICE restart offer'ini shundan keyin yuboradi).
+   */
+  @SubscribeMessage(WsEvent.CallResume)
+  async onResume(@ConnectedSocket() socket: ChatSocket, @MessageBody() body: unknown): Promise<WsAck<WsCallResumed>> {
+    return runWithAck(this.logger, WsCallRefSchema, body, async ({ callId }) => {
+      const me = socket.data.userId;
+      const found = this.registry.get(callId);
+      if (!found || found.status !== 'accepted' || (me !== found.callerId && me !== found.calleeId)) {
+        throw new NotFoundException(CALL_NOT_FOUND);
+      }
+      const previous = this.registry.socketOf(found, me);
+      const { peerSocket } = this.registry.resume(callId, me, socket.id);
+      if (previous && previous !== socket.id) this.holds.release(previous);
+      this.holds.hold(socket.id);
+      if (peerSocket) this.server.to(peerSocket).emit(WsEvent.CallResume, { callId });
+      return { callId, peerConnected: peerSocket !== null };
+    });
   }
 
   @SubscribeMessage(WsEvent.CallInvite)
@@ -146,7 +178,7 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     if (!parsed.success) return;
     const call = this.registry.get(parsed.data.callId);
     if (!call || call.status !== 'ringing' || call.calleeId !== socket.data.userId) return;
-    this.server.to(call.callerSocket).emit(WsEvent.CallRinging, { callId: call.id });
+    if (call.callerSocket) this.server.to(call.callerSocket).emit(WsEvent.CallRinging, { callId: call.id });
   }
 
   @SubscribeMessage(WsEvent.CallAccept)
@@ -157,7 +189,7 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       if (call.status !== 'ringing') throw new ConflictException('Qo\'ng\'iroq allaqachon qabul qilingan');
       this.registry.accept(callId, socket.id);
       this.holds.hold(socket.id);
-      this.server.to(call.callerSocket).emit(WsEvent.CallAccept, { callId });
+      if (call.callerSocket) this.server.to(call.callerSocket).emit(WsEvent.CallAccept, { callId });
       // Qabul qiluvchining boshqa qurilmalari jiringlashni to'xtatadi.
       this.server
         .to(userRoom(call.calleeId))
@@ -246,11 +278,13 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
    */
   private relay(socket: ChatSocket, callId: string, from: 'caller' | 'callee' | 'any', send: (to: string) => void) {
     const call = this.registry.get(callId);
-    if (!call || call.status !== 'accepted' || !call.calleeSocket) return;
+    if (!call || call.status !== 'accepted') return;
     const fromCaller = socket.id === call.callerSocket && socket.data.userId === call.callerId;
     const fromCallee = socket.id === call.calleeSocket && socket.data.userId === call.calleeId;
     if (from === 'caller' ? !fromCaller : from === 'callee' ? !fromCallee : !(fromCaller || fromCallee)) return;
-    send(fromCaller ? call.calleeSocket : call.callerSocket);
+    // Suhbatdosh uzilgan bo'lsa (tiklashni kutmoqda) — signal tashlab yuboriladi; ICE restart qayta yuboradi.
+    const to = fromCaller ? call.calleeSocket : call.callerSocket;
+    if (to) send(to);
   }
 
   private incoming(call: ActiveCall): WsCallIncoming {
@@ -269,7 +303,7 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     if (!found) return;
     const durationMs = this.registry.durationMs(found);
     const call = this.registry.finish(callId) ?? found;
-    this.holds.release(call.callerSocket);
+    if (call.callerSocket) this.holds.release(call.callerSocket);
     if (call.calleeSocket) this.holds.release(call.calleeSocket);
     this.server
       .to([userRoom(call.callerId), userRoom(call.calleeId)])
