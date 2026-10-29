@@ -841,7 +841,7 @@ packages/
   preview sozlamasi, bloklash. Qurilmada sinalmagan; Web Push — keyin. Yuqorida "4-faza".
 - **4b (1:1 qo'ng'iroqlar) — ✅ main'ga qo'shildi (PR #11, 2026-10-14):** signal (Socket.IO), ICE/TURN env,
   `CallSession`, veb/desktop va mobil UI. Qurilmada va NAT/TURN orqali sinalmagan. Yuqorida "4b-faza".
-- **4c-1 (qo'ng'iroqni tiklash, jiringlash, karnay) — PR'da, tekshiruvda:** `call:resume` + ICE restart,
+- **4c-1 (qo'ng'iroqni tiklash, jiringlash, karnay) — ✅ main'ga qo'shildi (PR #28, 2026-10-25), v0.6.0 relizida (2026-10-29):** `call:resume` + ICE restart,
   veb/desktop jiringlash va kutish ovozi, mobil `react-native-incall-manager`. Faqat qurilmasiz testlar bilan
   sinalgan. Yuqorida "4c-1-faza". **4c-2** (CallKit/ConnectionService, data-only push) — keyingi.
 
@@ -849,7 +849,7 @@ packages/
 4b (qo'ng'iroqlar) PR #11 da. Merge'dan keyin taklif etiladigan navbat:
 1. **Egasi:** TURN sozlash — o'z coturn'imiz (`QADAMLAR.md` "Ixtiyoriy", `infra/turn/`) — busiz mobil internet/NAT ortida qo'ng'iroq
    ulanmasligi mumkin. Keyin ikki xil tarmoqda va haqiqiy telefonda sinash.
-2. **4c (qo'ng'iroq sifati):** 4c-1 (jiringlash ovozi, karnay/quloqchin, `call:resume` + ICE restart) — PR'da,
+2. **4c (qo'ng'iroq sifati):** 4c-1 (jiringlash ovozi, karnay/quloqchin, `call:resume` + ICE restart) — main'da (v0.6.0),
    qurilmada sinash kerak. **4c-2:** CallKit / ConnectionService (qulflangan ekranda jiringlash, data-only push).
 3. Mobil 3b qoldiqlari: CI'da Android emulyator smoke testi, media yuborish, tahrirlash/o'chirish UI.
 4. Redis (registr, presence, rate limit — ko'p API nusxasi).
