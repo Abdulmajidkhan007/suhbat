@@ -845,6 +845,26 @@ packages/
   veb/desktop jiringlash va kutish ovozi, mobil `react-native-incall-manager`. Faqat qurilmasiz testlar bilan
   sinalgan. Yuqorida "4c-1-faza". **4c-2** (CallKit/ConnectionService, data-only push) — keyingi.
 
+**5. Kirish va xavfsizlik (egasi talabi, 2026-11-02)** — ⏳ navbatda, vaqt bo'lganda
+- **5.1 BUG (birinchi):** login qilgandan bir muncha vaqt o'tib foydalanuvchi o'zi chiqib ketadi
+  (egasi sinovi). Taxmin, o'lchanmagan: access token 15 daqiqa; refresh `auth.service.ts` da
+  qayta ishlatishni aniqlaydi — bir xil refresh token bilan **parallel** ikki so'rov (bir nechta tab,
+  socket qayta ulanishi + HTTP, veb va desktop) kelsa, ikkinchisi butun token oilasini bekor qiladi →
+  logout. Avval log bilan sababni aniqlash, keyin tuzatish (masalan, mijozda bitta refresh
+  qulfi + serverda qisqa grace oyna), regressiya testi.
+- **5.2 Telefon raqam bilan kirish — SMS orqali** (Telegram'ga bog'liq emas): O'zbekiston SMS
+  provayderi (Eskiz.uz yoki Play Mobile — narx va shartnoma egasida), 6 xonali kod, 5 daqiqa amal
+  qiladi, 45 soniyada bir qayta so'rash. Provayder kaliti bo'lmasa dev rejimda kod logga chiqadi.
+- **5.3 Kod urinishlari cheklovi:** noto'g'ri kod 5 marta → shu raqamga kod so'rash vaqtincha bloklanadi
+  (SMS pulini va kodni tanlab topishni to'xtatadi).
+- **5.4 Xabarga emoji reaksiya** (👍 ❤️ 😂 😮 😢 🔥): xabar ustida bosib turish/hover → tanlash, xabar
+  ostida soni bilan, real vaqtda; mobil, veb, desktop.
+- **5.5 Fayl turini ichidan tekshirish:** yuklangan faylning turi nomi/`Content-Type` bo'yicha emas,
+  birinchi baytlari (magic bytes) bo'yicha aniqlanadi — `rasm.jpg` deb nomlangan dastur yoki HTML
+  rad etiladi.
+- Manba g'oyalar: `Abdullohkhan/realtime-chat` (egasining eski ishi, Apache-2.0 fork) — kod ko'chirilmaydi,
+  suhbat arxitekturasida qaytadan yoziladi.
+
 ## Keyingi sessiya uchun
 4b (qo'ng'iroqlar) PR #11 da. Merge'dan keyin taklif etiladigan navbat:
 1. **Egasi:** TURN sozlash — o'z coturn'imiz (`QADAMLAR.md` "Ixtiyoriy", `infra/turn/`) — busiz mobil internet/NAT ortida qo'ng'iroq
