@@ -1,5 +1,7 @@
-import { REPLY_PREVIEW_MAX } from '@suhbat/core';
-import type { ChatRole, ChatSummary, CreateChannelInput, CreateGroupInput, MessageReply, UpdateChatInput } from '@suhbat/core';
+import { REPLY_PREVIEW_MAX, applyMyReaction } from '@suhbat/core';
+import type {
+  ChatRole, ChatSummary, CreateChannelInput, CreateGroupInput, MessageReply, ReactionEmoji, UpdateChatInput,
+} from '@suhbat/core';
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { chatReducer, initialChatState } from './chatState';
@@ -28,6 +30,8 @@ interface ChatStore {
   editMessage:   (chatId: string, messageId: string, content: string) => Promise<void>;
   /** O'z xabarini (yoki admin sifatida birovnikini) o'chirish. */
   deleteMessage: (chatId: string, messageId: string) => Promise<void>;
+  /** Reaksiya qo'yish/almashtirish/olib tashlash (`null`); ekranda darhol, xatoda qaytariladi va xato tashlanadi. */
+  reactToMessage: (chatId: string, messageId: string, emoji: ReactionEmoji | null) => Promise<void>;
   /** Xato bilan qolgan (yuborilmagan) xabarni ro'yxatdan olib tashlash. */
   discardLocal:  (chatId: string, clientId: string) => void;
   createGroup:   (input: CreateGroupInput) => Promise<ChatSummary>;
@@ -170,6 +174,23 @@ export const ChatStoreProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'message/updated', message });
   }, [api, socket]);
 
+  const reactToMessage = useCallback(async (chatId: string, messageId: string, emoji: ReactionEmoji | null) => {
+    const msg = stateRef.current.messages[chatId]?.items.find((m) => m.id === messageId);
+    if (!msg || msg.local) return;
+    const before = { reactions: msg.reactions ?? [], myReaction: msg.myReaction ?? null };
+    dispatch({
+      type: 'message/reactions', chatId, messageId,
+      reactions: applyMyReaction(before.reactions, before.myReaction, emoji), myReaction: emoji,
+    });
+    try {
+      const res = await api.setReaction(chatId, messageId, emoji);
+      dispatch({ type: 'message/reactions', chatId, messageId, ...res });
+    } catch (e) {
+      dispatch({ type: 'message/reactions', chatId, messageId, ...before });
+      throw e;
+    }
+  }, [api]);
+
   const deleteMessage = useCallback(async (chatId: string, messageId: string) => {
     if (socket.isConnected()) await socket.deleteMessage(chatId, messageId);
     else await api.deleteMessage(chatId, messageId);
@@ -222,6 +243,11 @@ export const ChatStoreProvider = ({ children }: { children: ReactNode }) => {
         dispatch({ type: 'message/received', message, clientId, myId: me.id, activeChatId: activeChatRef.current });
       }),
       socket.on('message:updated', ({ message }) => dispatch({ type: 'message/updated', message })),
+      socket.on('message:reaction', ({ chatId, messageId, userId, emoji, reactions }) =>
+        dispatch({
+          type: 'message/reactions', chatId, messageId, reactions,
+          myReaction: userId === me.id ? emoji : undefined,
+        })),
       socket.on('message:deleted', ({ chatId, messageId }) => {
         dispatch({ type: 'message/deleted', chatId, messageId });
         // O'qilmaganlar soni / oxirgi xabar o'zgargan bo'lishi mumkin.
@@ -264,12 +290,12 @@ export const ChatStoreProvider = ({ children }: { children: ReactNode }) => {
   const value = useMemo<ChatStore>(
     () => ({
       state, refreshChats, loadMessages, sendText, resend, setTyping, markRead, openDirect, joinChannel, setActiveChat,
-      ensureChat, editMessage, deleteMessage, discardLocal, createGroup, createChannel, updateChat, addMembers, removeMember,
+      ensureChat, editMessage, deleteMessage, reactToMessage, discardLocal, createGroup, createChannel, updateChat, addMembers, removeMember,
       setMemberRole, leaveChat, deleteChat,
     }),
     [
       state, refreshChats, loadMessages, sendText, resend, setTyping, markRead, openDirect, joinChannel, setActiveChat,
-      ensureChat, editMessage, deleteMessage, discardLocal, createGroup, createChannel, updateChat, addMembers, removeMember,
+      ensureChat, editMessage, deleteMessage, reactToMessage, discardLocal, createGroup, createChannel, updateChat, addMembers, removeMember,
       setMemberRole, leaveChat, deleteChat,
     ],
   );

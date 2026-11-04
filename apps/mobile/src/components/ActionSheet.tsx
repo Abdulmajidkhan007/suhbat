@@ -1,3 +1,5 @@
+import { REACTION_EMOJIS } from '@suhbat/core';
+import type { ReactionEmoji } from '@suhbat/core';
 import { useEffect, useRef } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,17 +19,25 @@ export interface SheetAction {
   destructive?: boolean;
 }
 
+/** Menyu tepasidagi reaksiya qatori (👍 ❤️ 😂 😮 😢 🔥). */
+export interface SheetReactions {
+  /** Joriy foydalanuvchining reaksiyasi — ajratib ko'rsatiladi. */
+  current: ReactionEmoji | null | undefined;
+  onPick:  (emoji: ReactionEmoji) => void;
+}
+
 interface Props {
   visible:   boolean;
   title?:    string;
   /** Sarlavha ostidagi qisqa matn (masalan, xabar boshlanishi). */
   preview?:  string;
   actions:   readonly SheetAction[];
+  reactions?: SheetReactions;
   onClose:   () => void;
 }
 
 /** Pastdan chiquvchi amallar menyusi (uzun bosish, "Yangi"). */
-export const ActionSheet = ({ visible, title, preview, actions, onClose }: Props) => {
+export const ActionSheet = ({ visible, title, preview, actions, reactions, onClose }: Props) => {
   const styles = useStyles(createStyles);
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
@@ -51,6 +61,28 @@ export const ActionSheet = ({ visible, title, preview, actions, onClose }: Props
         <View style={styles.handle} />
         {title ? <Text style={styles.title} numberOfLines={1} accessibilityRole="header">{title}</Text> : null}
         {preview ? <Text style={styles.preview} numberOfLines={2}>{preview}</Text> : null}
+        {reactions ? (
+          <View style={styles.reactions} accessibilityRole="radiogroup" accessibilityLabel={t('reaction.title')}>
+            {REACTION_EMOJIS.map((emoji) => {
+              const selected = reactions.current === emoji;
+              return (
+                <Pressable
+                  key={emoji}
+                  onPress={() => {
+                    onClose();
+                    reactions.onPick(emoji);
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={emoji}
+                  style={[styles.reaction, selected && { backgroundColor: palette.surfaceHighlight }]}
+                >
+                  <Text style={styles.reactionEmoji}>{emoji}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
         {actions.map((a) => (
           <Pressable
             key={a.key}
@@ -80,6 +112,9 @@ const createStyles = (p: Palette) => StyleSheet.create({
   handle:      { alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: p.divider, marginBottom: space.sm },
   title:       { ...textStyles.heading, color: p.textPrimary, paddingHorizontal: space.xl, paddingTop: space.xs },
   preview:     { ...textStyles.bodySmall, color: p.textSecondary, paddingHorizontal: space.xl, paddingBottom: space.sm },
+  reactions:   { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: space.md, paddingBottom: space.sm },
+  reaction:    { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  reactionEmoji: { fontSize: 28 },
   action:      { flexDirection: 'row', alignItems: 'center', gap: space.lg, minHeight: 52, paddingHorizontal: space.xl },
   pressed:     { backgroundColor: p.surfaceHighlight },
   label:       { ...textStyles.body, fontSize: 16, color: p.textPrimary },

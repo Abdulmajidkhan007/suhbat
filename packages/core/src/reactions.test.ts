@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { applyMyReaction, toggleReaction } from './reactions';
-import { MessageSchema, REACTION_EMOJIS, SetReactionInputSchema } from './schemas';
+import { applyMyReaction, toggleReaction } from './reactions.js';
+import { MessageSchema, REACTION_EMOJIS, SetReactionInputSchema } from './schemas.js';
 
 describe('applyMyReaction', () => {
   it('yangi reaksiya qo\'shiladi, emoji tartibida', () => {

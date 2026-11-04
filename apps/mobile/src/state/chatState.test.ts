@@ -87,3 +87,38 @@ describe('chatReducer', () => {
     expect(sortedChats(s).map((c) => c.id)).toEqual([other.id, CHAT_ID]);
   });
 });
+
+describe('chatReducer — reaksiyalar', () => {
+  const target = message(1);
+  const find = (s: ChatState) => s.messages[CHAT_ID]?.items.find((m) => m.id === target.id);
+  const withReaction = (s = loaded()) =>
+    chatReducer(s, { type: 'message/reactions', chatId: CHAT_ID, messageId: target.id, reactions: [{ emoji: '👍', count: 2 }], myReaction: '👍' });
+
+  it('hisob va o\'zining reaksiyasi qo\'yiladi', () => {
+    expect(find(withReaction())).toMatchObject({ reactions: [{ emoji: '👍', count: 2 }], myReaction: '👍' });
+  });
+
+  it('boshqaning reaksiyasi (myReaction berilmagan) o\'zinikini saqlaydi; null — olib tashlaydi', () => {
+    let s = chatReducer(withReaction(), { type: 'message/reactions', chatId: CHAT_ID, messageId: target.id, reactions: [{ emoji: '👍', count: 3 }] });
+    expect(find(s)).toMatchObject({ reactions: [{ emoji: '👍', count: 3 }], myReaction: '👍' });
+    s = chatReducer(s, { type: 'message/reactions', chatId: CHAT_ID, messageId: target.id, reactions: [], myReaction: null });
+    expect(find(s)).toMatchObject({ reactions: [], myReaction: null });
+  });
+
+  it('noma\'lum xabar/chat — holat o\'zgarmaydi', () => {
+    const s = withReaction();
+    expect(chatReducer(s, { type: 'message/reactions', chatId: CHAT_ID, messageId: 'yo\'q', reactions: [] })).toBe(s);
+    expect(chatReducer(s, { type: 'message/reactions', chatId: 'x', messageId: target.id, reactions: [] })).toBe(s);
+  });
+
+  it('tahrir broadcast\'i va reaksiyasiz message:new reaksiyalarni o\'chirmaydi', () => {
+    let s = chatReducer(withReaction(), { type: 'message/updated', message: { ...target, content: 'yangi', editedAt: new Date().toISOString() } });
+    expect(find(s)).toMatchObject({ content: 'yangi', reactions: [{ emoji: '👍', count: 2 }], myReaction: '👍' });
+    s = chatReducer(withReaction(), { type: 'message/received', message: target, myId: ME.id, activeChatId: CHAT_ID });
+    expect(find(s)).toMatchObject({ reactions: [{ emoji: '👍', count: 2 }], myReaction: '👍' });
+    // tarix (reaksiyali) javobi esa almashtiradi
+    s = chatReducer(s, { type: 'messages/loaded', chatId: CHAT_ID, page: { items: [{ ...target, reactions: [], myReaction: null }], nextCursor: null }, older: false });
+    expect(find(s)).toMatchObject({ reactions: [], myReaction: null });
+  });
+});
+
