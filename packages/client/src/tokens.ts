@@ -36,3 +36,14 @@ export const webTokenStorage = (storage: Storage, key = 'suhbat.tokens'): TokenS
   set:   (t) => storage.setItem(key, JSON.stringify(t)),
   clear: () => storage.removeItem(key),
 });
+
+/**
+ * Brauzer tablari/Electron oynalari orasida umumiy qulf (Web Locks API). Bir refresh token
+ * faqat bir marta ishlatilishi mumkin — qulfsiz ikki tab parallel refresh qilsa, server
+ * ikkinchisini qayta ishlatish deb biladi. API yo'q muhitda (eski brauzer, test) oddiy chaqiriladi.
+ */
+export const webRefreshLock = (name = 'suhbat.refresh') =>
+  <T>(fn: () => Promise<T>): Promise<T> => {
+    const locks = (globalThis as { navigator?: { locks?: LockManager } }).navigator?.locks;
+    return locks ? (locks.request(name, fn) as Promise<T>) : fn();
+  };

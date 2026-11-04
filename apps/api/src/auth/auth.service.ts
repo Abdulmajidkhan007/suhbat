@@ -30,6 +30,8 @@ export const toSelfUser = (u: UserRow): User => ({ ...toPublicUser(u), email: u.
 
 export const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** Rotatsiyadan keyin eski token bilan kelgan takroriy so'rov oilani bekor qilmaydigan oyna. */
+export const REFRESH_GRACE_MS = 30_000;
 
 export const LOGIN_FAILED_MESSAGE = 'Login yoki parol noto\'g\'ri';
 export const USERNAME_TAKEN_MESSAGE = 'Bu username band';
@@ -115,31 +117,51 @@ export class AuthService {
    * Refresh token rotatsiyasi: eski token bekor qilinadi, o'sha oiladan yangi
    * juftlik beriladi. Bekor qilingan token qayta kelsa (o'g'irlangan bo'lishi
    * mumkin) — butun oila bekor qilinadi va 401.
+   *
+   * Grace oyna (`REFRESH_GRACE_MS`): yaqinda *rotatsiya natijasida* bekor bo'lgan token
+   * qayta kelsa — bu o'g'irlik emas, odatda parallel so'rov (ikki tab, socket + HTTP) yoki
+   * javobi yo'qolgan refresh. Bunda oila bekor qilinmaydi, o'sha oilada yangi juftlik
+   * beriladi. Xavfsizlik: (1) faqat oilada hali faol (rotatsiyadan keyingi) token bor
+   * bo'lsa — logout/parol almashtirish/ona tugagan oilalar bekor qolaveradi;
+   * (2) oyna qisqa — o'g'ri tokenni shu 30 soniya ichida ishlatsa ham, haqiqiy egasining
+   * keyingi refresh'i va undan keyingi qayta ishlatish baribir aniqlanadi.
    */
   async refresh(refreshToken: string): Promise<TokenPair> {
     const now = new Date();
-    const row = await this.prisma.refreshToken.findUnique({
-      where:   { tokenHash: hashToken(refreshToken) },
-      include: { user: true },
-    });
+    const tokenHash = hashToken(refreshToken);
+    let row = await this.prisma.refreshToken.findUnique({ where: { tokenHash }, include: { user: true } });
     if (!row) throw new UnauthorizedException();
-    if (row.revokedAt) {
-      await this.revokeFamily(row.familyId, now);
-      throw new UnauthorizedException();
-    }
     if (row.expiresAt <= now) throw new UnauthorizedException();
 
-    // Shartli yangilash: parallel so'rovlardan faqat bittasi tokenni "oladi".
-    const { count } = await this.prisma.refreshToken.updateMany({
-      where: { id: row.id, revokedAt: null },
-      data:  { revokedAt: now },
-    });
-    if (count === 0) {
-      await this.revokeFamily(row.familyId, now);
-      throw new UnauthorizedException();
+    if (!row.revokedAt) {
+      // Shartli yangilash: parallel so'rovlardan faqat bittasi tokenni "oladi".
+      const { count } = await this.prisma.refreshToken.updateMany({
+        where: { id: row.id, revokedAt: null },
+        data:  { revokedAt: now },
+      });
+      if (count === 1) return this.rotated(row.user, row.familyId);
+      // Raqib so'rov bir zumda oldi — yangi holatni o'qib, grace tekshiruviga o'tamiz.
+      row = await this.prisma.refreshToken.findUnique({ where: { tokenHash }, include: { user: true } });
+      if (!row?.revokedAt) throw new UnauthorizedException();
     }
-    const { accessToken, refreshToken: next } = await this.issue(row.user, row.familyId);
-    return { accessToken, refreshToken: next };
+
+    if (await this.inGrace(row.familyId, row.revokedAt, now)) return this.rotated(row.user, row.familyId);
+    await this.revokeFamily(row.familyId, now);
+    throw new UnauthorizedException();
+  }
+
+  private async rotated(user: UserRow, familyId: string): Promise<TokenPair> {
+    const { accessToken, refreshToken } = await this.issue(user, familyId);
+    return { accessToken, refreshToken };
+  }
+
+  private async inGrace(familyId: string, revokedAt: Date, now: Date): Promise<boolean> {
+    if (now.getTime() - revokedAt.getTime() > REFRESH_GRACE_MS) return false;
+    const active = await this.prisma.refreshToken.findFirst({
+      where: { familyId, revokedAt: null, expiresAt: { gt: now } },
+      select: { id: true },
+    });
+    return active !== null;
   }
 
   /**
