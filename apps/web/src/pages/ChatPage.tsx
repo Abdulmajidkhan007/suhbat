@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback, useState } from 'react';
+import type { ReactionEmoji } from '@suhbat/core';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -80,7 +81,7 @@ const ChatPage: React.FC = () => {
 
   const {
     messages, loading: msgLoading, error: msgError, hasOlder, loadingOlder, loadOlder, sendMessage, setTyping,
-    sendAttachment, editMessage, deleteMessage, resendMessage, discardMessage,
+    sendAttachment, editMessage, deleteMessage, resendMessage, discardMessage, reactToMessage,
   } = useMessages(activeChat?.id ?? null);
 
   const handleSelectChat = useCallback(
@@ -137,6 +138,10 @@ const ChatPage: React.FC = () => {
       throw e;
     }
   }, [editMessage]);
+
+  const handleReact = useCallback((messageId: string, emoji: ReactionEmoji | null) => {
+    reactToMessage(messageId, emoji).catch((e: unknown) => toast.error(errorText(e, 'Reaksiyani saqlab bo\'lmadi.')));
+  }, [reactToMessage]);
 
   const confirmDelete = useCallback(async () => {
     if (!deleteId) return;
@@ -231,6 +236,7 @@ const ChatPage: React.FC = () => {
                 canWrite={canWrite(activeChat.type, activeChat.myRole)}
                 onEdit={handleEdit}
                 onDelete={setDeleteId}
+                onReact={handleReact}
                 onResend={(id) => void resendMessage(id)}
                 onDiscard={discardMessage}
                 showSenders={activeChat.type === 'group'}

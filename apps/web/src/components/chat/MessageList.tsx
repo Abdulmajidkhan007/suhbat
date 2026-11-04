@@ -9,6 +9,7 @@ import ErrorState from '../ui/ErrorState';
 import EmptyState from '../ui/EmptyState';
 import TypingIndicator from './TypingIndicator';
 import { Message } from '../../types';
+import type { ReactionEmoji } from '@suhbat/core';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
 
 interface Props {
@@ -37,6 +38,8 @@ interface Props {
   onReply?:     (message: Message) => void;
   /** Javob blokidagi muallif ismi. */
   nameOf?:      (userId: string) => string;
+  /** Reaksiya qo'yish/olib tashlash (`null`). */
+  onReact?:     (messageId: string, emoji: ReactionEmoji | null) => void;
 }
 
 const HIGHLIGHT_MS = 1500;
@@ -65,6 +68,7 @@ const MessageList: React.FC<Props> = ({
   showSenders = true,
   onReply,
   nameOf,
+  onReact,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -142,6 +146,7 @@ const MessageList: React.FC<Props> = ({
               onResend={onResend}
               onDiscard={onDiscard}
               onReply={onReply}
+              onReact={onReact}
               replyName={msg.replyTo ? (msg.replyTo.senderId === currentUserId ? 'Siz' : nameOf?.(msg.replyTo.senderId)) : undefined}
               onJump={jumpTo}
               highlighted={highlightId === msg.id}

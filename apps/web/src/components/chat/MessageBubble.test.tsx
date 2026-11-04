@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { Message } from '../../types';
-import MessageBubble from './MessageBubble';
+import MessageBubble, { LONG_PRESS_MS } from './MessageBubble';
 
 const msg = (over: Partial<Message> = {}): Message => ({
   id: 'm1', chatId: 'c1', senderId: 'v', senderName: 'Vali', senderPhoto: null,
@@ -78,5 +78,64 @@ describe('MessageBubble — javob', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Xabar amallari' }));
     fireEvent.click(screen.getByText('Javob berish'));
     expect(onReply).toHaveBeenCalledWith(m);
+  });
+});
+
+describe('MessageBubble — reaksiyalar', () => {
+  const reactions = [{ emoji: '👍' as const, count: 2 }, { emoji: '🔥' as const, count: 1 }];
+
+  it('xabar ostida emoji va soni; o\'zinikisi belgilangan', () => {
+    render(<MessageBubble message={msg({ reactions, myReaction: '🔥' })} isSelf={false} onReact={vi.fn()} />);
+    expect(screen.getByRole('button', { name: '👍 2' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: '🔥 1 (siz)' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('hisobdagi emoji bosilsa: boshqasi — qo\'yish, o\'zinikisi — olib tashlash (null)', () => {
+    const onReact = vi.fn();
+    render(<MessageBubble message={msg({ reactions, myReaction: '🔥' })} isSelf={false} onReact={onReact} />);
+    fireEvent.click(screen.getByRole('button', { name: '👍 2' }));
+    expect(onReact).toHaveBeenLastCalledWith('m1', '👍');
+    fireEvent.click(screen.getByRole('button', { name: '🔥 1 (siz)' }));
+    expect(onReact).toHaveBeenLastCalledWith('m1', null);
+  });
+
+  it('hover tugmasi: 6 ta emoji tanlovi, tanlansa onReact', () => {
+    const onReact = vi.fn();
+    render(<MessageBubble message={msg()} isSelf={false} onReact={onReact} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reaksiya qo\'yish' }));
+    expect(screen.getAllByRole('menuitemradio').map((e) => e.textContent)).toEqual(['👍', '❤️', '😂', '😮', '😢', '🔥']);
+    fireEvent.click(screen.getByRole('menuitemradio', { name: '😂' }));
+    expect(onReact).toHaveBeenCalledWith('m1', '😂');
+  });
+
+  it('bosib turish (sensor) tanlovni ochadi; qisqa bosish — yo\'q; sichqoncha — yo\'q', () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<MessageBubble message={msg()} isSelf={false} showSender={false} onReact={vi.fn()} />);
+      const bubble = container.querySelector('#msg-m1 .relative') as HTMLElement;
+      fireEvent.pointerDown(bubble, { pointerType: 'touch' });
+      act(() => { vi.advanceTimersByTime(LONG_PRESS_MS - 50); });
+      fireEvent.pointerUp(bubble, { pointerType: 'touch' });
+      act(() => { vi.advanceTimersByTime(200); });
+      expect(screen.queryByRole('menu', { name: 'Reaksiya tanlash' })).toBeNull();
+
+      fireEvent.pointerDown(bubble, { pointerType: 'mouse' });
+      act(() => { vi.advanceTimersByTime(LONG_PRESS_MS + 50); });
+      expect(screen.queryByRole('menu', { name: 'Reaksiya tanlash' })).toBeNull();
+
+      fireEvent.pointerDown(bubble, { pointerType: 'touch' });
+      act(() => { vi.advanceTimersByTime(LONG_PRESS_MS + 50); });
+      expect(screen.getByRole('menu', { name: 'Reaksiya tanlash' })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('onReact yo\'q (yoki optimistik/tizim xabar) — tugma yo\'q; hisob faqat ko\'rinadi (bosilmaydi)', () => {
+    const { rerender } = render(<MessageBubble message={msg({ reactions })} isSelf={false} />);
+    expect(screen.queryByRole('button', { name: 'Reaksiya qo\'yish' })).toBeNull();
+    expect(screen.getByRole('button', { name: '👍 2' })).toBeDisabled();
+    rerender(<MessageBubble message={msg({ isOptimistic: true })} isSelf onReact={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Reaksiya qo\'yish' })).toBeNull();
   });
 });

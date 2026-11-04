@@ -5,6 +5,7 @@ import type {
   WsChatUpdated,
   WsMessageDeleted,
   WsMessageNew,
+  WsMessageReaction,
   WsMessageUpdated,
   WsPresenceState,
   WsPresenceUpdate,
@@ -26,7 +27,7 @@ import {
   setChatsLoading,
   upsertChat,
 } from '../chats/chatsSlice';
-import { clearMessages, messageDeleted, messageReceived, messageUpdated } from '../messages/messagesSlice';
+import { clearMessages, messageDeleted, messageReactionsSet, messageReceived, messageUpdated } from '../messages/messagesSlice';
 import { setPresence, updateUserPresence } from '../presence/presenceSlice';
 import { errorText } from '../../utils/errors';
 
@@ -113,6 +114,15 @@ export const onMessageUpdated = (e: WsMessageUpdated): Thunk => (dispatch, getSt
   dispatch(messageUpdated(message));
   dispatch(lastMessageEdited({
     chatId: chat.id, senderId: message.senderId, createdAt: message.createdAt, content: message.content,
+  }));
+};
+
+/** Boshqa a'zo (yoki o'z boshqa qurilmam) reaksiyasi: hisob almashadi; o'zimniki bo'lsa `myReaction` ham. */
+export const onMessageReaction = (e: WsMessageReaction): Thunk => (dispatch, getState) => {
+  const me = getState().auth.user?.uid;
+  dispatch(messageReactionsSet({
+    chatId: e.chatId, messageId: e.messageId, reactions: e.reactions,
+    myReaction: e.userId === me ? e.emoji : undefined,
   }));
 };
 
