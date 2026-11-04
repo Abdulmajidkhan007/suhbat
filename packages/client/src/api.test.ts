@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, createApiClient } from './api.js';
-import { memoryTokenStorage } from './tokens.js';
+import { memoryTokenStorage, webRefreshLock } from './tokens.js';
 
 const user = {
   id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', email: 'ali@test.uz', displayName: 'Ali',
@@ -82,6 +82,52 @@ describe('createApiClient', () => {
     });
     await Promise.all([api.listChats(), api.listChats(), api.listChats()]);
     expect(refreshes).toBe(1);
+  });
+
+  describe('ikki tab (umumiy storage, alohida mijoz) — 5.1', () => {
+    // Server qoidasi: bir refresh token faqat bir marta; ikkinchi marta kelsa — sessiya yopiladi.
+    const twoTabs = (withLock: boolean) => {
+      const storage = memoryTokenStorage({ accessToken: 'a1', refreshToken: 'r1' });
+      const used = new Set<string>();
+      let serverSessionKilled = false;
+      let seq = 1;
+      const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+        if (String(url).endsWith('/auth/refresh')) {
+          await new Promise((r) => setTimeout(r, 5));
+          const { refreshToken } = JSON.parse(init!.body as string) as { refreshToken: string };
+          if (used.has(refreshToken)) { serverSessionKilled = true; return json(401); }
+          used.add(refreshToken);
+          seq++;
+          return json(200, { accessToken: `a${seq}`, refreshToken: `r${seq}` });
+        }
+        return auth(init!) === 'Bearer a1' ? json(401) : json(200, []);
+      });
+      // Web Locks o'rnini bosuvchi oddiy navbat (bitta "brauzer"dagi barcha tablar uchun umumiy).
+      let tail: Promise<unknown> = Promise.resolve();
+      const lock = <T,>(fn: () => Promise<T>): Promise<T> => {
+        const run = tail.then(fn, fn);
+        tail = run.catch(() => undefined);
+        return run;
+      };
+      const mk = () => createApiClient({
+        baseUrl: 'http://api', storage, fetch: fetch as typeof globalThis.fetch,
+        ...(withLock ? { lock } : {}),
+      });
+      return { tabA: mk(), tabB: mk(), killed: () => serverSessionKilled, storage };
+    };
+
+    it('qulfsiz: ikkala tab bir vaqtda 401 olsa bir token ikki marta ishlatiladi (bug)', async () => {
+      const { tabA, tabB, killed } = twoTabs(false);
+      await Promise.allSettled([tabA.listChats(), tabB.listChats()]);
+      expect(killed()).toBe(true);
+    });
+
+    it('qulf bilan: ikkinchi tab yangilangan tokenni ko\'radi, refresh bitta, sessiya tirik', async () => {
+      const { tabA, tabB, killed, storage } = twoTabs(true);
+      await expect(Promise.all([tabA.listChats(), tabB.listChats()])).resolves.toEqual([[], []]);
+      expect(killed()).toBe(false);
+      expect(await storage.get()).toEqual({ accessToken: 'a2', refreshToken: 'r2' });
+    });
   });
 
   it('refresh ham 401 → tokenlar o\'chadi, onSessionExpired, xato', async () => {
@@ -190,5 +236,29 @@ describe('createApiClient', () => {
       'DELETE http://api/chats/c1/members/u1',
       'DELETE http://api/chats/c1',
     ]);
+  });
+});
+
+describe('webRefreshLock', () => {
+  it('Web Locks bo\'lmasa — funksiyani oddiy chaqiradi', async () => {
+    await expect(webRefreshLock()(async () => 42)).resolves.toBe(42);
+  });
+
+  it('Web Locks bor — bir xil nom bilan ketma-ket bajaradi', async () => {
+    const order: string[] = [];
+    let tail: Promise<unknown> = Promise.resolve();
+    const request = vi.fn((_n: string, fn: () => Promise<unknown>) => (tail = tail.then(fn)));
+    vi.stubGlobal('navigator', { locks: { request } });
+    try {
+      const lock = webRefreshLock('x');
+      await Promise.all([
+        lock(async () => { await new Promise((r) => setTimeout(r, 5)); order.push('a'); }),
+        lock(async () => { order.push('b'); }),
+      ]);
+      expect(order).toEqual(['a', 'b']);
+      expect(request).toHaveBeenCalledWith('x', expect.any(Function));
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

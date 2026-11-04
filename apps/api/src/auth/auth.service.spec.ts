@@ -92,7 +92,7 @@ describe('AuthService', () => {
 describe('AuthService.refresh / logout', () => {
   const prisma = {
     user:         { create: vi.fn(), findUnique: vi.fn() },
-    refreshToken: { create: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
+    refreshToken: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
   };
   const jwt = new JwtService({ secret: 'test-secret' });
   let service: AuthService;
@@ -131,7 +131,7 @@ describe('AuthService.refresh / logout', () => {
   });
 
   it('bekor qilingan token qayta kelsa — butun oila bekor, 401', async () => {
-    prisma.refreshToken.findUnique.mockResolvedValue(tokenRow({ revokedAt: new Date() }));
+    prisma.refreshToken.findUnique.mockResolvedValue(tokenRow({ revokedAt: new Date(Date.now() - 3_600_000) }));
     prisma.refreshToken.updateMany.mockResolvedValue({ count: 2 });
 
     await expect(service.refresh('ogirlangan')).rejects.toBeInstanceOf(UnauthorizedException);
@@ -150,13 +150,53 @@ describe('AuthService.refresh / logout', () => {
     expect(prisma.refreshToken.create).not.toHaveBeenCalled();
   });
 
-  it('parallel refresh: ikkinchisi tokenni ololmasa — oila bekor, 401', async () => {
-    prisma.refreshToken.findUnique.mockResolvedValue(tokenRow());
-    prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 }).mockResolvedValueOnce({ count: 1 });
-    await expect(service.refresh('x')).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(prisma.refreshToken.updateMany).toHaveBeenLastCalledWith({
-      where: { familyId, revokedAt: null },
-      data:  { revokedAt: expect.any(Date) },
+  describe('grace oyna (5.1: sessiya o\'z-o\'zidan yopilishi)', () => {
+    const successor = { id: '33333333-3333-4333-8333-333333333333', familyId, revokedAt: null };
+
+    it('yaqinda rotatsiya qilingan token qayta kelsa (parallel/yo\'qolgan javob) — oila bekor QILINMAYDI, yangi juftlik beriladi', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue(tokenRow({ revokedAt: new Date(Date.now() - 5_000) }));
+      prisma.refreshToken.findFirst.mockResolvedValue(successor);
+
+      const pair = await service.refresh('eski-token');
+
+      expect(pair.refreshToken).not.toBe('eski-token');
+      expect(prisma.refreshToken.create.mock.calls[0][0].data.familyId).toBe(familyId);
+      expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('parallel: shartli yangilash 0 qaytarsa (raqib avval oldi) — grace bilan yangi juftlik, oila bekor emas', async () => {
+      prisma.refreshToken.findUnique
+        .mockResolvedValueOnce(tokenRow())
+        .mockResolvedValueOnce(tokenRow({ revokedAt: new Date() }));
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      prisma.refreshToken.findFirst.mockResolvedValue(successor);
+
+      const pair = await service.refresh('x');
+
+      expect(pair.refreshToken).toBeTruthy();
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledTimes(1); // oila bekor qilinmadi
+    });
+
+    it('logout/oila bekor qilingan (faol token yo\'q) — grace ichida ham 401', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue(tokenRow({ revokedAt: new Date(Date.now() - 1_000) }));
+      prisma.refreshToken.findFirst.mockResolvedValue(null);
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.refresh('x')).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+    });
+
+    it('grace tugagach qayta ishlatish — oila bekor, 401', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue(tokenRow({ revokedAt: new Date(Date.now() - 60_000) }));
+      prisma.refreshToken.findFirst.mockResolvedValue(successor);
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(service.refresh('x')).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { familyId, revokedAt: null },
+        data:  { revokedAt: expect.any(Date) },
+      });
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
     });
   });
 

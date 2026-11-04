@@ -65,6 +65,12 @@ export interface ApiClientOptions {
   fetch?:   typeof fetch;
   /** Refresh token ham yaroqsiz bo'lib, sessiya tugaganda chaqiriladi. */
   onSessionExpired?: () => void;
+  /**
+   * Tablar/oynalar orasida refresh'ni ketma-ket qiladigan qulf (veb/desktop: `webRefreshLock`).
+   * Qulf ichida storage qayta o'qiladi — boshqa tab allaqachon yangilagan bo'lsa refresh
+   * qilinmaydi. Bitta JS kontekstli muhitda (mobil) shart emas.
+   */
+  lock?: <T>(fn: () => Promise<T>) => Promise<T>;
 }
 
 type Query = Record<string, string | number | undefined>;
@@ -137,7 +143,7 @@ export const createApiClient = (opts: ApiClientOptions) => {
    * butun sessiyani yopadi).
    */
   function refreshTokens(usedAccessToken?: string): Promise<TokenPair | null> {
-    refreshing ??= (async () => {
+    const run = async (): Promise<TokenPair | null> => {
       const current = await storage.get();
       if (!current) return null;
       if (usedAccessToken && current.accessToken !== usedAccessToken) return current;
@@ -155,7 +161,8 @@ export const createApiClient = (opts: ApiClientOptions) => {
         }
         throw e;
       }
-    })().finally(() => {
+    };
+    refreshing ??= (opts.lock ? opts.lock(run) : run()).finally(() => {
       refreshing = null;
     });
     return refreshing;

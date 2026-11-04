@@ -85,10 +85,7 @@
 ### Ma'lum cheklovlar
 - Presence (kim onlayn) va Socket.IO xonalari **bitta API nusxasi
   xotirasida**. Bir nechta nusxa uchun Redis adapter + Redis presence kerak.
-- Ikki tab bir vaqtning o'zida refresh qilsa (aynan bir millisekundda), server
-  buni token qayta ishlatilishi deb ko'rib sessiyani yopishi mumkin. Mijoz
-  boshqa tab yangilagan tokenni ko'rsa qayta refresh qilmaydi, lekin to'liq
-  tablar-aro qulf (Web Locks) yo'q.
+- Ikki tab refresh: veb/desktop'da Web Locks qulfi + serverda 30 s grace oyna (5.1).
 - **Rate limit (3a):** REST — `@nestjs/throttler`, IP **va endpoint** bo'yicha alohida
   hisob (standart 300/daqiqa; `login/register/refresh` — 10/daqiqa; `/health` cheklanmaydi);
   WS `message:send` — foydalanuvchi bo'yicha 30 / 10 soniya (`RateLimiter`, ack xatosi).
@@ -845,13 +842,30 @@ packages/
   veb/desktop jiringlash va kutish ovozi, mobil `react-native-incall-manager`. Faqat qurilmasiz testlar bilan
   sinalgan. Yuqorida "4c-1-faza". **4c-2** (CallKit/ConnectionService, data-only push) — keyingi.
 
-**5. Kirish va xavfsizlik (egasi talabi, 2026-11-02)** — ⏳ navbatda, vaqt bo'lganda
-- **5.1 BUG (birinchi):** login qilgandan bir muncha vaqt o'tib foydalanuvchi o'zi chiqib ketadi
-  (egasi sinovi). Taxmin, o'lchanmagan: access token 15 daqiqa; refresh `auth.service.ts` da
-  qayta ishlatishni aniqlaydi — bir xil refresh token bilan **parallel** ikki so'rov (bir nechta tab,
-  socket qayta ulanishi + HTTP, veb va desktop) kelsa, ikkinchisi butun token oilasini bekor qiladi →
-  logout. Avval log bilan sababni aniqlash, keyin tuzatish (masalan, mijozda bitta refresh
-  qulfi + serverda qisqa grace oyna), regressiya testi.
+**5. Kirish va xavfsizlik (egasi talabi, 2026-11-02)** — 5.1 ✅ (PR), qolgani ⏳ navbatda, vaqt bo'lganda
+- **5.1 BUG — ✅ kodda tuzatildi (2026-11-04, PR `fix/5-1-logout`), haqiqiy qurilmada sinalmagan.**
+  - **Sabab (testda qayta hosil qilindi):** server bir refresh tokenni faqat bir marta qabul qiladi,
+    ikkinchi marta kelsa butun oilani bekor qiladi. Mijozdagi single-flight faqat *bitta JS kontekst*
+    ichida ishlardi; ikki tab/oyna (veb + desktop) bir vaqtda 401 olsa ikkalasi ham storage'dan bir xil
+    `r1` ni o'qib yuborardi → ikkinchisi «qayta ishlatish» → logout (`api.test.ts` «qulfsiz» testi).
+    Serverda ham parallel so'rov (`count===0` tarmog'i) darhol oilani bekor qilardi.
+    Boshqa taxminlar: `JWT_EXPIRES_IN=15m`/`REFRESH_TOKEN_TTL_DAYS=30` normal; socket yo'li `refreshTokens`
+    single-flight'idan o'tadi; yangi token saqlanmay qolishi kodda topilmadi.
+  - **Tuzatish:** (1) mijoz — `createApiClient({ lock })`; veb/desktop `webRefreshLock()` (Web Locks):
+    qulf ichida storage qayta o'qiladi, boshqa tab yangilagan bo'lsa refresh qilinmaydi. Mobilda bitta JS
+    kontekst — o'zgarish shart emas. (2) server — `REFRESH_GRACE_MS = 30 s`: *rotatsiya natijasida* bekor
+    bo'lgan token shu oynada qayta kelsa va oilada faol token bor bo'lsa, oila bekor qilinmaydi, yangi
+    juftlik beriladi. Faol token yo'q (logout, parol almashtirish, oila allaqachon bekor) bo'lsa — 401.
+    Oyna tugagach qayta ishlatish avvalgidek oilani bekor qiladi. Xavf: o'g'ri token shu 30 s ichida
+    ishlatilsa u ham juftlik oladi — qasddan qabul qilingan savdo, sababi: foydalanuvchini tasodifan
+    chiqarib yuborish ancha tez-tez uchraydi.
+  - **Testlar:** API auth 25 (grace: 4 yangi), client 57 (ikki tab 2, `webRefreshLock` 2), web 126; typecheck toza.
+    API e2e (lokal Postgres 16): `chat.e2e` 5/5 — rotatsiya testi grace kontraktiga moslandi (darhol qayta ishlatish → 200,
+    `revokedAt` eskirtirilgach → 401 va oila bekor), yangi: haqiqiy bazada parallel refresh → ikkalasi 200. (Birinchi CI yurishi
+    shu e2e'da yiqilgan edi: eski test darhol qayta ishlatishda 401 kutardi.)
+  - **Sinalmagan / ochiq:** haqiqiy telefon va desktop; haqiqiy ikki brauzer tabi (Web Locks faqat
+    unit testda taqlid). Javobi yo'qolgan refresh
+    30 s dan keyin qayta urinilsa baribir logout bo'ladi.
 - **5.2 Telefon raqam bilan kirish — SMS orqali** (Telegram'ga bog'liq emas): O'zbekiston SMS
   provayderi (Eskiz.uz yoki Play Mobile — narx va shartnoma egasida), 6 xonali kod, 5 daqiqa amal
   qiladi, 45 soniyada bir qayta so'rash. Provayder kaliti bo'lmasa dev rejimda kod logga chiqadi.

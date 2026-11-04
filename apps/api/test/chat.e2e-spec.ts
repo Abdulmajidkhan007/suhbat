@@ -10,6 +10,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { SocketIoAdapter } from '../src/common/socket-io.adapter';
+import { hashToken } from '../src/auth/auth.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ensureStorage, next, waitConnected } from './helpers';
 
@@ -181,9 +182,17 @@ describe('Chat (e2e)', () => {
     expect(r2).not.toBe(r1);
     await request(server).get('/auth/me').set('Authorization', `Bearer ${rot.body.accessToken}`).expect(200);
 
-    // r1 qayta ishlatildi → 401 va butun oila (r2 ham) bekor
+    // Grace oyna (5.1): r1 rotatsiyadan so'ng darhol qayta kelsa (parallel tab / yo'qolgan javob)
+    // sessiya yopilmaydi — o'sha oilada yangi juftlik beriladi, r2 ham yaroqli qoladi.
+    const graced = await request(server).post('/auth/refresh').send({ refreshToken: r1 }).expect(200);
+    const r3: string = graced.body.refreshToken;
+    expect(r3).not.toBe(r2);
+
+    // Oyna tugagach (r1 ning revokedAt'i eskirtiriladi) r1 qayta ishlatilsa → 401 va butun oila (r2, r3) bekor
+    await prisma.refreshToken.update({ where: { tokenHash: hashToken(r1) }, data: { revokedAt: new Date(Date.now() - 60_000) } });
     await request(server).post('/auth/refresh').send({ refreshToken: r1 }).expect(401);
     await request(server).post('/auth/refresh').send({ refreshToken: r2 }).expect(401);
+    await request(server).post('/auth/refresh').send({ refreshToken: r3 }).expect(401);
 
     // Logout: yangi sessiya tokeni bekor bo'ladi
     const again = await request(server).post('/auth/login').send({ email: emails.ali, password: '12345678' }).expect(200);
@@ -191,6 +200,19 @@ describe('Chat (e2e)', () => {
     await request(server).post('/auth/refresh').send({ refreshToken: again.body.refreshToken }).expect(401);
     await request(server).post('/auth/logout').send({ refreshToken: 'nomalum' }).expect(204);
     await request(server).post('/auth/refresh').send({}).expect(400);
+  });
+
+  it('parallel refresh (bir token, bir vaqtda) — ikkalasi 200, sessiya tirik (5.1)', async () => {
+    const server = app.getHttpServer();
+    const login = await request(server).post('/auth/login').send({ email: emails.ali, password: '12345678' }).expect(200);
+    const r1: string = login.body.refreshToken;
+    const [a, b] = await Promise.all([
+      request(server).post('/auth/refresh').send({ refreshToken: r1 }),
+      request(server).post('/auth/refresh').send({ refreshToken: r1 }),
+    ]);
+    expect([a.status, b.status]).toEqual([200, 200]);
+    expect(a.body.refreshToken).not.toBe(b.body.refreshToken);
+    await request(server).post('/auth/refresh').send({ refreshToken: a.body.refreshToken }).expect(200);
   });
 
   it('REST himoyasi va validatsiya', async () => {
