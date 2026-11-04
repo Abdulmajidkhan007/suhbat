@@ -28,6 +28,7 @@ model User {
   memberships   ChatMember[]
   messages      Message[]
   attachments   Attachment[]
+  reactions     MessageReaction[]
   refreshTokens RefreshToken[]
   passwordResets PasswordResetToken[]
   recoveryCodes RecoveryCode[]
@@ -169,6 +170,7 @@ model Message {
   chat       Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
   sender     User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
   attachment Attachment?
+  reactions  MessageReaction[]
   replyTo    Message?    @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
   replies    Message[]   @relation("MessageReply")
 
@@ -176,6 +178,22 @@ model Message {
   @@index([chatId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([replyToId])
   @@map("messages")
+}
+
+/// Xabarga emoji reaksiya: bir foydalanuvchi — bir xabarga bitta (PK), almashtirish = yangilash.
+/// Ruxsat etilgan emojilar ro'yxati migratsiyadagi CHECK bilan ham himoyalangan.
+model MessageReaction {
+  messageId String   @map("message_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  emoji     String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@index([messageId])
+  @@map("message_reactions")
 }
 
 enum AttachmentKind {

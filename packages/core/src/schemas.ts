@@ -81,6 +81,29 @@ export const MessageReplySchema = z.object({
 });
 export type MessageReply = z.infer<typeof MessageReplySchema>;
 
+/** Xabarga reaksiya sifatida qo'yiladigan emojilar (tartib — ko'rsatish tartibi). */
+export const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'] as const;
+export const ReactionEmojiSchema = z.enum(REACTION_EMOJIS);
+export type ReactionEmoji = z.infer<typeof ReactionEmojiSchema>;
+
+/** Bitta emoji bo'yicha reaksiyalar soni (`count ≥ 1`; `REACTION_EMOJIS` tartibida). */
+export const MessageReactionSchema = z.object({
+  emoji: ReactionEmojiSchema,
+  count: z.number().int().min(1),
+});
+export type MessageReaction = z.infer<typeof MessageReactionSchema>;
+
+/** `PUT /chats/:id/messages/:messageId/reaction`: `emoji: null` — reaksiyani olib tashlash. */
+export const SetReactionInputSchema = z.object({ emoji: ReactionEmojiSchema.nullable() });
+export type SetReactionInput = z.infer<typeof SetReactionInputSchema>;
+
+/** Xabar reaksiyalarining joriy holati (REST javobi). `myReaction` — so'rovchining reaksiyasi. */
+export const ReactionStateSchema = z.object({
+  reactions:  z.array(MessageReactionSchema),
+  myReaction: ReactionEmojiSchema.nullable(),
+});
+export type ReactionState = z.infer<typeof ReactionStateSchema>;
+
 export const MessageSchema = z.object({
   id:         z.uuid(),
   chatId:     z.uuid(),
@@ -93,6 +116,13 @@ export const MessageSchema = z.object({
   editedAt:   isoDate.nullable(),
   /** Javob bo'lsa — asl xabar; javob emas — null. Eski server javobida maydon yo'q bo'lishi mumkin. */
   replyTo:    MessageReplySchema.nullish(),
+  /**
+   * Reaksiyalar soni (bo'sh — yo'q). Yo'q (`undefined`) — server bu javobda reaksiyalarni bermadi
+   * (yangi/tahrirlangan xabar broadcast'i, eski server): mijoz mavjud holatni saqlaydi.
+   */
+  reactions:  z.array(MessageReactionSchema).optional(),
+  /** So'rovchining o'z reaksiyasi (faqat tarix/GET javobida; broadcast'da yo'q). */
+  myReaction: ReactionEmojiSchema.nullish(),
 });
 export type Message = z.infer<typeof MessageSchema>;
 

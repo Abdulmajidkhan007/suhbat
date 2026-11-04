@@ -26,6 +26,7 @@ import type {
   ServerToClientEvents,
   WsAck,
   WsChatUpdated,
+  WsMessageReaction,
 } from '@suhbat/core';
 import type { Server, Socket } from 'socket.io';
 import type { ZodType } from 'zod';
@@ -267,6 +268,11 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   emitMessageDeleted(chatId: string, messageId: string, deletedAt: string, memberIds: string[]) {
     this.server.to(rooms(memberIds)).emit(WsEvent.MessageDeleted, { chatId, messageId, deletedAt });
+  }
+
+  /** Reaksiya o'zgardi: hamma a'zoga, o'zgartirgan foydalanuvchining boshqa qurilmalariga ham. */
+  emitMessageReaction(event: WsMessageReaction, memberIds: string[]) {
+    this.server.to(rooms(memberIds)).emit(WsEvent.MessageReaction, event);
   }
 
   emitChatUpdated(event: WsChatUpdated, recipientIds: string[]) {

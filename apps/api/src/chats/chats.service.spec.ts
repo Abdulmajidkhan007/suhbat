@@ -14,6 +14,7 @@ describe('ChatsService', () => {
     chat:       { findUnique: vi.fn(), findFirst: vi.fn() },
     chatMember: { findUnique: vi.fn(), delete: vi.fn(), update: vi.fn() },
     message:    { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+    messageReaction: { upsert: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn() },
   };
   const media = { toDto: vi.fn(), requireReady: vi.fn(), removeObjects: vi.fn() };
   let service: ChatsService;
@@ -141,6 +142,7 @@ describe('ChatsService', () => {
     const row = (i: number) => ({
       id: `00000000-0000-4000-8000-00000000000${i}`, chatId, senderId: me, type: 'text',
       content: `m${i}`, createdAt: new Date(Date.UTC(2026, 9, 11, 10, 0, i)), editedAt: null, attachment: null,
+      reactions: i === 2 ? [{ emoji: '👍', userId: me }, { emoji: '🔥', userId: other }] : [],
     });
     // DB kamayish tartibida qaytaradi: 3, 2, 1
     prisma.message.findMany.mockResolvedValue([row(3), row(2), row(1)]);
@@ -150,6 +152,9 @@ describe('ChatsService', () => {
     expect(prisma.message.findMany.mock.calls[0][0].take).toBe(3);
     expect(page.items.map((m) => m.content)).toEqual(['m2', 'm3']);
     expect(page.nextCursor).not.toBeNull();
+    // reaksiyalar: hisob va so'rovchining o'zi qo'ygani
+    expect(page.items[0]).toMatchObject({ myReaction: '👍', reactions: [{ emoji: '👍', count: 1 }, { emoji: '🔥', count: 1 }] });
+    expect(page.items[1]).toMatchObject({ myReaction: null, reactions: [] });
 
     // Keyingi sahifa: kursor (createdAt, id) < m2
     prisma.message.findMany.mockResolvedValue([row(1)]);
@@ -164,5 +169,45 @@ describe('ChatsService', () => {
   it('listMessages: buzilgan kursor — 400', async () => {
     chatWith('direct', { [me]: 'member' });
     await expect(service.listMessages(chatId, me, { limit: 10, before: 'xyz' })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  describe('setReaction', () => {
+    const messageId = '00000000-0000-4000-8000-0000000000a1';
+
+    it('a\'zo emas — 404, xabar topilmasa — 404, tizim xabari — 400', async () => {
+      chatWith('group', { [other]: 'owner' });
+      await expect(service.setReaction(chatId, me, messageId, '👍')).rejects.toBeInstanceOf(NotFoundException);
+      chatWith('group', { [me]: 'member' });
+      prisma.message.findFirst.mockResolvedValue(null);
+      await expect(service.setReaction(chatId, me, messageId, '👍')).rejects.toBeInstanceOf(NotFoundException);
+      prisma.message.findFirst.mockResolvedValue({ id: messageId, type: 'system' });
+      await expect(service.setReaction(chatId, me, messageId, '👍')).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.messageReaction.upsert).not.toHaveBeenCalled();
+    });
+
+    it('qo\'yish — upsert (almashtirish), jami hisob emoji tartibida; kanalda oddiy a\'zo ham qo\'ya oladi', async () => {
+      chatWith('channel', { [other]: 'owner', [me]: 'member' });
+      prisma.message.findFirst.mockResolvedValue({ id: messageId, type: 'text' });
+      prisma.messageReaction.groupBy.mockResolvedValue([{ emoji: '🔥', _count: { _all: 2 } }, { emoji: '👍', _count: { _all: 1 } }]);
+      await expect(service.setReaction(chatId, me, messageId, '🔥')).resolves.toEqual({
+        reactions:  [{ emoji: '👍', count: 1 }, { emoji: '🔥', count: 2 }],
+        myReaction: '🔥',
+        memberIds:  [other, me],
+      });
+      expect(prisma.messageReaction.upsert).toHaveBeenCalledWith({
+        where:  { messageId_userId: { messageId, userId: me } },
+        create: { messageId, userId: me, emoji: '🔥' },
+        update: { emoji: '🔥' },
+      });
+    });
+
+    it('null — faqat o\'zining reaksiyasi o\'chadi', async () => {
+      chatWith('group', { [me]: 'member' });
+      prisma.message.findFirst.mockResolvedValue({ id: messageId, type: 'text' });
+      prisma.messageReaction.groupBy.mockResolvedValue([]);
+      await expect(service.setReaction(chatId, me, messageId, null)).resolves.toMatchObject({ reactions: [], myReaction: null });
+      expect(prisma.messageReaction.deleteMany).toHaveBeenCalledWith({ where: { messageId, userId: me } });
+      expect(prisma.messageReaction.upsert).not.toHaveBeenCalled();
+    });
   });
 });

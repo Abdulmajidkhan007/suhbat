@@ -1,5 +1,5 @@
-import { REPLY_PREVIEW_MAX } from '@suhbat/core';
-import type { ChatMember, ChatSummary, Message, MessageReply } from '@suhbat/core';
+import { REACTION_EMOJIS, REPLY_PREVIEW_MAX } from '@suhbat/core';
+import type { ChatMember, ChatSummary, Message, MessageReaction, MessageReply, ReactionEmoji } from '@suhbat/core';
 import type {
   Attachment as AttachmentRow,
   Chat as ChatRow,
@@ -42,8 +42,40 @@ export const toReply = (r: ReplyRow): MessageReply => {
   };
 };
 
+export interface ReactionRow {
+  emoji:  string;
+  userId: string;
+}
+
+const isReactionEmoji = (e: string): e is ReactionEmoji => (REACTION_EMOJIS as readonly string[]).includes(e);
+
+/** Reaksiya qatorlari → emoji bo'yicha hisob (`REACTION_EMOJIS` tartibida) va `me` ning reaksiyasi. */
+export const summarizeReactions = (
+  rows: readonly ReactionRow[],
+  me: string | null,
+): { reactions: MessageReaction[]; myReaction: ReactionEmoji | null } => {
+  const counts = new Map<ReactionEmoji, number>();
+  let myReaction: ReactionEmoji | null = null;
+  for (const r of rows) {
+    if (!isReactionEmoji(r.emoji)) continue;
+    counts.set(r.emoji, (counts.get(r.emoji) ?? 0) + 1);
+    if (r.userId === me) myReaction = r.emoji;
+  }
+  return { reactions: orderedCounts(counts), myReaction };
+};
+
+/** Emoji → son jadvalini `REACTION_EMOJIS` tartibidagi ro'yxatga aylantiradi (ruxsat etilmagan emoji tashlanadi). */
+export const orderedCounts = (counts: ReadonlyMap<string, number>): MessageReaction[] =>
+  REACTION_EMOJIS.filter((e) => counts.has(e)).map((emoji) => ({ emoji, count: counts.get(emoji)! }));
+
 /** Biriktirma imzolangan URL talab qiladi (async) — `ChatsService.present` qo'shadi. */
-export const toMessage = (m: MessageRow, attachment: Message['attachment'], replyTo: ReplyRow | null = null): Message => ({
+export const toMessage = (
+  m: MessageRow,
+  attachment: Message['attachment'],
+  replyTo: ReplyRow | null = null,
+  /** Berilsa — reaksiyalar va `myReaction` qo'yiladi; berilmasa maydonlar yo'q (mijoz mavjudini saqlaydi). */
+  reactions?: { rows: readonly ReactionRow[]; me: string },
+): Message => ({
   id:         m.id,
   chatId:     m.chatId,
   senderId:   m.senderId,
@@ -53,6 +85,7 @@ export const toMessage = (m: MessageRow, attachment: Message['attachment'], repl
   createdAt:  m.createdAt.toISOString(),
   editedAt:   m.editedAt?.toISOString() ?? null,
   replyTo:    replyTo ? toReply(replyTo) : null,
+  ...(reactions ? summarizeReactions(reactions.rows, reactions.me) : {}),
 });
 
 export type ChatWithRelations = ChatRow & {

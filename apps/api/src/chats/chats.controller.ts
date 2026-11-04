@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -21,6 +22,7 @@ import {
   MessagesQuerySchema,
   PublicChannelsQuerySchema,
   SendMessageInputSchema,
+  SetReactionInputSchema,
   UpdateChatInputSchema,
   UpdateMemberRoleInputSchema,
 } from '@suhbat/core';
@@ -32,7 +34,9 @@ import type {
   EditMessageInput,
   MessagesQuery,
   PublicChannelsQuery,
+  ReactionState,
   SendMessageInput,
+  SetReactionInput,
   UpdateChatInput,
   UpdateMemberRoleInput,
 } from '@suhbat/core';
@@ -227,5 +231,18 @@ export class ChatsController {
     const { deletedAt, memberIds } = await this.chats.deleteMessage(id, req.user.sub, messageId);
     this.gateway.emitMessageDeleted(id, messageId, deletedAt, memberIds);
     return { deletedAt };
+  }
+
+  /** Reaksiya qo'yish/almashtirish; `{ emoji: null }` — olib tashlash. Idempotent. */
+  @Put(':id/messages/:messageId/reaction')
+  async setReaction(
+    @Req() req: AuthedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('messageId', ParseUUIDPipe) messageId: string,
+    @Body(new ZodValidationPipe(SetReactionInputSchema)) body: SetReactionInput,
+  ): Promise<ReactionState> {
+    const { reactions, myReaction, memberIds } = await this.chats.setReaction(id, req.user.sub, messageId, body.emoji);
+    this.gateway.emitMessageReaction({ chatId: id, messageId, userId: req.user.sub, emoji: myReaction, reactions }, memberIds);
+    return { reactions, myReaction };
   }
 }

@@ -19,7 +19,7 @@ const MINUTE_MS = 60_000;
 export const RECOVER_FAILED_MESSAGE = 'Login yoki tiklash kodi noto\'g\'ri';
 export const RECOVER_LIMIT_MESSAGE = 'Juda ko\'p urinish. Birozdan keyin qayta urinib ko\'ring.';
 export const recoverBlockedMessage = (ms: number) =>
-  `Juda ko\'p noto\'g\'ri kod kiritildi. ${Math.ceil(retryAfterSeconds(ms) / 60)} daqiqadan keyin qayta urinib ko\'ring.`;
+  `Juda ko'p noto'g'ri kod kiritildi. ${Math.ceil(retryAfterSeconds(ms) / 60)} daqiqadan keyin qayta urinib ko'ring.`;
 export const WRONG_PASSWORD_MESSAGE = 'Joriy parol noto\'g\'ri';
 
 const positive = (config: ConfigService, key: string, fallback: number) => {
