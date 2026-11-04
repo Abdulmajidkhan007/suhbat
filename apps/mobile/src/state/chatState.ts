@@ -1,5 +1,5 @@
 import { toMillis } from '@suhbat/core';
-import type { ChatMember, ChatSummary, Message, MessagePage } from '@suhbat/core';
+import type { ChatMember, ChatSummary, Message, MessagePage, MessageReaction, ReactionEmoji } from '@suhbat/core';
 
 /** Optimistik xabar: server tasdiqlaguncha `pending`, xato bo'lsa `failed`. */
 export interface LocalMessage extends Message {
@@ -35,6 +35,8 @@ export type ChatAction =
   | { type: 'message/local'; chatId: string; clientId: string; local: 'pending' | 'failed' }
   | { type: 'message/received'; message: Message; clientId?: string; myId: string; activeChatId: string | null }
   | { type: 'message/updated'; message: Message }
+  /** Reaksiyalar o'zgardi; `myReaction` berilsa (undefined emas) — o'zimning reaksiyam ham almashadi. */
+  | { type: 'message/reactions'; chatId: string; messageId: string; reactions: MessageReaction[]; myReaction?: ReactionEmoji | null }
   | { type: 'message/deleted'; chatId: string; messageId: string }
   | { type: 'message/discarded'; chatId: string; clientId: string }
   | { type: 'read/updated'; chatId: string; userId: string; lastReadAt: string; myId: string }
@@ -44,10 +46,16 @@ export type ChatAction =
 
 const byTime = (a: Message, b: Message) => (toMillis(a.createdAt) ?? 0) - (toMillis(b.createdAt) ?? 0);
 
+/** Server reaksiyalarni bermagan xabar (tahrir/yangi xabar broadcast'i) mavjud reaksiyalarni o'chirmaydi. */
+const keepReactions = <T extends Message>(old: Message | undefined, incoming: T): T =>
+  incoming.reactions === undefined && old?.reactions !== undefined
+    ? { ...incoming, reactions: old.reactions, myReaction: old.myReaction }
+    : incoming;
+
 const mergeMessages = (current: LocalMessage[], incoming: Message[]): LocalMessage[] => {
   const map = new Map<string, LocalMessage>();
   for (const m of current) map.set(m.id, m);
-  for (const m of incoming) map.set(m.id, m);
+  for (const m of incoming) map.set(m.id, keepReactions(map.get(m.id), m));
   return [...map.values()].sort(byTime);
 };
 
@@ -154,6 +162,27 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
       return next;
     }
 
+    case 'message/reactions': {
+      const prev = state.messages[action.chatId];
+      if (!prev?.items.some((m) => m.id === action.messageId)) return state;
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          [action.chatId]: {
+            ...prev,
+            items: prev.items.map((m) => (m.id === action.messageId
+              ? {
+                  ...m,
+                  reactions: action.reactions,
+                  ...(action.myReaction !== undefined ? { myReaction: action.myReaction } : {}),
+                }
+              : m)),
+          },
+        },
+      };
+    }
+
     case 'message/updated': {
       const prev = state.messages[action.message.chatId];
       const chat = state.chats[action.message.chatId];
@@ -164,7 +193,7 @@ export const chatReducer = (state: ChatState, action: ChatAction): ChatState => 
               ...state.messages,
               [action.message.chatId]: {
                 ...prev,
-                items: prev.items.map((m) => (m.id === action.message.id ? action.message : m)),
+                items: prev.items.map((m) => (m.id === action.message.id ? keepReactions(m, action.message) : m)),
               },
             }
           : state.messages,

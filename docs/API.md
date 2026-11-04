@@ -13,9 +13,9 @@ standart 15m); refresh token — body'da, bir martalik (rotatsiya).
 | GET   | `/health`              | API va DB holati                                        |
 | POST  | `/auth/register`       | `{ email, password, displayName, username? }` → `{ accessToken, refreshToken, user, recoveryCodes }` (10 ta tiklash kodi — faqat shu javobda); 409 — email yoki username band |
 | POST  | `/auth/login`          | `{ login, password }` (`login` — email yoki username, `@` bilan ham; eski `{ email }` ham qabul qilinadi) → `{ accessToken, refreshToken, user }` |
-| POST  | `/auth/forgot-password` | `{ emailOrUsername }` → 200 doim bir xil `{ message }` (hisob borligi oshkor qilinmaydi); 503 — email sozlanmagan; 429 — IP limiti |
+| POST  | `/auth/forgot-password` | `{ emailOrUsername }` → 200 doim bir xil `{ message }` (hisob borligi oshkor qilinmaydi); 503 — email sozlanmagan; 429 — IP limiti yoki shu identifikatorga oxirgi so'rovdan beri 45 s o'tmagan (`CODE_REQUEST_COOLDOWN_MS`; hisob bor-yo'qligiga bog'liq emas) |
 | POST  | `/auth/reset-password` | `{ token, newPassword }` → 204; token bir martalik, 30 daqiqa; **barcha sessiyalar** (refresh token oilalari) bekor; 400 — yaroqsiz/muddati o'tgan |
-| POST  | `/auth/recover` | Emailsiz tiklash: `{ login, code, newPassword }` → 204; kod bir martalik (shartli `updateMany`); **barcha sessiyalar** bekor. Har qanday xato — bir xil 400 `Login yoki tiklash kodi noto'g'ri` (hisob borligi oshkor qilinmaydi); 429 — IP (`RECOVER_IP_LIMIT`, 10/15 daq) yoki login (`RECOVER_ACCOUNT_LIMIT`, 5/soat, mavjud bo'lmagan login ham sanaladi) limiti |
+| POST  | `/auth/recover` | Emailsiz tiklash: `{ login, code, newPassword }` → 204; kod bir martalik (shartli `updateMany`); **barcha sessiyalar** bekor. Har qanday xato — bir xil 400 `Login yoki tiklash kodi noto'g'ri` (hisob borligi oshkor qilinmaydi); 429 — IP limiti (`RECOVER_IP_LIMIT`, 10/15 daq) yoki login bloki: **5 ta noto'g'ri kod → 15 daqiqa blok** (`CODE_MAX_FAILURES`, `CODE_BLOCK_MS`; blokda to'g'ri kod ham o'tmaydi; mavjud bo'lmagan login ham sanaladi; to'g'ri kod hisobni nolga tushiradi) |
 | GET   | `/auth/recovery-codes` | JWT. `{ remaining, generatedAt }` — kodlarning o'zi qaytmaydi |
 | POST  | `/auth/recovery-codes` | JWT. `{ password }` (joriy) → `{ codes: string[10] }`; eskilari o'chadi; 400 — parol noto'g'ri |
 | POST  | `/auth/change-password` | JWT. `{ currentPassword, newPassword }` → `AuthResponse` (shu qurilmaga yangi tokenlar); boshqa barcha refresh tokenlar va email tiklash havolalari bekor; 400 — joriy parol noto'g'ri |
@@ -39,6 +39,7 @@ standart 15m); refresh token — body'da, bir martalik (rotatsiya).
 | POST  | `/chats/:id/messages`  | `{ content, attachmentId?, replyToId?, clientId? }` — REST zaxira (asosiysi WS); `replyToId` — shu chatdagi tirik xabar, aks holda 400 |
 | PATCH | `/chats/:id/messages/:mid` | `{ content }` — faqat muallif, faqat matn            |
 | DELETE| `/chats/:id/messages/:mid` | soft-delete: muallif yoki guruh/kanal owner/admini   |
+| PUT   | `/chats/:id/messages/:mid/reaction` | `{ emoji }` (👍 ❤️ 😂 😮 😢 🔥) yoki `{ emoji: null }` (olib tashlash) → `{ reactions: [{ emoji, count }], myReaction }`; bir foydalanuvchi — bir xabarga bitta (almashtiriladi), idempotent; faqat chat a'zosi (kanalda obunachi ham); o'chirilgan/tizim xabariga — 404/400; hamma a'zoga `message:reaction` |
 | POST  | `/chats/group`         | `{ title, description?, memberIds }` → guruh (yaratuvchi — owner) |
 | POST  | `/chats/channel`       | `{ title, description?, isPublic }` → kanal             |
 | GET   | `/chats/public?q=&limit=` | ochiq kanallar qidiruvi (`isMember`, `memberCount`)  |
@@ -56,6 +57,11 @@ Kanalda faqat owner/admin yozadi. Media: `upload-url` → mijoz faylni `uploadUr
 `PUT` qiladi (API orqali oqim o'tmaydi) → xabarda `attachmentId`. Cheklovlar
 (`@suhbat/core` → `ATTACHMENT_RULES`): rasm ≤ 10 MB (jpeg/png/webp/gif), ovoz ≤ 10 MB
 va ≤ 5 daqiqa, fayl ≤ 25 MB (ruxsat etilgan MIME ro'yxati; SVG/HTML/bajariladigan fayllar yo'q).
+**Turi ichidan tekshiriladi:** xabarga biriktirishda (`requireReady`) faylning birinchi 4 KB si o'qilib, tur
+`Content-Type`/nomdan emas, **magic bytes** dan aniqlanadi (`apps/api/src/media/file-signature.ts`); e'lon
+qilingan MIME'ga yoki fayl nomi kengaytmasiga mos kelmasa (yoki `.html/.svg/.js/.exe/...` bo'lsa) — 400 va
+obyekt o'chiriladi. Matn turlari (`text/plain`, `text/csv`, `application/json`) uchun imzo yo'q: NUL/boshqaruv
+baytlari va `<...`/`#!` bilan boshlanishi rad etiladi.
 
 ## WebSocket (Socket.IO)
 
@@ -71,6 +77,7 @@ Ulanish: `io(API_URL, { auth: { token: accessToken } })`. Tiplar — `@suhbat/co
 | ← mijoz   | `message:new`     | `{ message, clientId? }`                 |
 | ← mijoz   | `message:updated` | `{ message }` (tahrirlandi, `editedAt`)  |
 | ← mijoz   | `message:deleted` | `{ chatId, messageId, deletedAt }`       |
+| ← mijoz   | `message:reaction` | `{ chatId, messageId, userId, emoji\|null, reactions: [{ emoji, count }] }` — chatning hamma a'zosiga (o'zgartirgan foydalanuvchining boshqa qurilmalariga ham); `Message.reactions`/`myReaction` faqat tarix (`GET .../messages`) javobida, tahrir broadcast'ida yo'q (mijoz mavjudini saqlaydi) |
 | ← mijoz   | `chat:updated`    | `{ chatId, title, description, isPublic, updatedAt }` |
 | ← mijoz   | `chat:member`     | `{ chatId, userId, action: added\|removed\|role, member, memberCount }` |
 | ← mijoz   | `chat:deleted`    | `{ chatId }`                             |

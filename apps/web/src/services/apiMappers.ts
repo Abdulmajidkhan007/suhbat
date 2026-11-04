@@ -45,6 +45,8 @@ export const toMessage = (m: ApiMessage, chat?: Pick<Chat, 'participantDetails'>
     updatedAt:   ms(m.editedAt ?? m.createdAt),
     editedAt:    toMillis(m.editedAt),
     replyTo:     m.replyTo ?? null,
+    // Server reaksiyalarni bermagan javobda (edit broadcast'i) maydonlar yo'q — mavjud holat saqlanadi.
+    ...(m.reactions ? { reactions: m.reactions, myReaction: m.myReaction ?? null } : {}),
   };
 };
 

@@ -50,6 +50,15 @@ describe('apiMappers', () => {
     expect(toMessage(apiMsg(), null).senderName).toBe('');
   });
 
+  it('toMessage: reaksiyalar bor bo\'lsa o\'tadi, server bermagan bo\'lsa maydonlar yo\'q', () => {
+    expect(toMessage(apiMsg({ reactions: [{ emoji: '🔥', count: 2 }], myReaction: '🔥' }), null))
+      .toMatchObject({ reactions: [{ emoji: '🔥', count: 2 }], myReaction: '🔥' });
+    expect(toMessage(apiMsg({ reactions: [] }), null)).toMatchObject({ reactions: [], myReaction: null });
+    const bare = toMessage(apiMsg(), null);
+    expect(bare).not.toHaveProperty('reactions');
+    expect(bare).not.toHaveProperty('myReaction');
+  });
+
   it('toMessage: biriktirma va tahrirlangan vaqt', () => {
     const m = toMessage(apiMsg({
       type: 'voice', content: '', editedAt: '2026-10-11T10:01:00.000Z',

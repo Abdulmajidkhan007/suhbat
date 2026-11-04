@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react';
+import React, { memo, useCallback, useRef, useState } from 'react';
 import { Button, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, Typography } from '@mui/material';
 import DoneIcon from '@mui/icons-material/Done';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
@@ -8,6 +8,7 @@ import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import ReplayIcon from '@mui/icons-material/Replay';
 import ReplyIcon from '@mui/icons-material/Reply';
+import AddReactionOutlinedIcon from '@mui/icons-material/AddReactionOutlined';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { Message } from '../../types';
@@ -16,6 +17,10 @@ import FileChip from '../common/FileChip';
 import AvatarWithStatus from '../common/AvatarWithStatus';
 import { Linkified } from '../../utils/linkify';
 import ReplyQuote from './ReplyQuote';
+import ReactionBar from './ReactionBar';
+import ReactionPicker from './ReactionPicker';
+import { toggleReaction } from '@suhbat/core';
+import type { ReactionEmoji } from '@suhbat/core';
 
 interface Props {
   message:    Message;
@@ -42,7 +47,12 @@ interface Props {
   onJump?:    (messageId: string) => void;
   /** Asl xabarga o'tilganda qisqa yoritish. */
   highlighted?: boolean;
+  /** Reaksiya qo'yish/almashtirish/olib tashlash (`null`); berilmasa reaksiya tugmalari yo'q. */
+  onReact?:   (messageId: string, emoji: ReactionEmoji | null) => void;
 }
+
+/** Sensorli ekranda bosib turish (long-press) davomiyligi. */
+export const LONG_PRESS_MS = 450;
 
 const copyText = async (text: string) => {
   try {
@@ -93,12 +103,25 @@ const Attachment: React.FC<{ message: Message }> = ({ message }) => {
 
 const MessageBubble: React.FC<Props> = memo(({
   message, isSelf, showAvatar = true, showSender = true, canEdit = false, canDelete = false, onEdit, onDelete,
-  onResend, onDiscard, onReply, replyName, onJump, highlighted = false,
+  onResend, onDiscard, onReply, replyName, onJump, highlighted = false, onReact,
 }) => {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [editing, setEditing]       = useState(false);
   const [draft, setDraft]           = useState('');
   const [saving, setSaving]         = useState(false);
+  const [pickerAnchor, setPickerAnchor] = useState<HTMLElement | null>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const canReact = !message.isOptimistic && !!onReact && message.type !== 'system';
+
+  // Bosib turish (sensor/qalam): reaksiya tanlash. Sichqonchada hover tugmasi ishlatiladi.
+  const cancelPress = useCallback(() => clearTimeout(pressTimer.current), []);
+  const startPress = (e: React.PointerEvent) => {
+    if (!canReact || editing || e.pointerType === 'mouse') return;
+    cancelPress();
+    pressTimer.current = setTimeout(() => setPickerAnchor(bubbleRef.current), LONG_PRESS_MS);
+  };
+  const react = (emoji: ReactionEmoji) => onReact?.(message.id, toggleReaction(message.myReaction, emoji));
   const failed = message.status === 'failed';
   const canCopy = message.content.length > 0;
   const canReply = !message.isOptimistic && !!onReply;
@@ -154,7 +177,14 @@ const MessageBubble: React.FC<Props> = memo(({
         )}
 
         <div
-          className={`relative px-3 py-2 rounded-2xl max-w-full break-words ${
+          ref={bubbleRef}
+          onPointerDown={startPress}
+          onPointerUp={cancelPress}
+          onPointerMove={cancelPress}
+          onPointerCancel={cancelPress}
+          onPointerLeave={cancelPress}
+          onContextMenu={(e) => { if (canReact && pickerAnchor) e.preventDefault(); }}
+          className={`relative px-3 py-2 rounded-2xl max-w-full break-words select-text ${
             isSelf
               ? 'rounded-br-sm bg-blue-600 text-white'
               : 'rounded-bl-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-soft'
@@ -224,6 +254,14 @@ const MessageBubble: React.FC<Props> = memo(({
             </Typography>
           )}
         </div>
+        {message.reactions && message.reactions.length > 0 && (
+          <ReactionBar
+            reactions={message.reactions}
+            mine={message.myReaction}
+            onToggle={canReact ? react : undefined}
+            align={isSelf ? 'end' : 'start'}
+          />
+        )}
         {failed && (onResend || onDiscard) && (
           <div className="flex items-center gap-1" role="group" aria-label="Yuborilmadi">
             <Typography variant="caption" color="error">Yuborilmadi</Typography>
@@ -240,6 +278,21 @@ const MessageBubble: React.FC<Props> = memo(({
           </div>
         )}
       </div>
+
+      {canReact && !editing && (
+        <IconButton
+          size="small"
+          onClick={() => setPickerAnchor(bubbleRef.current)}
+          aria-label="Reaksiya qo'yish"
+          className="opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+          sx={{ color: 'text.secondary', mb: 0.5, display: { xs: 'none', md: 'inline-flex' } }}
+        >
+          <AddReactionOutlinedIcon fontSize="small" />
+        </IconButton>
+      )}
+      {canReact && (
+        <ReactionPicker anchorEl={pickerAnchor} onClose={() => setPickerAnchor(null)} current={message.myReaction} onPick={react} />
+      )}
 
       {hasMenu && !editing && (
         <>

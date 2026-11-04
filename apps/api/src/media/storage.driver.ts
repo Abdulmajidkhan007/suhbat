@@ -34,6 +34,8 @@ export interface StorageDriver {
   presignGet(key: string, opts: GetOptions): Promise<string>;
   /** Obyekt bo'lmasa `null`; saqlashga ulanib bo'lmasa — xato. */
   head(key: string): Promise<StoredObject | null>;
+  /** Obyektning birinchi `bytes` bayti (turini ichidan tekshirish uchun); obyekt bo'lmasa `null`. */
+  readHead(key: string, bytes: number): Promise<Buffer | null>;
   /** Xato bo'lsa log yoziladi, chaqiruvchi to'xtamaydi. */
   delete(key: string): Promise<void>;
 }

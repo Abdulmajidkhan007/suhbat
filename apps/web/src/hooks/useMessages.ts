@@ -1,7 +1,7 @@
 // src/hooks/useMessages.ts
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { REPLY_PREVIEW_MAX, UploadUrlInputSchema, kindOfFile, normalizeMime } from '@suhbat/core';
-import type { MessageReply, UploadUrlInput } from '@suhbat/core';
+import { REPLY_PREVIEW_MAX, UploadUrlInputSchema, applyMyReaction, kindOfFile, normalizeMime } from '@suhbat/core';
+import type { MessageReply, ReactionEmoji, UploadUrlInput } from '@suhbat/core';
 import { v4 as uuidv4 } from 'uuid';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import {
@@ -9,6 +9,7 @@ import {
   markMessageFailed,
   markMessageSending,
   messageDeleted,
+  messageReactionsSet,
   messageReceived,
   messageUpdated,
   prependOlder,
@@ -228,6 +229,27 @@ export const useMessages = (chatId: string | null) => {
     dispatch(lastMessageEdited({ chatId, senderId: message.senderId, createdAt: message.createdAt, content: message.content }));
   }, [chatId, dispatch]);
 
+  /**
+   * Reaksiya qo'yish / almashtirish / olib tashlash (`null`). Avval ekranda darhol yangilanadi,
+   * server javobi (haqiqiy hisob) bilan tasdiqlanadi; xatoda oldingi holatga qaytadi va xato tashlanadi.
+   */
+  const reactToMessage = useCallback(async (messageId: string, emoji: ReactionEmoji | null) => {
+    if (!chatId) return;
+    const msg = rawRef.current.find((m) => m.id === messageId);
+    if (!msg || msg.isOptimistic) return;
+    const before = { reactions: msg.reactions ?? [], myReaction: msg.myReaction ?? null };
+    dispatch(messageReactionsSet({
+      chatId, messageId, reactions: applyMyReaction(before.reactions, before.myReaction, emoji), myReaction: emoji,
+    }));
+    try {
+      const res = await api.setReaction(chatId, messageId, emoji);
+      dispatch(messageReactionsSet({ chatId, messageId, ...res }));
+    } catch (e) {
+      dispatch(messageReactionsSet({ chatId, messageId, ...before }));
+      throw e;
+    }
+  }, [chatId, dispatch]);
+
   const deleteMessage = useCallback(async (messageId: string) => {
     if (!chatId) return;
     if (socket.isConnected()) await socket.deleteMessage(chatId, messageId);
@@ -280,6 +302,7 @@ export const useMessages = (chatId: string | null) => {
     discardMessage,
     editMessage,
     deleteMessage,
+    reactToMessage,
     setTyping,
   };
 };

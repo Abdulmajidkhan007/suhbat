@@ -1,6 +1,6 @@
 import Clipboard from '@react-native-clipboard/clipboard';
-import { canModerateMessages, canWrite, messageStatus, toMillis } from '@suhbat/core';
-import type { CallMedia, ChatSummary } from '@suhbat/core';
+import { canModerateMessages, canWrite, messageStatus, toMillis, toggleReaction } from '@suhbat/core';
+import type { CallMedia, ChatSummary, ReactionEmoji } from '@suhbat/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { useCall } from '../calls/useCall';
@@ -58,7 +58,7 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
   const me = useCurrentUser();
   const { back, push } = useNavigation();
   const {
-    state, loadMessages, sendText, resend, setTyping, markRead, setActiveChat, editMessage, deleteMessage, discardLocal,
+    state, loadMessages, sendText, resend, setTyping, markRead, setActiveChat, editMessage, deleteMessage, reactToMessage, discardLocal,
     ensureChat,
   } = useChatStore();
   const chat = state.chats[chatId];
@@ -138,6 +138,11 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
 
   // Inverted FlatList: eng yangisi pastda.
   const data = useMemo(() => [...items].reverse(), [items]);
+
+  /** Emoji tanlandi / chip bosildi: o'zining reaksiyasini yana bossa — olib tashlanadi. */
+  const react = useCallback((m: LocalMessage, emoji: ReactionEmoji) => {
+    reactToMessage(chatId, m.id, toggleReaction(m.myReaction, emoji)).catch(() => showNotice(t('reaction.error')));
+  }, [chatId, reactToMessage, showNotice]);
 
   const onLongPress = useCallback((m: LocalMessage) => {
     haptics.light();
@@ -267,6 +272,7 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
           senderName={showSender && !grouped ? nameOf(item.senderId) : undefined}
           onRetry={resend}
           onLongPress={item.type === 'system' ? undefined : onLongPress}
+          onReact={item.local ? undefined : react}
           replyName={item.replyTo ? replyNameOf(item.replyTo.senderId) : undefined}
           onReplyPress={jumpTo}
           highlighted={highlightId === item.id}
@@ -350,6 +356,9 @@ export const ChatScreen = ({ chatId }: { chatId: string }) => {
         title={t('menu.title')}
         preview={menuFor?.content || undefined}
         actions={menuFor ? menuActions(menuFor) : []}
+        reactions={menuFor && !menuFor.local
+          ? { current: menuFor.myReaction, onPick: (emoji) => react(menuFor, emoji) }
+          : undefined}
         onClose={() => setMenuFor(null)}
       />
     </KeyboardAvoidingView>

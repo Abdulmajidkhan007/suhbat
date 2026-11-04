@@ -18,6 +18,8 @@ import type {
   PublicChannel,
   PublicChannelsQuery,
   PublicUser,
+  ReactionEmoji,
+  ReactionState,
   UpdateChatInput,
   WsChatMember,
   WsChatMemberAction,
@@ -28,8 +30,8 @@ import { Prisma } from '../generated/prisma/client';
 import type { Attachment as AttachmentRow, Message as MessageRow } from '../generated/prisma/client';
 import { MediaService } from '../media/media.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { decodeCursor, encodeCursor, toChatMember, toMessage, toSummary } from './chat.mappers';
-import type { ReplyRow } from './chat.mappers';
+import { decodeCursor, encodeCursor, orderedCounts, toChatMember, toMessage, toSummary } from './chat.mappers';
+import type { ReactionRow, ReplyRow } from './chat.mappers';
 
 /** Xabar bilan birga: biriktirma va javob berilgan xabar (uning biriktirma turi bilan). */
 const messageInclude = {
@@ -372,12 +374,12 @@ export class ChatsService {
       where:   { chatId, deletedAt: null, ...cursorWhere },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take:    query.limit + 1,
-      include: messageInclude,
+      include: { ...messageInclude, reactions: { select: { emoji: true, userId: true } } },
     });
     const hasMore = rows.length > query.limit;
     const page = hasMore ? rows.slice(0, query.limit) : rows;
     return {
-      items:      await Promise.all(page.reverse().map((r) => this.present(r, r.attachment, r.replyTo))),
+      items:      await Promise.all(page.reverse().map((r) => this.present(r, r.attachment, r.replyTo, { rows: r.reactions, me }))),
       nextCursor: hasMore ? encodeCursor(page[0]) : null,
     };
   }
@@ -490,6 +492,35 @@ export class ChatsService {
     return { deletedAt: deletedAt.toISOString(), memberIds: access.memberIds };
   }
 
+  /**
+   * Reaksiya qo'yish / almashtirish / olib tashlash (`emoji: null`). Faqat chat a'zosi (kanalda
+   * obunachi ham); o'chirilgan va tizim xabariga — yo'q. Bir foydalanuvchi — bir xabarga bitta
+   * reaksiya (PK `(messageId, userId)`), shuning uchun parallel so'rovlar ham bittaga keladi.
+   * Qaytaradi: jami hisob, o'zining reaksiyasi va voqea yuboriladigan a'zolar.
+   */
+  async setReaction(
+    chatId: string,
+    me: string,
+    messageId: string,
+    emoji: ReactionEmoji | null,
+  ): Promise<ReactionState & { memberIds: string[] }> {
+    const access = await this.access(chatId, me);
+    const found = await this.findLiveMessage(chatId, messageId);
+    if (found.type === 'system') throw new BadRequestException('Tizim xabariga reaksiya qo\'yib bo\'lmaydi');
+    if (emoji === null) {
+      await this.prisma.messageReaction.deleteMany({ where: { messageId, userId: me } });
+    } else {
+      await this.prisma.messageReaction.upsert({
+        where:  { messageId_userId: { messageId, userId: me } },
+        create: { messageId, userId: me, emoji },
+        update: { emoji },
+      });
+    }
+    const rows = await this.prisma.messageReaction.groupBy({ by: ['emoji'], where: { messageId }, _count: { _all: true } });
+    const reactions = orderedCounts(new Map(rows.map((r) => [r.emoji, r._count._all])));
+    return { reactions, myReaction: emoji, memberIds: access.memberIds };
+  }
+
   /** `messageId` gacha o'qildi. `lastReadAt` faqat oldinga siljiydi. */
   async markRead(chatId: string, me: string, messageId: string): Promise<{ lastReadAt: string; memberIds: string[] }> {
     const memberIds = await this.memberIds(chatId, me);
@@ -598,8 +629,13 @@ export class ChatsService {
     };
   }
 
-  private present(m: MessageRow, attachment: AttachmentRow | null, replyTo: ReplyRow | null = null): Promise<Message> {
-    return (attachment ? this.media.toDto(attachment) : Promise.resolve(null)).then((a) => toMessage(m, a, replyTo));
+  private present(
+    m: MessageRow,
+    attachment: AttachmentRow | null,
+    replyTo: ReplyRow | null = null,
+    reactions?: { rows: readonly ReactionRow[]; me: string },
+  ): Promise<Message> {
+    return (attachment ? this.media.toDto(attachment) : Promise.resolve(null)).then((a) => toMessage(m, a, replyTo, reactions));
   }
 
   private async presentLast(

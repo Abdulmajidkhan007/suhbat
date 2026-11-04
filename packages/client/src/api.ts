@@ -9,6 +9,7 @@ import {
   NotificationSettingsSchema,
   PublicChannelSchema,
   PublicUserSchema,
+  ReactionStateSchema,
   RecoveryCodesResponseSchema,
   RecoveryCodesStatusSchema,
   TokenPairSchema,
@@ -30,6 +31,8 @@ import type {
   NotificationSettings,
   PublicChannel,
   PublicUser,
+  ReactionEmoji,
+  ReactionState,
   RegisterDeviceInput,
   RegisterInput,
   SendMessageInput,
@@ -315,6 +318,15 @@ export const createApiClient = (opts: ApiClientOptions) => {
         'DELETE',
         `/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}`,
         z.object({ deletedAt: z.string() }),
+      ),
+
+    /** Reaksiya qo'yish/almashtirish; `null` — olib tashlash. Bir foydalanuvchi — bir xabarga bitta reaksiya. */
+    setReaction: (chatId: string, messageId: string, emoji: ReactionEmoji | null): Promise<ReactionState> =>
+      authed(
+        'PUT',
+        `/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}/reaction`,
+        ReactionStateSchema,
+        { body: { emoji } },
       ),
 
     // --- Push bildirishnomalar ---

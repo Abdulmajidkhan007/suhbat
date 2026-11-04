@@ -42,6 +42,10 @@ export class StorageService implements OnModuleInit {
     return this.driver.head(key);
   }
 
+  readHead(key: string, bytes: number): Promise<Buffer | null> {
+    return this.driver.readHead(key, bytes);
+  }
+
   delete(key: string): Promise<void> {
     return this.driver.delete(key);
   }

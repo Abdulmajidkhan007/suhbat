@@ -202,6 +202,60 @@ describe('Chat (e2e)', () => {
     await request(server).post('/auth/refresh').send({}).expect(400);
   });
 
+  it('reaksiyalar (5.4): qo\'yish, almashtirish, olib tashlash, real vaqt, faqat a\'zo', async () => {
+    const ali = mkApi();
+    const vali = mkApi();
+    const gani = mkApi();
+    await ali.login({ login: emails.ali, password: '12345678' });
+    await vali.login({ login: emails.vali, password: '12345678' });
+    await gani.login({ login: emails.gani, password: '12345678' });
+    const valiId = (await vali.me()).id;
+    const chat = await ali.createDirectChat(valiId);
+    const msg = await ali.sendMessage(chat.id, { content: 'reaksiya uchun' });
+
+    const aliWs = mkSocket(ali);
+    aliWs.connect();
+    await waitConnected(aliWs);
+
+    // Qo'yish: Ali o'ziga ham voqea oladi (boshqa qurilma/tab sinxroni)
+    const ev1 = next(aliWs, 'message:reaction', (e) => e.messageId === msg.id);
+    expect(await vali.setReaction(chat.id, msg.id, '👍')).toEqual({ reactions: [{ emoji: '👍', count: 1 }], myReaction: '👍' });
+    expect(await ev1).toMatchObject({ chatId: chat.id, userId: (await vali.me()).id, emoji: '👍', reactions: [{ emoji: '👍', count: 1 }] });
+
+    // Ikkinchi foydalanuvchi boshqa emoji qo'yadi; sonlar emoji tartibida
+    expect(await ali.setReaction(chat.id, msg.id, '🔥')).toEqual({
+      reactions: [{ emoji: '👍', count: 1 }, { emoji: '🔥', count: 1 }],
+      myReaction: '🔥',
+    });
+
+    // Almashtirish: bir foydalanuvchi — bitta reaksiya (👍 → 🔥 bo'lsa 🔥 ikkita)
+    expect((await vali.setReaction(chat.id, msg.id, '🔥')).reactions).toEqual([{ emoji: '🔥', count: 2 }]);
+    expect(await prisma.messageReaction.count({ where: { messageId: msg.id } })).toBe(2);
+    // Idempotent: xuddi shuni qayta yuborish hisobni oshirmaydi
+    expect((await vali.setReaction(chat.id, msg.id, '🔥')).reactions).toEqual([{ emoji: '🔥', count: 2 }]);
+
+    // Tarixda hisob va o'zining reaksiyasi (har kim uchun o'ziniki)
+    const aliView = (await ali.listMessages(chat.id)).items.find((m) => m.id === msg.id);
+    expect(aliView).toMatchObject({ reactions: [{ emoji: '🔥', count: 2 }], myReaction: '🔥' });
+    expect((await vali.listMessages(chat.id)).items.find((m) => m.id === msg.id)?.myReaction).toBe('🔥');
+
+    // Olib tashlash
+    const ev2 = next(aliWs, 'message:reaction', (e) => e.emoji === null);
+    expect(await vali.setReaction(chat.id, msg.id, null)).toEqual({ reactions: [{ emoji: '🔥', count: 1 }], myReaction: null });
+    expect((await ev2).reactions).toEqual([{ emoji: '🔥', count: 1 }]);
+    expect((await vali.setReaction(chat.id, msg.id, null)).myReaction).toBeNull(); // yo'q reaksiyani olib tashlash xato emas
+
+    // A'zo bo'lmagan — 404; ruxsat etilmagan emoji — 400; begona chat xabari — 404
+    await expect(gani.setReaction(chat.id, msg.id, '👍')).rejects.toMatchObject({ status: 404 });
+    await request(app.getHttpServer()).put(`/chats/${chat.id}/messages/${msg.id}/reaction`)
+      .set('Authorization', `Bearer ${await vali.getAccessToken()}`).send({ emoji: '💩' }).expect(400);
+    await expect(ali.setReaction(chat.id, '00000000-0000-4000-8000-000000000000', '👍')).rejects.toMatchObject({ status: 404 });
+
+    // O'chirilgan xabarga reaksiya yo'q; xabar o'chganda reaksiyalar ham
+    await ali.deleteMessage(chat.id, msg.id);
+    await expect(vali.setReaction(chat.id, msg.id, '👍')).rejects.toMatchObject({ status: 404 });
+  });
+
   it('parallel refresh (bir token, bir vaqtda) — ikkalasi 200, sessiya tirik (5.1)', async () => {
     const server = app.getHttpServer();
     const login = await request(server).post('/auth/login').send({ email: emails.ali, password: '12345678' }).expect(200);

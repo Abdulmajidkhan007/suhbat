@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { toSelfUser } from '../auth/auth.service';
-import { decodeCursor, encodeCursor, toChatMember, toReply, truncate } from './chat.mappers';
+import { decodeCursor, encodeCursor, orderedCounts, summarizeReactions, toChatMember, toMessage, toReply, truncate } from './chat.mappers';
 import { directKeyOf } from './chats.service';
 
 describe('kursor', () => {
@@ -61,5 +61,35 @@ describe('javob (replyTo) ko\'rinishi', () => {
     expect(toReply({ ...base, content: '', deletedAt: new Date(), attachment: { kind: 'image' } })).toEqual({
       id: base.id, senderId: base.senderId, content: '', kind: null, deleted: true,
     });
+  });
+});
+
+describe('reaksiyalar ko\'rinishi', () => {
+  const rows = [
+    { emoji: '🔥', userId: 'a' }, { emoji: '👍', userId: 'b' }, { emoji: '🔥', userId: 'c' }, { emoji: '💩', userId: 'd' },
+  ];
+
+  it('emoji tartibida hisoblaydi, ruxsat etilmaganini tashlaydi, o\'zining reaksiyasini topadi', () => {
+    expect(summarizeReactions(rows, 'c')).toEqual({
+      reactions:  [{ emoji: '👍', count: 1 }, { emoji: '🔥', count: 2 }],
+      myReaction: '🔥',
+    });
+    expect(summarizeReactions(rows, 'z').myReaction).toBeNull();
+    expect(summarizeReactions([], 'a')).toEqual({ reactions: [], myReaction: null });
+  });
+
+  it('orderedCounts: bo\'sh emoji chiqmaydi', () => {
+    expect(orderedCounts(new Map([['😢', 3], ['❤️', 1]]))).toEqual([{ emoji: '❤️', count: 1 }, { emoji: '😢', count: 3 }]);
+  });
+
+  it('toMessage: reaksiya berilmasa maydonlar yo\'q (mijoz mavjudini saqlaydi), berilsa bor', () => {
+    const m = {
+      id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', chatId: '7f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f',
+      senderId: '8f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', type: 'text' as const, content: 'x',
+      createdAt: new Date(), editedAt: null, deletedAt: null, replyToId: null,
+    };
+    expect(toMessage(m, null)).not.toHaveProperty('reactions');
+    expect(toMessage(m, null)).not.toHaveProperty('myReaction');
+    expect(toMessage(m, null, null, { rows, me: 'b' })).toMatchObject({ myReaction: '👍', reactions: [{ emoji: '👍', count: 1 }, { emoji: '🔥', count: 2 }] });
   });
 });

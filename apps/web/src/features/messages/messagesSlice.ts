@@ -1,5 +1,6 @@
 // src/features/messages/messagesSlice.ts
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import type { MessageReaction, ReactionEmoji } from '@suhbat/core';
 import { MessagesState, Message } from '../../types';
 
 const initialState: MessagesState = {
@@ -66,7 +67,14 @@ const messagesSlice = createSlice({
       const withoutTemp = clientId ? list.filter((m) => m.id !== clientId) : list;
       const existing = withoutTemp.findIndex((m) => m.id === message.id);
       if (existing >= 0) {
-        withoutTemp[existing] = { ...message, status: withoutTemp[existing].status === 'read' ? 'read' : message.status };
+        const old = withoutTemp[existing];
+        withoutTemp[existing] = {
+          ...message,
+          status: old.status === 'read' ? 'read' : message.status,
+          // reaksiyalar kelmagan (broadcast) bo'lsa mavjudi saqlanadi
+          reactions:  message.reactions ?? old.reactions,
+          myReaction: message.reactions ? message.myReaction : old.myReaction,
+        };
         state.messagesByChatId[message.chatId] = withoutTemp;
         return;
       }
@@ -81,6 +89,20 @@ const messagesSlice = createSlice({
       const idx = list?.findIndex((m) => m.id === action.payload.id) ?? -1;
       if (!list || idx < 0) return;
       list[idx] = { ...list[idx], content: action.payload.content, editedAt: action.payload.editedAt, updatedAt: action.payload.updatedAt };
+    },
+    /**
+     * Reaksiyalar o'zgardi (server javobi, `message:reaction` yoki optimistik yangilash).
+     * `myReaction` berilsa (`undefined` emas) — joriy foydalanuvchining reaksiyasi ham almashadi.
+     */
+    messageReactionsSet(
+      state,
+      action: PayloadAction<{ chatId: string; messageId: string; reactions: MessageReaction[]; myReaction?: ReactionEmoji | null }>,
+    ) {
+      const { chatId, messageId, reactions, myReaction } = action.payload;
+      const msg = state.messagesByChatId[chatId]?.find((m) => m.id === messageId);
+      if (!msg) return;
+      msg.reactions = reactions;
+      if (myReaction !== undefined) msg.myReaction = myReaction;
     },
     /** O'chirilgan xabar (soft-delete serverda) ro'yxatdan olib tashlanadi. */
     messageDeleted(state, action: PayloadAction<{ chatId: string; messageId: string }>) {
@@ -135,6 +157,7 @@ export const {
   appendOptimisticMessage,
   messageReceived,
   messageUpdated,
+  messageReactionsSet,
   messageDeleted,
   markMessageFailed,
   markMessageSending,

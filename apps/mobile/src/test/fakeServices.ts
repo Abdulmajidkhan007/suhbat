@@ -49,6 +49,7 @@ export const createFakeServices = (api: Partial<ApiClient> = {}, push: PushPlatf
     updateNotificationSettings: jest.fn(async (input: { preview?: boolean }) => ({ preview: input.preview ?? true })),
     editMessage:      jest.fn(async () => { throw new Error('editMessage mock kerak'); }),
     deleteMessage:    jest.fn(async () => ({ deletedAt: new Date().toISOString() })),
+    setReaction:      jest.fn(async () => ({ reactions: [], myReaction: null })),
     addMembers:       jest.fn(async () => { throw new Error('addMembers mock kerak'); }),
     removeMember:     jest.fn(async () => undefined),
     setMemberRole:    jest.fn(async () => { throw new Error('setMemberRole mock kerak'); }),

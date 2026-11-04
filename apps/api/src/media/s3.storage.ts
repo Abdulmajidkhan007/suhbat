@@ -98,6 +98,17 @@ export class S3StorageDriver implements StorageDriver {
     }
   }
 
+  async readHead(key: string, bytes: number): Promise<Buffer | null> {
+    try {
+      const res = await this.internal.send(new GetObjectCommand({ Bucket: this.bucket, Key: key, Range: `bytes=0-${bytes - 1}` }));
+      return res.Body ? Buffer.from(await res.Body.transformToByteArray()) : Buffer.alloc(0);
+    } catch (e) {
+      const status = (e as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+      if (status === 404) return null;
+      throw e;
+    }
+  }
+
   async delete(key: string): Promise<void> {
     try {
       await this.internal.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));

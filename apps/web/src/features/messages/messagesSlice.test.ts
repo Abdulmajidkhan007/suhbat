@@ -3,6 +3,7 @@ import type { Message } from '../../types';
 import reducer, {
   appendOptimisticMessage,
   messageDeleted,
+  messageReactionsSet,
   messageReceived,
   messageUpdated,
   prependOlder,
@@ -69,5 +70,39 @@ describe('messagesSlice', () => {
     const s = reducer(loaded, messageDeleted({ chatId: 'c1', messageId: 'a' }));
     expect(ids(s)).toEqual(['b']);
     expect(reducer(loaded, messageDeleted({ chatId: 'c9', messageId: 'a' }))).toEqual(loaded);
+  });
+
+  describe('reaksiyalar', () => {
+    const withReactions = reducer(loaded, messageReactionsSet({
+      chatId: 'c1', messageId: 'a', reactions: [{ emoji: '👍', count: 2 }], myReaction: '👍',
+    }));
+    const get = (s: ReturnType<typeof reducer>, id: string) => s.messagesByChatId.c1.find((m) => m.id === id)!;
+
+    it('hisob va o\'zining reaksiyasi qo\'yiladi', () => {
+      expect(get(withReactions, 'a')).toMatchObject({ reactions: [{ emoji: '👍', count: 2 }], myReaction: '👍' });
+      expect(get(withReactions, 'b').reactions).toBeUndefined();
+    });
+
+    it('boshqaning reaksiyasi (myReaction berilmagan) o\'zinikini o\'zgartirmaydi', () => {
+      const s = reducer(withReactions, messageReactionsSet({ chatId: 'c1', messageId: 'a', reactions: [{ emoji: '👍', count: 3 }] }));
+      expect(get(s, 'a')).toMatchObject({ reactions: [{ emoji: '👍', count: 3 }], myReaction: '👍' });
+    });
+
+    it('myReaction: null — o\'zinikini olib tashlaydi; noma\'lum xabar/chat e\'tiborsiz', () => {
+      const s = reducer(withReactions, messageReactionsSet({ chatId: 'c1', messageId: 'a', reactions: [], myReaction: null }));
+      expect(get(s, 'a')).toMatchObject({ reactions: [], myReaction: null });
+      expect(reducer(s, messageReactionsSet({ chatId: 'c1', messageId: 'yo\'q', reactions: [] }))).toEqual(s);
+      expect(reducer(s, messageReactionsSet({ chatId: 'x', messageId: 'a', reactions: [] }))).toEqual(s);
+    });
+
+    it('tahrir (message:updated) va reaksiyasiz message:new reaksiyalarni o\'chirmaydi', () => {
+      let s = reducer(withReactions, messageUpdated(msg('a', 1, { content: 'yangi', editedAt: 5 })));
+      expect(get(s, 'a')).toMatchObject({ content: 'yangi', reactions: [{ emoji: '👍', count: 2 }], myReaction: '👍' });
+      s = reducer(withReactions, messageReceived({ message: msg('a', 1) }));
+      expect(get(s, 'a')).toMatchObject({ reactions: [{ emoji: '👍', count: 2 }], myReaction: '👍' });
+      // reaksiyali (tarix) xabar esa almashtiradi
+      s = reducer(withReactions, messageReceived({ message: msg('a', 1, { reactions: [], myReaction: null }) }));
+      expect(get(s, 'a')).toMatchObject({ reactions: [], myReaction: null });
+    });
   });
 });

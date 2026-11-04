@@ -1,4 +1,4 @@
-import type { MessageStatus } from '@suhbat/core';
+import type { MessageStatus, ReactionEmoji } from '@suhbat/core';
 import { memo } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { t } from '../i18n';
@@ -28,13 +28,15 @@ interface Props {
   onReplyPress?: (messageId: string) => void;
   /** Asl xabarga o'tilganda qisqa yoritish. */
   highlighted?: boolean;
+  /** Xabar ostidagi emoji bosildi: o'zinikini olib tashlash yoki almashtirish. */
+  onReact?:     (message: LocalMessage, emoji: ReactionEmoji) => void;
 }
 
 export const tickState = (message: LocalMessage, status: MessageStatus): TickState =>
   message.local ?? status;
 
 export const MessageBubble = memo(({
-  message, own, status, senderName, tail = true, onRetry, onLongPress, replyName, onReplyPress, highlighted = false,
+  message, own, status, senderName, tail = true, onRetry, onLongPress, replyName, onReplyPress, highlighted = false, onReact,
 }: Props) => {
   const styles = useStyles(createStyles);
   const { palette } = useTheme();
@@ -118,6 +120,30 @@ export const MessageBubble = memo(({
           {/* Vaqt joyi: matnning oxirgi qatori meta bilan ustma-ust tushmasin. */}
           <Text style={styles.spacer}>{`${message.editedAt ? '        ' : ''}            ${own ? '   ' : ''}`}</Text>
         </Text>
+        {message.reactions && message.reactions.length > 0 ? (
+          <View style={styles.reactions}>
+            {message.reactions.map(({ emoji, count }) => {
+              const mine = message.myReaction === emoji;
+              return (
+                <Pressable
+                  key={emoji}
+                  disabled={!onReact}
+                  onPress={() => onReact?.(message, emoji)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: mine }}
+                  accessibilityLabel={t(mine ? 'reaction.chipMine' : 'reaction.chip', { emoji, count: String(count) })}
+                  style={[
+                    styles.chip,
+                    { borderColor: mine ? palette.primary : 'transparent', backgroundColor: mine ? `${palette.primary}33` : `${palette.primary}14` },
+                  ]}
+                >
+                  <Text style={styles.chipEmoji}>{emoji}</Text>
+                  <Text style={[styles.chipCount, { color: own ? palette.bubbleOwnText : palette.bubbleOtherText }]}>{count}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
         <View style={styles.meta}>
           {message.editedAt ? <Text style={[styles.metaText, { color: metaColor }]}>{t('chat.edited')}</Text> : null}
           <Text style={[styles.metaText, { color: metaColor }]}>{time}</Text>
@@ -155,5 +181,9 @@ const createStyles = (p: Palette) => StyleSheet.create({
   fileName:   { flex: 1, textDecorationLine: 'underline' },
   meta:       { position: 'absolute', right: space.sm + 2, bottom: 5, flexDirection: 'row', alignItems: 'center', gap: 3 },
   metaText:   { ...textStyles.messageMeta },
+  reactions:  { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: space.xs, paddingBottom: 16 },
+  chip:       { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radii.full, borderWidth: 1 },
+  chipEmoji:  { fontSize: 14 },
+  chipCount:  { ...textStyles.caption, fontWeight: '600' },
   failed:     { ...textStyles.caption, color: p.danger, marginTop: space.xs, marginBottom: space.md },
 });

@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { link, mkdir, readFile, rm, stat, unlink, writeFile } from 'node:fs/promises';
+import { link, mkdir, open, readFile, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -193,6 +193,21 @@ export class LocalStorageDriver implements StorageDriver {
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw e;
+    }
+  }
+
+  async readHead(key: string, bytes: number): Promise<Buffer | null> {
+    let file;
+    try {
+      file = await open(this.pathOf(key), 'r');
+      const buf = Buffer.alloc(bytes);
+      const { bytesRead } = await file.read(buf, 0, bytes, 0);
+      return buf.subarray(0, bytesRead);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw e;
+    } finally {
+      await file?.close();
     }
   }
 

@@ -869,13 +869,41 @@ packages/
 - **5.2 Telefon raqam bilan kirish — SMS orqali** (Telegram'ga bog'liq emas): O'zbekiston SMS
   provayderi (Eskiz.uz yoki Play Mobile — narx va shartnoma egasida), 6 xonali kod, 5 daqiqa amal
   qiladi, 45 soniyada bir qayta so'rash. Provayder kaliti bo'lmasa dev rejimda kod logga chiqadi.
-- **5.3 Kod urinishlari cheklovi:** noto'g'ri kod 5 marta → shu raqamga kod so'rash vaqtincha bloklanadi
-  (SMS pulini va kodni tanlab topishni to'xtatadi).
-- **5.4 Xabarga emoji reaksiya** (👍 ❤️ 😂 😮 😢 🔥): xabar ustida bosib turish/hover → tanlash, xabar
-  ostida soni bilan, real vaqtda; mobil, veb, desktop.
-- **5.5 Fayl turini ichidan tekshirish:** yuklangan faylning turi nomi/`Content-Type` bo'yicha emas,
-  birinchi baytlari (magic bytes) bo'yicha aniqlanadi — `rasm.jpg` deb nomlangan dastur yoki HTML
-  rad etiladi.
+- **5.3 Kod urinishlari cheklovi — ✅ kodda (2026-11-04, PR `feat/5-3-5`).** `CodeAttemptGuard` (`apps/api/src/common/code-attempt-guard.ts`):
+  identifikator (email/login/kelajakda telefon) bo'yicha **5 ta noto'g'ri kod → 15 daqiqa blok** (blokda to'g'ri kod ham o'tmaydi,
+  kod tekshirilmaydi), kod/havola so'rash — **45 s da bir marta**; mavjud bo'lmagan identifikator ham xuddi shunday sanaladi
+  (hisob borligi oshkor bo'lmaydi). Qo'llangan oqimlar: `POST /auth/recover` (tiklash kodi; eski "5/soat" login limiti shu bilan
+  almashtirildi) va `POST /auth/forgot-password` (45 s). Sozlama: `CODE_MAX_FAILURES`, `CODE_BLOCK_MS`, `CODE_REQUEST_COOLDOWN_MS`.
+  **SMS oqimi (5.2) hali yo'q** — u qo'shilganda shu sinfdan foydalanadi (`takeRequest` + `recordFailure`/`blockedFor`).
+  Email havola tokeni (256 bit) terib topilmaydi, shuning uchun `reset-password` ga urinish cheklovi qo'yilmadi (faqat umumiy REST throttle).
+  - **Cheklov:** holat **xotirada** (bitta API nusxasi) — API qayta ishga tushsa yoki bir nechta nusxa bo'lsa blok nolga tushadi/bo'linadi
+    (mavjud IP-limitlar ham shunday). Ko'p nusxaga o'tilganda Redis/DB kerak.
+  - **Testlar:** guard unit 7, recovery.recover unit 5, password-reset +1, e2e: recovery (blok, to'g'ri kod ham 429), forgot (45 s).
+- **5.4 Xabarga emoji reaksiya — ✅ kodda (2026-11-04, PR `feat/5-3-5`), haqiqiy telefon/desktopda sinalmagan.**
+  - **DB:** `message_reactions (message_id, user_id, emoji)`, PK `(message_id, user_id)` — bir foydalanuvchi bir xabarga bitta (almashtirish
+    = `upsert`), emoji ro'yxati CHECK bilan ham himoyalangan; xabar/foydalanuvchi o'chsa reaksiyalar ham (CASCADE). Migratsiya `20261104120000_message_reactions`.
+  - **API:** `PUT /chats/:id/messages/:mid/reaction` `{ emoji | null }` → `{ reactions, myReaction }`; faqat chat a'zosi (kanalda obunachi ham),
+    o'chirilgan xabar — 404, tizim xabari — 400. `GET .../messages` javobida `Message.reactions` (emoji tartibida) va `myReaction`.
+  - **Real vaqt:** `message:reaction` `{ chatId, messageId, userId, emoji, reactions }` — chatning hamma a'zosiga (o'zgartirgan foydalanuvchining
+    boshqa qurilmalariga ham). Tahrir/`message:new` broadcast'ida reaksiya maydonlari yo'q — mijozlar mavjud holatni saqlaydi (veb slice, mobil reducer).
+  - **UI:** veb/desktop — xabar yonida hover'da 😊 tugmasi, sensorli ekranda bosib turish (450 ms) → 6 emoji; xabar ostida chip (emoji + soni,
+    o'zinikisi ajratilgan, bosilsa olib tashlanadi/almashadi). Mobil — xabarni bosib turish menyusi tepasida emoji qatori + pufak ichida chiplar.
+    Optimistik yangilash (`applyMyReaction`, `@suhbat/core`), xatoda orqaga qaytadi va xato ko'rsatiladi.
+  - **Testlar:** core 3 (+ sxema), API: mapper/service unit + chat e2e (qo'yish/almashtirish/olib tashlash/real vaqt/begona/noto'g'ri emoji/o'chirilgan),
+    veb: slice 4, mapper 1, `MessageBubble` 5 (hover tugma, bosib turish fake timer bilan), mobil: reducer 4 + ekran 5.
+  - **Sinalmagan / ochiq:** haqiqiy telefon va Electron oynasi (bosib turish jesti faqat jsdom/RNTL'da taqlid); katta kanalda (minglab obunachi) `message:reaction`
+    har bosishda hamma xonaga yuboriladi — yuk sinalmagan; reaksiya qo'ygan foydalanuvchilar ro'yxati (kim qo'ygan) ko'rsatilmaydi — faqat son; reaksiya uchun push yo'q.
+- **5.5 Fayl turini ichidan tekshirish — ✅ kodda (2026-11-04, PR `feat/5-3-5`).** `apps/api/src/media/file-signature.ts`: xabarga biriktirishda
+  (`MediaService.requireReady`) saqlashdan birinchi 4 KB o'qiladi (`StorageDriver.readHead`: lokal — fayl, S3 — `Range` GET), tur **magic bytes** dan
+  aniqlanadi (JPEG/PNG/GIF/WebP, PDF, ZIP-OOXML, OLE doc/xls/ppt, OGG/WebM/MP4/MOV/MP3/AAC/WAV, matn/JSON). Rad etiladi (400 + obyekt o'chadi), agar:
+  tur e'lon qilingan MIME'ga mos kelmasa; fayl nomi kengaytmasi mazmunga mos kelmasa (`rasm.jpg` deb nomlangan PDF); kengaytma xavfli (`.html .svg .js .exe .sh ...`);
+  matn turi `<...`/`#!` bilan boshlansa yoki NUL/boshqaruv baytlari bo'lsa (HTML/SVG/skript rasm yoki matn sifatida o'tmaydi).
+  - **Testlar:** `file-signature.spec` 9, `media.service.spec` +2, `LocalStorageDriver.readHead`, e2e (lokal drayver: soxta rasm/SVG/nomi mos emas → 400 va fayl diskdan o'chadi);
+    mavjud e2e'lardagi soxta baytlar (`fill(7)`, `'abc'`) haqiqiy imzoga o'zgartirildi.
+  - **Cheklov / ochiq:** tekshiruv yuklashdan keyin, xabarga biriktirishda — yuklash paytida emas, shuning uchun noto'g'ri fayl vaqtincha saqlashda turadi
+    (hech kimga berilmaydi, tugatilmagan yuklash tozalagichi o'chiradi). Faqat boshlang'ich baytlar: ichida zararli kod yashirilgan haqiqiy PDF/ZIP/DOCX
+    (macro, polyglot) aniqlanmaydi — antivirus emas. MP3 sinxronlash (`FF Ex`) yengil: tasodifan mos keladigan ikkilik fayl `audio/mpeg` deb o'tishi mumkin.
+    MIME ro'yxatida bo'lmagan turlar (masalan HEIC, CAF) avvalgidek `upload-url` bosqichida rad etiladi.
 - Manba g'oyalar: `Abdullohkhan/realtime-chat` (egasining eski ishi, Apache-2.0 fork) — kod ko'chirilmaydi,
   suhbat arxitekturasida qaytadan yoziladi.
 

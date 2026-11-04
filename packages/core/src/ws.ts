@@ -9,7 +9,7 @@ import {
   MessageSchema,
   hasContentOrAttachment,
 } from './schemas.js';
-import type { ChatMember, Message } from './schemas.js';
+import type { ChatMember, Message, MessageReaction, ReactionEmoji } from './schemas.js';
 import type {
   WsCallEnded,
   WsCallIce,
@@ -33,6 +33,7 @@ export const WsEvent = {
   MessageNew:     'message:new',
   MessageUpdated: 'message:updated',
   MessageDeleted: 'message:deleted',
+  MessageReaction: 'message:reaction',
   ChatUpdated:    'chat:updated',
   ChatMember:     'chat:member',
   ChatDeleted:    'chat:deleted',
@@ -100,6 +101,19 @@ export interface WsMessageDeleted {
   deletedAt: string;
 }
 
+/**
+ * Xabar reaksiyalari o'zgardi (chatning barcha a'zolariga, o'zgartirgan foydalanuvchining
+ * boshqa qurilmalariga ham). `emoji` — `userId` ning yangi reaksiyasi (`null` — olib tashlandi);
+ * `reactions` — yangi jami hisob.
+ */
+export interface WsMessageReaction {
+  chatId:    string;
+  messageId: string;
+  userId:    string;
+  emoji:     ReactionEmoji | null;
+  reactions: MessageReaction[];
+}
+
 /** Guruh/kanal sozlamalari o'zgardi (nom, tavsif, ochiqlik). */
 export interface WsChatUpdated {
   chatId:      string;
@@ -163,6 +177,7 @@ export interface ServerToClientEvents {
   'message:new':     (e: WsMessageNew) => void;
   'message:updated': (e: WsMessageUpdated) => void;
   'message:deleted': (e: WsMessageDeleted) => void;
+  'message:reaction': (e: WsMessageReaction) => void;
   'chat:updated':    (e: WsChatUpdated) => void;
   'chat:member':     (e: WsChatMember) => void;
   'chat:deleted':    (e: WsChatDeleted) => void;

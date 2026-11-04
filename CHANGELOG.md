@@ -4,7 +4,10 @@ Release matni shu fayldan olinadi (`release.yml`: `## vX.Y.Z` bo'limi).
 
 ## Chiqarilmagan
 
-_(hozircha yo'q)_
+- **Xabarga emoji reaksiya** (👍 ❤️ 😂 😮 😢 🔥) — veb, desktop, mobil: xabar ustida hover (kompyuter) yoki bosib turish (telefon)
+  → tanlash; xabar ostida emoji va soni, real vaqtda. Bir foydalanuvchi — bir xabarga bitta reaksiya (almashtirish / olib tashlash).
+- **Tasdiqlash kodlari himoyasi:** noto'g'ri tiklash kodi 5 marta → shu login uchun 15 daqiqa blok; email havolani qayta so'rash — 45 soniyada bir marta.
+- **Yuklangan fayl turi ichidan tekshiriladi** (magic bytes): `rasm.png` deb nomlangan HTML/SVG/skript yoki nomi mazmuniga mos kelmagan fayl rad etiladi.
 
 ## v0.6.0 (2026-10-29)
 

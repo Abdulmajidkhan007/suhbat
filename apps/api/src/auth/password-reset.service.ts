@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { parseLoginIdentifier } from '@suhbat/core';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'node:crypto';
+import { CodeAttemptGuard, retryAfterSeconds } from '../common/code-attempt-guard';
 import { RateLimiter } from '../common/rate-limiter';
 import { Mailer } from '../mail/mailer';
 import { passwordResetMail } from '../mail/templates';
@@ -13,6 +14,13 @@ const MINUTE_MS = 60_000;
 export const RESET_TOKEN_TTL_MINUTES = 30;
 export const RESET_INVALID_MESSAGE = 'Havola yaroqsiz yoki muddati o\'tgan. Yangi havola so\'rang.';
 export const RESET_NOT_CONFIGURED_MESSAGE = 'Email yuborish hozircha sozlanmagan';
+
+/** `0` ruxsat etiladi (kutish o'chiq — testlar uchun). */
+const nonNegative = (config: ConfigService, key: string, fallback: number) => {
+  const raw = config.get<string>(key);
+  const n = raw === undefined || raw === '' ? Number.NaN : Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+};
 
 const positive = (config: ConfigService, key: string, fallback: number) => {
   const n = Number(config.get<string>(key));
@@ -29,6 +37,7 @@ const positive = (config: ConfigService, key: string, fallback: number) => {
 export class PasswordResetService {
   private readonly logger = new Logger(PasswordResetService.name);
   private readonly ipLimiter: RateLimiter;
+  private readonly requests: CodeAttemptGuard;
   private readonly accountLimit: number;
   private readonly accountWindowMs: number;
   private readonly webUrl: string | null;
@@ -42,6 +51,11 @@ export class PasswordResetService {
       positive(config, 'FORGOT_PASSWORD_IP_LIMIT', 5),
       positive(config, 'FORGOT_PASSWORD_IP_WINDOW_MS', 15 * MINUTE_MS),
     );
+    this.requests = new CodeAttemptGuard({
+      maxFailures: 5,
+      blockMs:     15 * MINUTE_MS,
+      cooldownMs:  nonNegative(config, 'CODE_REQUEST_COOLDOWN_MS', 45_000),
+    });
     this.accountLimit = positive(config, 'FORGOT_PASSWORD_ACCOUNT_LIMIT', 3);
     this.accountWindowMs = positive(config, 'FORGOT_PASSWORD_ACCOUNT_WINDOW_MS', 60 * MINUTE_MS);
     this.webUrl = config.get<string>('WEB_URL')?.trim().replace(/\/+$/, '') || null;
@@ -63,6 +77,11 @@ export class PasswordResetService {
     }
 
     const id = parseLoginIdentifier(identifier);
+    // Bir identifikatorga havola so'rash orasida kutish (hisob bor-yo'qligidan qat'i nazar bir xil).
+    const wait = this.requests.takeRequest(`reset:${id.kind}:${id.value}`);
+    if (wait > 0) {
+      throw new HttpException(`Yangi havola so'rash uchun ${retryAfterSeconds(wait)} soniya kuting.`, HttpStatus.TOO_MANY_REQUESTS);
+    }
     const user = await this.prisma.user.findUnique({
       where: id.kind === 'email' ? { email: id.value } : { username: id.value },
     });

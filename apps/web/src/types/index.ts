@@ -1,4 +1,4 @@
-import type { MessageReply } from '@suhbat/core';
+import type { MessageReaction, MessageReply, ReactionEmoji } from '@suhbat/core';
 
 export type UserRole = 'owner' | 'admin' | 'member';
 
@@ -50,6 +50,10 @@ export interface Message {
   isOptimistic?: boolean;
   /** Javob bo'lsa — asl xabarning qisqa ko'rinishi (`@suhbat/core` `MessageReply`). */
   replyTo?:    MessageReply | null;
+  /** Emoji bo'yicha reaksiyalar soni (bo'sh/yo'q — reaksiya yo'q). */
+  reactions?:  MessageReaction[];
+  /** Joriy foydalanuvchining o'z reaksiyasi. */
+  myReaction?: ReactionEmoji | null;
 }
 
 export interface ChatParticipant {

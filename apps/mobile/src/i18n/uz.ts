@@ -93,6 +93,10 @@ export const uz = {
   'menu.deleteError':   'Xabarni o\'chirib bo\'lmadi.',
   'menu.editError':     'Xabarni tahrirlab bo\'lmadi.',
   'menu.title':         'Xabar amallari',
+  'reaction.title':     'Reaksiya tanlash',
+  'reaction.chip':      '{emoji} reaksiya, {count} ta',
+  'reaction.chipMine':  '{emoji} reaksiya, {count} ta, sizniki',
+  'reaction.error':     'Reaksiyani saqlab bo\'lmadi.',
 
   'info.title':         'Ma\'lumot',
   'info.description':   'Tavsif',
