@@ -71,7 +71,7 @@ export class RecoveryCodesService {
     this.attempts = new CodeAttemptGuard({
       maxFailures: positive(config, 'CODE_MAX_FAILURES', 5),
       blockMs:     positive(config, 'CODE_BLOCK_MS', 15 * MINUTE_MS),
-      cooldownMs:  positive(config, 'CODE_REQUEST_COOLDOWN_MS', 45_000),
+      cooldownMs:  0, // tiklash kodi o'zi so'ralmaydi (oldindan berilgan) — kutish faqat email havolada
     });
   }
 

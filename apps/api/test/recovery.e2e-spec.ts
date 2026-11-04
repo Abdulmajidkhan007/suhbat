@@ -146,7 +146,7 @@ describe('tiklash kodlari: cheklov (e2e)', () => {
   let prisma: PrismaService;
 
   beforeAll(async () => {
-    app = await createApp({ RECOVER_ACCOUNT_LIMIT: '3', RECOVER_IP_LIMIT: '100' });
+    app = await createApp({ CODE_MAX_FAILURES: '3', RECOVER_IP_LIMIT: '100' });
     prisma = app.get(PrismaService);
   });
 
@@ -163,9 +163,10 @@ describe('tiklash kodlari: cheklov (e2e)', () => {
     const attempt = (loginId: string, c = 'AAAA-BBBB-CCCC') =>
       request(server).post('/auth/recover').send({ login: loginId, code: c, newPassword: 'yangi-parol-1' });
 
-    for (let i = 0; i < 3; i++) await attempt(emailOf('limit')).expect(400);
-    await attempt(emailOf('limit'), code).expect(429);
-    for (let i = 0; i < 3; i++) await attempt(emailOf('yoq-limit')).expect(400);
+    for (let i = 0; i < 2; i++) await attempt(emailOf('limit')).expect(400);
+    await attempt(emailOf('limit')).expect(429); // 3-noto'g'ri urinish bloklaydi
+    await attempt(emailOf('limit'), code).expect(429); // blokda to'g'ri kod ham o'tmaydi
+    for (let i = 0; i < 2; i++) await attempt(emailOf('yoq-limit')).expect(400);
     await attempt(emailOf('yoq-limit')).expect(429);
     // Kod sarflanmadi
     expect(await prisma.recoveryCode.count({ where: { userId: reg.body.user.id, usedAt: null } })).toBe(RECOVERY_CODE_COUNT);

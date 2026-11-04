@@ -241,6 +241,25 @@ describe('parolni tiklash: cheklovlar va sozlanmagan email (e2e)', () => {
     }
   });
 
+  it('kod so\'rash orasida kutish: ikkinchi so\'rov 429 (bor va yo\'q hisob uchun bir xil)', async () => {
+    const mailer = new MemoryMailer();
+    const app = await createApp(mailer, { CODE_REQUEST_COOLDOWN_MS: '60000' });
+    const prisma = app.get(PrismaService);
+    const email = emailOf('kutish');
+    try {
+      await request(app.getHttpServer()).post('/auth/register').send({ email, password: '12345678', displayName: 'Kutish' }).expect(201);
+      const forgot = (id: string) => request(app.getHttpServer()).post('/auth/forgot-password').send({ emailOrUsername: id });
+      await forgot(email).expect(200);
+      await forgot(email).expect(429);
+      await forgot(emailOf('yoq-kutish')).expect(200);
+      await forgot(emailOf('yoq-kutish')).expect(429);
+      expect(mailer.sent).toHaveLength(1);
+    } finally {
+      await prisma.user.deleteMany({ where: { email } });
+      await app.close();
+    }
+  });
+
   it('email sozlanmagan — bor va yo\'q hisob uchun bir xil 503', async () => {
     const app = await createApp(new DisabledMailer());
     try {

@@ -19,7 +19,10 @@ const emailOf = (n: string) => `${n}-${stamp}@e2e.uz`;
 const names = ['ali', 'vali', 'gani', 'hasan'] as const;
 type Name = (typeof names)[number];
 
-const png = (n: number) => new Blob([new Uint8Array(n).fill(7)], { type: 'image/png' });
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+/** PNG imzosi + 7 lar (turi fayl ichidan tekshiriladi). */
+const pngBytes = (n: number) => Uint8Array.from({ length: n }, (_, i) => PNG_SIGNATURE[i] ?? 7);
+const png = (n: number) => new Blob([pngBytes(n)], { type: 'image/png' });
 
 describe('Guruh, kanal, media (e2e)', () => {
   let app: INestApplication;
@@ -432,7 +435,7 @@ describe('Guruh, kanal, media (e2e)', () => {
     // Yuklab olish: imzolangan URL'dan aynan shu baytlar
     const dl = await fetch(msg.attachment!.url);
     expect(dl.status).toBe(200);
-    expect(Buffer.from(await dl.arrayBuffer())).toEqual(Buffer.alloc(2048, 7));
+    expect(Buffer.from(await dl.arrayBuffer())).toEqual(Buffer.from(pngBytes(2048)));
     // Tarixda ham biriktirma (yangi imzo bilan) bor
     expect((await vali.listMessages(chat.id)).items[0].attachment).toMatchObject({ id: up.attachmentId, size: 2048 });
     expect((await vali.listChats()).find((c) => c.id === chat.id)?.lastMessage?.attachment?.id).toBe(up.attachmentId);
@@ -454,14 +457,14 @@ describe('Guruh, kanal, media (e2e)', () => {
 
     // Fayl va ovozli xabar (matnsiz)
     const file = await ali.uploadAttachment(
-      { chatId: chat.id, kind: 'file', name: 'hisobot.pdf', mime: 'application/pdf', size: 4 },
-      new Blob(['%PDF'], { type: 'application/pdf' }),
+      { chatId: chat.id, kind: 'file', name: 'hisobot.pdf', mime: 'application/pdf', size: 5 },
+      new Blob(['%PDF-'], { type: 'application/pdf' }),
     );
     const filemsg = await ali.sendMessage(chat.id, { content: '', attachmentId: file.attachmentId });
     expect(filemsg).toMatchObject({ type: 'file', content: '', attachment: { name: 'hisobot.pdf' } });
     const voice = await ali.uploadAttachment(
-      { chatId: chat.id, kind: 'voice', name: 'ovoz.webm', mime: 'audio/webm;codecs=opus', size: 3, durationMs: 4200 },
-      new Blob(['abc'], { type: 'audio/webm' }),
+      { chatId: chat.id, kind: 'voice', name: 'ovoz.webm', mime: 'audio/webm;codecs=opus', size: 4, durationMs: 4200 },
+      new Blob([Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3])], { type: 'audio/webm' }),
     );
     const voicemsg = await ws.ali.sendMessage({ chatId: chat.id, content: '', attachmentId: voice.attachmentId });
     expect(voicemsg).toMatchObject({ type: 'voice', attachment: { kind: 'voice', mime: 'audio/webm', durationMs: 4200 } });

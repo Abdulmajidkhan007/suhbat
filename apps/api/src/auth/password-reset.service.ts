@@ -15,6 +15,13 @@ export const RESET_TOKEN_TTL_MINUTES = 30;
 export const RESET_INVALID_MESSAGE = 'Havola yaroqsiz yoki muddati o\'tgan. Yangi havola so\'rang.';
 export const RESET_NOT_CONFIGURED_MESSAGE = 'Email yuborish hozircha sozlanmagan';
 
+/** `0` ruxsat etiladi (kutish o'chiq — testlar uchun). */
+const nonNegative = (config: ConfigService, key: string, fallback: number) => {
+  const raw = config.get<string>(key);
+  const n = raw === undefined || raw === '' ? Number.NaN : Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+};
+
 const positive = (config: ConfigService, key: string, fallback: number) => {
   const n = Number(config.get<string>(key));
   return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -47,7 +54,7 @@ export class PasswordResetService {
     this.requests = new CodeAttemptGuard({
       maxFailures: 5,
       blockMs:     15 * MINUTE_MS,
-      cooldownMs:  positive(config, 'CODE_REQUEST_COOLDOWN_MS', 45_000),
+      cooldownMs:  nonNegative(config, 'CODE_REQUEST_COOLDOWN_MS', 45_000),
     });
     this.accountLimit = positive(config, 'FORGOT_PASSWORD_ACCOUNT_LIMIT', 3);
     this.accountWindowMs = positive(config, 'FORGOT_PASSWORD_ACCOUNT_WINDOW_MS', 60 * MINUTE_MS);

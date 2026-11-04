@@ -85,6 +85,7 @@ describe('Media: local drayver (e2e)', () => {
     expect(pre.status).toBeLessThan(300);
 
     const bytes = new Uint8Array(2048).fill(7);
+    bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]); // PNG imzosi: tur ichidan tekshiriladi
     const put = await fetch(up.uploadUrl, { method: 'PUT', headers: up.headers, body: bytes });
     expect(put.status).toBe(200);
     // Qayta yozib bo'lmaydi
@@ -125,6 +126,20 @@ describe('Media: local drayver (e2e)', () => {
     expect((await fetch(att.url)).status).toBe(404);
   });
 
+  it('magic bytes: rasm deb yuklangan HTML/SVG/nomi mos kelmagan fayl xabarga biriktirilmaydi va o\'chiriladi', async () => {
+    const { ali } = api;
+    const chat = await ali.createGroup({ title: `Sniff ${stamp}`, memberIds: [user.vali.id] });
+    const fake = async (name: string, mime: string, kind: 'image' | 'file', body: string) => {
+      const up = await ali.uploadAttachment({ chatId: chat.id, kind, name, mime, size: body.length }, new Blob([body]));
+      const row = await prisma.attachment.findUniqueOrThrow({ where: { id: up.attachmentId } });
+      await expect(ali.sendMessage(chat.id, { content: '', attachmentId: up.attachmentId })).rejects.toMatchObject({ status: 400 });
+      expect(existsSync(join(dir, row.key))).toBe(false);
+    };
+    await fake('rasm.png', 'image/png', 'image', '<!doctype html><script>alert(1)</script>');
+    await fake('rasm.png', 'image/png', 'image', '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>');
+    await fake('rasm.jpg', 'application/pdf', 'file', '%PDF-1.7 hujjat'); // nomi mazmuniga mos emas
+  });
+
   it('JSON fayl (body-parser ushlamaydi), ovoz va faylning "attachment" havolasi', async () => {
     const { ali } = api;
     const chat = await ali.createGroup({ title: `Local2 ${stamp}`, memberIds: [user.vali.id] });
@@ -140,11 +155,11 @@ describe('Media: local drayver (e2e)', () => {
     expect(await res.text()).toBe(json);
 
     const voice = await ali.uploadAttachment(
-      { chatId: chat.id, kind: 'voice', name: 'ovoz.webm', mime: 'audio/webm', size: 3, durationMs: 1200 },
-      new Blob(['abc'], { type: 'audio/webm' }),
+      { chatId: chat.id, kind: 'voice', name: 'ovoz.webm', mime: 'audio/webm', size: 4, durationMs: 1200 },
+      new Blob([Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3])], { type: 'audio/webm' }),
     );
     const voiceMsg = await ali.sendMessage(chat.id, { content: '', attachmentId: voice.attachmentId });
     expect(voiceMsg).toMatchObject({ type: 'voice', attachment: { durationMs: 1200 } });
-    expect(await (await fetch(voiceMsg.attachment!.url)).text()).toBe('abc');
+    expect(Buffer.from(await (await fetch(voiceMsg.attachment!.url)).arrayBuffer())).toEqual(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
   });
 });
