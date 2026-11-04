@@ -95,6 +95,14 @@ describe('LocalStorageDriver', () => {
     await expect(driver.write(ticket, Readable.from([Buffer.from('evil')]))).rejects.toMatchObject({ status: 409 });
   });
 
+  it('readHead: faqat birinchi baytlar; fayl yo\'q — null', async () => {
+    const ticket = { key, mime: 'image/png', size: 6, exp: 0 };
+    expect(await driver.readHead(key, 4)).toBeNull();
+    await driver.write(ticket, Readable.from([Buffer.from('abcdef')]));
+    expect((await driver.readHead(key, 4))?.toString()).toBe('abcd');
+    expect((await driver.readHead(key, 100))?.toString()).toBe('abcdef');
+  });
+
   it('kalit papkadan tashqariga chiqa olmaydi', () => {
     for (const bad of ['../etc/passwd', '/etc/passwd', 'chats/../../x', '.tmp/x', 'a/b.meta.json', '']) {
       expect(() => driver.pathOf(bad)).toThrow();

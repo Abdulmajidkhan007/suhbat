@@ -87,9 +87,20 @@ describe('PasswordResetService', () => {
     prisma.user.findUnique.mockResolvedValue(null);
     const s = make(mailer, env({ FORGOT_PASSWORD_IP_LIMIT: '2' }));
     await s.requestReset('a@b.uz', '1.1.1.1');
+    await s.requestReset('b@b.uz', '1.1.1.1');
+    await expect(s.requestReset('c@b.uz', '1.1.1.1')).rejects.toBeInstanceOf(HttpException);
+    await expect(s.requestReset('c@b.uz', '2.2.2.2')).resolves.toBeUndefined();
+  });
+
+  it('kod so\'rash 45 s da bir marta: ikkinchisi — 429 (hisob borligidan qat\'i nazar), boshqa identifikatorga ta\'sir qilmaydi', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    const s = make();
     await s.requestReset('a@b.uz', '1.1.1.1');
-    await expect(s.requestReset('a@b.uz', '1.1.1.1')).rejects.toBeInstanceOf(HttpException);
-    await expect(s.requestReset('a@b.uz', '2.2.2.2')).resolves.toBeUndefined();
+    await expect(s.requestReset('A@b.uz', '2.2.2.2')).rejects.toMatchObject({ status: 429 });
+    await expect(s.requestReset('b@b.uz', '2.2.2.2')).resolves.toBeUndefined();
+    prisma.user.findUnique.mockResolvedValue(user);
+    await expect(s.requestReset('a@b.uz', '3.3.3.3')).rejects.toMatchObject({ status: 429 });
+    expect(mailer.send).not.toHaveBeenCalled();
   });
 
   it('xat yuborish xatosi javobni buzmaydi', async () => {

@@ -6,11 +6,12 @@ import type { StorageService } from './storage.service';
 
 const me = '00000000-0000-4000-8000-000000000001';
 const chatId = '00000000-0000-4000-8000-0000000000c1';
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const row = { id: 'a1', key: 'chats/c/a1', kind: 'image', mime: 'image/png', size: 100, name: 'x.png', durationMs: null };
 
 describe('MediaService', () => {
   const prisma = { attachment: { create: vi.fn(), findFirst: vi.fn() } };
-  const storage = { presignPut: vi.fn(), presignGet: vi.fn(), head: vi.fn(), delete: vi.fn() };
+  const storage = { presignPut: vi.fn(), presignGet: vi.fn(), head: vi.fn(), readHead: vi.fn(), delete: vi.fn() };
   let service: MediaService;
 
   beforeEach(() => {
@@ -50,7 +51,26 @@ describe('MediaService', () => {
     expect(storage.delete).toHaveBeenCalledTimes(2);
 
     storage.head.mockResolvedValue({ size: 100, mime: 'image/png' });
+    storage.readHead.mockResolvedValue(PNG);
     await expect(service.requireReady('a1', me, chatId)).resolves.toBe(row);
+  });
+
+  it('requireReady: Content-Type "image/png", lekin ichi HTML/SVG/skript — 400 va obyekt o\'chadi', async () => {
+    prisma.attachment.findFirst.mockResolvedValue(row);
+    storage.head.mockResolvedValue({ size: 100, mime: 'image/png' });
+    for (const body of ['<!doctype html><script>alert(1)</script>', '<svg xmlns="x"><script/></svg>', '#!/bin/sh\nrm -rf /']) {
+      storage.readHead.mockResolvedValue(Buffer.from(body));
+      await expect(service.requireReady('a1', me, chatId)).rejects.toBeInstanceOf(BadRequestException);
+    }
+    expect(storage.delete).toHaveBeenCalledTimes(3);
+  });
+
+  it('requireReady: nomi mazmuniga mos kelmasa rad (rasm.png, lekin ichi PDF)', async () => {
+    prisma.attachment.findFirst.mockResolvedValue({ ...row, mime: 'application/pdf', name: 'rasm.png', kind: 'file' });
+    storage.head.mockResolvedValue({ size: 100, mime: 'application/pdf' });
+    storage.readHead.mockResolvedValue(Buffer.from('%PDF-1.7\n'));
+    await expect(service.requireReady('a1', me, chatId)).rejects.toThrow('kengaytmasi');
+    expect(storage.delete).toHaveBeenCalledWith(row.key);
   });
 
   it('requireReady: saqlashga ulanib bo\'lmasa — tushunarli 503', async () => {

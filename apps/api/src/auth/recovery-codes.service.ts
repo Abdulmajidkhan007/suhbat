@@ -11,12 +11,15 @@ import {
 import type { RecoverInput, RecoveryCodesStatus } from '@suhbat/core';
 import * as argon2 from 'argon2';
 import { createHmac, randomBytes } from 'node:crypto';
+import { CodeAttemptGuard, retryAfterSeconds } from '../common/code-attempt-guard';
 import { RateLimiter } from '../common/rate-limiter';
 import { PrismaService } from '../prisma/prisma.service';
 
 const MINUTE_MS = 60_000;
 export const RECOVER_FAILED_MESSAGE = 'Login yoki tiklash kodi noto\'g\'ri';
 export const RECOVER_LIMIT_MESSAGE = 'Juda ko\'p urinish. Birozdan keyin qayta urinib ko\'ring.';
+export const recoverBlockedMessage = (ms: number) =>
+  `Juda ko\'p noto\'g\'ri kod kiritildi. ${Math.ceil(retryAfterSeconds(ms) / 60)} daqiqadan keyin qayta urinib ko\'ring.`;
 export const WRONG_PASSWORD_MESSAGE = 'Joriy parol noto\'g\'ri';
 
 const positive = (config: ConfigService, key: string, fallback: number) => {
@@ -42,15 +45,16 @@ export const generateRecoveryCode = (): string => {
  * offlayn terib bo'lmaydi. Eslatma: pepper (yoki unga asos bo'lgan `JWT_SECRET`) almashtirilsa
  * mavjud kodlar yaroqsiz bo'ladi — foydalanuvchi sozlamalarda yangisini yaratadi.
  *
- * Cheklov: IP bo'yicha va login bo'yicha (mavjud bo'lmagan login ham sanaladi — javob va
- * cheklov hisob borligini oshkor qilmaydi). Xotirada (bitta API nusxasi).
+ * Cheklov: IP bo'yicha (so'rovlar soni) va login bo'yicha (`CodeAttemptGuard`: 5 ta noto'g'ri kod →
+ * 15 daqiqa blok; mavjud bo'lmagan login ham sanaladi — javob va cheklov hisob borligini oshkor
+ * qilmaydi). Xotirada (bitta API nusxasi).
  */
 @Injectable()
 export class RecoveryCodesService {
   private readonly logger = new Logger(RecoveryCodesService.name);
   private readonly pepper: Buffer;
   private readonly ipLimiter: RateLimiter;
-  private readonly loginLimiter: RateLimiter;
+  private readonly attempts: CodeAttemptGuard;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -64,10 +68,11 @@ export class RecoveryCodesService {
       positive(config, 'RECOVER_IP_LIMIT', 10),
       positive(config, 'RECOVER_IP_WINDOW_MS', 15 * MINUTE_MS),
     );
-    this.loginLimiter = new RateLimiter(
-      positive(config, 'RECOVER_ACCOUNT_LIMIT', 5),
-      positive(config, 'RECOVER_ACCOUNT_WINDOW_MS', 60 * MINUTE_MS),
-    );
+    this.attempts = new CodeAttemptGuard({
+      maxFailures: positive(config, 'CODE_MAX_FAILURES', 5),
+      blockMs:     positive(config, 'CODE_BLOCK_MS', 15 * MINUTE_MS),
+      cooldownMs:  positive(config, 'CODE_REQUEST_COOLDOWN_MS', 45_000),
+    });
   }
 
   hash(normalized: string): string {
@@ -108,32 +113,43 @@ export class RecoveryCodesService {
    */
   async recover(input: RecoverInput, ip: string): Promise<void> {
     const id = parseLoginIdentifier(input.login);
-    // Ikkala limit ham har urinishda sanaladi (birinchisi rad etsa ikkinchisi sarflanmaydi).
-    if (!this.ipLimiter.take(ip) || !this.loginLimiter.take(`${id.kind}:${id.value}`)) {
-      throw new HttpException(RECOVER_LIMIT_MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
-    }
+    if (!this.ipLimiter.take(ip)) throw new HttpException(RECOVER_LIMIT_MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
+    // Identifikator blokda bo'lsa kod tekshirilmaydi ham (to'g'ri kod ham o'tmaydi).
+    const key = `recover:${id.kind}:${id.value}`;
+    const blocked = this.attempts.blockedFor(key);
+    if (blocked > 0) throw new HttpException(recoverBlockedMessage(blocked), HttpStatus.TOO_MANY_REQUESTS);
+    /** Noto'g'ri urinish: sanaladi; limitga yetgan urinish — 429, qolgani — bir xil 400. */
+    const fail = (): never => {
+      const block = this.attempts.recordFailure(key);
+      if (block > 0) {
+        this.logger.warn(`Tiklash kodi: ${id.kind} bloklandi (${Math.round(block / MINUTE_MS)} daqiqa)`);
+        throw new HttpException(recoverBlockedMessage(block), HttpStatus.TOO_MANY_REQUESTS);
+      }
+      throw new BadRequestException(RECOVER_FAILED_MESSAGE);
+    };
     const code = normalizeRecoveryCode(input.code);
     const user = await this.prisma.user.findUnique({
       where: id.kind === 'email' ? { email: id.value } : { username: id.value },
       select: { id: true },
     });
-    if (!user || !code) throw new BadRequestException(RECOVER_FAILED_MESSAGE);
+    if (!user || !code) return fail();
 
     const codeHash = this.hash(code);
     const row = await this.prisma.recoveryCode.findUnique({
       where: { userId_codeHash: { userId: user.id, codeHash } },
     });
-    if (!row || row.usedAt) throw new BadRequestException(RECOVER_FAILED_MESSAGE);
+    if (!row || row.usedAt) return fail();
 
     const passwordHash = await argon2.hash(input.newPassword);
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.recoveryCode.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: now } });
-      if (count === 0) throw new BadRequestException(RECOVER_FAILED_MESSAGE);
+      if (count === 0) return fail();
       await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
       await tx.refreshToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: now } });
       await tx.passwordResetToken.updateMany({ where: { userId: user.id, usedAt: null }, data: { usedAt: now } });
     });
+    this.attempts.recordSuccess(key);
     this.logger.log(`Parol tiklash kodi bilan tiklandi, sessiyalar yopildi (${user.id})`);
   }
 }

@@ -3,6 +3,7 @@ import type { Attachment, UploadUrlInput, UploadUrlResponse } from '@suhbat/core
 import { randomUUID } from 'node:crypto';
 import type { Attachment as AttachmentRow } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { SNIFF_BYTES, validateUploadContent } from './file-signature';
 import { StorageService, UPLOAD_URL_TTL_SECONDS } from './storage.service';
 
 @Injectable()
@@ -54,8 +55,10 @@ export class MediaService {
     });
     if (!row) throw new BadRequestException('Biriktirma topilmadi yoki allaqachon ishlatilgan');
     let stored;
+    let head: Buffer | null = null;
     try {
       stored = await this.storage.head(row.key);
+      if (stored) head = await this.storage.readHead(row.key, SNIFF_BYTES);
     } catch (e) {
       // Saqlash sozlanmagan yoki yetib bo'lmaydi — 500 emas, tushunarli 503.
       this.logger.error(`saqlashga ulanib bo'lmadi: ${(e as Error).message}`);
@@ -65,6 +68,13 @@ export class MediaService {
     if (stored.size !== row.size || stored.mime !== row.mime) {
       await this.storage.delete(row.key);
       throw new BadRequestException('Yuklangan fayl e\'lon qilingan hajm yoki turga mos emas');
+    }
+    // Tur `Content-Type`/nomga ishonib emas, fayl ichidan (magic bytes) tekshiriladi.
+    const reason = head ? validateUploadContent(row.mime, row.name, head) : 'Fayl hali yuklanmagan';
+    if (reason) {
+      await this.storage.delete(row.key);
+      this.logger.warn(`yuklash rad etildi (${row.id}, ${row.mime}): ${reason}`);
+      throw new BadRequestException(reason);
     }
     return row;
   }
