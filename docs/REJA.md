@@ -860,8 +860,11 @@ packages/
     ishlatilsa u ham juftlik oladi — qasddan qabul qilingan savdo, sababi: foydalanuvchini tasodifan
     chiqarib yuborish ancha tez-tez uchraydi.
   - **Testlar:** API auth 25 (grace: 4 yangi), client 57 (ikki tab 2, `webRefreshLock` 2), web 126; typecheck toza.
+    API e2e (lokal Postgres 16): `chat.e2e` 5/5 — rotatsiya testi grace kontraktiga moslandi (darhol qayta ishlatish → 200,
+    `revokedAt` eskirtirilgach → 401 va oila bekor), yangi: haqiqiy bazada parallel refresh → ikkalasi 200. (Birinchi CI yurishi
+    shu e2e'da yiqilgan edi: eski test darhol qayta ishlatishda 401 kutardi.)
   - **Sinalmagan / ochiq:** haqiqiy telefon va desktop; haqiqiy ikki brauzer tabi (Web Locks faqat
-    unit testda taqlid); Postgres bilan e2e (parallel refresh haqiqiy bazada). Javobi yo'qolgan refresh
+    unit testda taqlid). Javobi yo'qolgan refresh
     30 s dan keyin qayta urinilsa baribir logout bo'ladi.
 - **5.2 Telefon raqam bilan kirish — SMS orqali** (Telegram'ga bog'liq emas): O'zbekiston SMS
   provayderi (Eskiz.uz yoki Play Mobile — narx va shartnoma egasida), 6 xonali kod, 5 daqiqa amal
