@@ -33,6 +33,7 @@ model User {
   messages      Message[]
   attachments   Attachment[]
   reactions     MessageReaction[]
+  reportsMade   MessageReport[]
   refreshTokens RefreshToken[]
   passwordResets PasswordResetToken[]
   recoveryCodes RecoveryCode[]
@@ -175,6 +176,7 @@ model Message {
   sender     User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
   attachment Attachment?
   reactions  MessageReaction[]
+  reports    MessageReport[]
   replyTo    Message?    @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
   replies    Message[]   @relation("MessageReply")
 
@@ -285,4 +287,50 @@ model AdminAuditLog {
   @@index([createdAt(sort: Desc)])
   @@index([targetUserId])
   @@map("admin_audit_log")
+}
+
+/// Faoliyat jurnali: faqat METADATA (kim, nima, qayerda, qachon). Xabar matni va media mazmuni HECH QACHON
+/// yozilmaydi. FK yo'q — foydalanuvchi/chat o'chsa ham yozuv saqlash muddatigacha qoladi.
+/// `ACTIVITY_RETENTION_DAYS` dan eskilari kunlik tozalanadi.
+model ActivityLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  type         String
+  userId       String?  @map("user_id") @db.Uuid
+  chatId       String?  @map("chat_id") @db.Uuid
+  /// private (1:1) | group | channel
+  chatKind     String?  @map("chat_kind")
+  /// Faqat kanal: ochiq kanalmi (media prevyusi faqat shunda ruxsat).
+  chatPublic   Boolean? @map("chat_public")
+  ip           String?
+  device       String?
+  /// Faqat raqam/enum maydonlar (uzunlik, sabab, davomiylik) — kodda oq ro'yxat.
+  meta         Json?
+  mediaKind    String?  @map("media_kind")
+  mime         String?
+  size         Int?
+  fileName     String?  @map("file_name")
+  attachmentId String?  @map("attachment_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([type, createdAt(sort: Desc)])
+  @@map("activity_log")
+}
+
+/// Xabarga shikoyat: faqat shikoyat qilingan xabarning mazmuni adminga ko'rinadi.
+model MessageReport {
+  id         String   @id @default(uuid()) @db.Uuid
+  messageId  String   @map("message_id") @db.Uuid
+  reporterId String   @map("reporter_id") @db.Uuid
+  /// Shikoyat qiluvchining ixtiyoriy izohi (adminga qaratilgan).
+  reason     String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  message  Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporter User    @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, reporterId])
+  @@index([createdAt(sort: Desc)])
+  @@map("message_reports")
 }

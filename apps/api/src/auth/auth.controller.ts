@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Ip, Logger, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpException, Ip, Logger, Post, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
 import {
   ChangePasswordInputSchema, ForgotPasswordInputSchema, LoginInputSchema, LogoutInputSchema, RecoverInputSchema, RefreshInputSchema,
   RegenerateRecoveryCodesInputSchema, RegisterInputSchema, ResetPasswordInputSchema,
@@ -7,6 +8,8 @@ import type {
   AuthResponse, ChangePasswordInput, ForgotPasswordInput, ForgotPasswordResponse, LoginInput, LogoutInput, RecoverInput,
   RecoveryCodesResponse, RecoveryCodesStatus, RefreshInput, RegenerateRecoveryCodesInput, RegisterInput, ResetPasswordInput,
 } from '@suhbat/core';
+import { ActivityService } from '../activity/activity.service';
+import { httpContext } from '../activity/request-context';
 import { AuthThrottle } from '../common/throttle';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AuthService } from './auth.service';
@@ -28,6 +31,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly passwordReset: PasswordResetService,
     private readonly recovery: RecoveryCodesService,
+    private readonly activity: ActivityService,
   ) {}
 
   /**
@@ -36,8 +40,9 @@ export class AuthController {
    */
   @AuthThrottle()
   @Post('register')
-  async register(@Body(new ZodValidationPipe(RegisterInputSchema)) body: RegisterInput): Promise<AuthResponse> {
+  async register(@Body(new ZodValidationPipe(RegisterInputSchema)) body: RegisterInput, @Req() req: Request): Promise<AuthResponse> {
     const res = await this.auth.register(body);
+    this.activity.record({ type: 'register', userId: res.user.id, ...httpContext(req) });
     const recoveryCodes = await this.recovery.generate(res.user.id).catch((e: unknown) => {
       this.logger.error(`tiklash kodlari yaratilmadi (${res.user.id}): ${e instanceof Error ? e.message : String(e)}`);
       return [];
@@ -48,8 +53,22 @@ export class AuthController {
   @AuthThrottle()
   @Post('login')
   @HttpCode(200)
-  login(@Body(new ZodValidationPipe(LoginInputSchema)) body: LoginInput) {
-    return this.auth.login(body);
+  async login(@Body(new ZodValidationPipe(LoginInputSchema)) body: LoginInput, @Req() req: Request) {
+    const ctx = httpContext(req);
+    try {
+      const res = await this.auth.login(body);
+      this.activity.record({ type: 'login', userId: res.user.id, ...ctx });
+      return res;
+    } catch (e) {
+      const status = e instanceof HttpException ? e.getStatus() : 0;
+      if (status === 401 || status === 403) {
+        // Kiritilgan login/parol yozilmaydi — faqat kim (agar hisob bor bo'lsa) va sabab turi.
+        void this.auth.userIdOf(body.login).catch(() => null).then((userId) => {
+          this.activity.record({ type: 'login_failed', userId, meta: { reason: status === 403 ? 'blocked' : 'bad_credentials' }, ...ctx });
+        });
+      }
+      throw e;
+    }
   }
 
   @AuthThrottle()
@@ -109,17 +128,20 @@ export class AuthController {
   @HttpCode(200)
   @AllowPendingPassword()
   @UseGuards(JwtAuthGuard)
-  changePassword(
+  async changePassword(
     @Req() req: AuthedRequest,
     @Body(new ZodValidationPipe(ChangePasswordInputSchema)) body: ChangePasswordInput,
   ): Promise<AuthResponse> {
-    return this.auth.changePassword(req.user.sub, body);
+    const res = await this.auth.changePassword(req.user.sub, body);
+    this.activity.record({ type: 'password_change', userId: req.user.sub, ...httpContext(req) });
+    return res;
   }
 
   @Post('logout')
   @HttpCode(204)
-  async logout(@Body(new ZodValidationPipe(LogoutInputSchema)) body: LogoutInput) {
-    await this.auth.logout(body.refreshToken, body.deviceToken);
+  async logout(@Body(new ZodValidationPipe(LogoutInputSchema)) body: LogoutInput, @Req() req: Request) {
+    const userId = await this.auth.logout(body.refreshToken, body.deviceToken);
+    if (userId) this.activity.record({ type: 'logout', userId, ...httpContext(req) });
   }
 
   @Get('me')

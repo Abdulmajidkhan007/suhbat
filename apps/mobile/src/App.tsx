@@ -18,6 +18,7 @@ import { ChatScreen } from './screens/ChatScreen';
 import { ForcePasswordScreen } from './screens/ForcePasswordScreen';
 import { NewChatScreen } from './screens/NewChatScreen';
 import { NewGroupScreen } from './screens/NewGroupScreen';
+import { PrivacyScreen } from './screens/PrivacyScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { RecoveryCodesScreen } from './screens/RecoveryCodesScreen';
 import { SecurityScreen } from './screens/SecurityScreen';
@@ -56,6 +57,7 @@ const Screens = () => {
       case 'profile':    return <ProfileScreen />;
       case 'appearance': return <AppearanceScreen />;
       case 'security':   return <SecurityScreen />;
+      case 'privacy':    return <PrivacyScreen />;
     }
   })();
   // Har yangi ekran o'tish animatsiyasi bilan; tablarga qaytish — animatsiyasiz.

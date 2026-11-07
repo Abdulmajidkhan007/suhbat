@@ -220,7 +220,7 @@ describe('AuthService.refresh / logout', () => {
 
     prisma.refreshToken.updateMany.mockClear();
     prisma.refreshToken.findUnique.mockResolvedValue(null);
-    await expect(service.logout('yoq')).resolves.toBeUndefined();
+    await expect(service.logout('yoq')).resolves.toBeNull();
     expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
   });
 });

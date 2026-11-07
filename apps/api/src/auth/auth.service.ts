@@ -178,11 +178,22 @@ export class AuthService {
    * Shu qurilma sessiyasini (token oilasini) yopadi va push tokenini o'chiradi
    * (faqat shu foydalanuvchiniki bo'lsa). Noma'lum token — jim o'tadi.
    */
-  async logout(refreshToken: string, deviceToken?: string): Promise<void> {
+  async logout(refreshToken: string, deviceToken?: string): Promise<string | null> {
     const row = await this.prisma.refreshToken.findUnique({ where: { tokenHash: hashToken(refreshToken) } });
-    if (!row) return;
+    if (!row) return null;
     await this.revokeFamily(row.familyId, new Date());
     if (deviceToken) await this.prisma.deviceToken.deleteMany({ where: { token: deviceToken, userId: row.userId } });
+    return row.userId;
+  }
+
+  /** Faoliyat jurnali uchun (muvaffaqiyatsiz kirish): login bo'yicha foydalanuvchi id'si yoki `null`. */
+  async userIdOf(login: string): Promise<string | null> {
+    const id = parseLoginIdentifier(login);
+    const user = await this.prisma.user.findUnique({
+      where:  id.kind === 'email' ? { email: id.value } : { username: id.value },
+      select: { id: true },
+    });
+    return user?.id ?? null;
   }
 
   private async revokeFamily(familyId: string, now: Date) {

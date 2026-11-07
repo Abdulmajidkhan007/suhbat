@@ -1,15 +1,17 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import {
-  AdminAuditQuerySchema, AdminBulkDeleteInputSchema, AdminUsersQuerySchema,
+  AdminActivityQuerySchema, AdminAuditQuerySchema, AdminBulkDeleteInputSchema, AdminMediaQuerySchema, AdminUsersQuerySchema,
 } from '@suhbat/core';
 import type {
+  AdminActivityList, AdminActivityQuery, AdminMediaList, AdminMediaPreview, AdminMediaQuery, AdminOverview, AdminReportList,
   AdminAuditList, AdminAuditQuery, AdminBulkDeleteInput, AdminBulkDeleteResult, AdminRecoveryCodesResponse,
   AdminTempPasswordResponse, AdminUserList, AdminUsersQuery,
 } from '@suhbat/core';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AdminGuard } from './admin.guard';
 import type { AdminRequest } from './admin.guard';
+import { AdminActivityService } from './admin-activity.service';
 import { AdminService } from './admin.service';
 import type { AdminActor } from './admin.service';
 
@@ -27,7 +29,10 @@ const writeLimit = () => ({ default: { limit: () => envNumber('ADMIN_WRITE_LIMIT
 @Controller('admin')
 @UseGuards(AdminGuard)
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly activity: AdminActivityService,
+  ) {}
 
   @Throttle(readLimit())
   @Get('users')
@@ -39,6 +44,37 @@ export class AdminController {
   @Get('audit')
   audit(@Query(new ZodValidationPipe(AdminAuditQuerySchema)) q: AdminAuditQuery): Promise<AdminAuditList> {
     return this.admin.listAudit(q.page, q.pageSize);
+  }
+
+  @Throttle(readLimit())
+  @Get('overview')
+  overview(): Promise<AdminOverview> {
+    return this.activity.overview();
+  }
+
+  @Throttle(readLimit())
+  @Get('activity')
+  listActivity(@Query(new ZodValidationPipe(AdminActivityQuerySchema)) q: AdminActivityQuery): Promise<AdminActivityList> {
+    return this.activity.listActivity(q);
+  }
+
+  @Throttle(readLimit())
+  @Get('media')
+  listMedia(@Query(new ZodValidationPipe(AdminMediaQuerySchema)) q: AdminMediaQuery): Promise<AdminMediaList> {
+    return this.activity.listMedia(q);
+  }
+
+  /** Faqat ochiq kanal media'si yoki shikoyat qilingan xabar biriktirmasi; aks holda 403. */
+  @Throttle(readLimit())
+  @Get('media/:attachmentId/preview')
+  previewMedia(@Param('attachmentId', uuid) attachmentId: string): Promise<AdminMediaPreview> {
+    return this.activity.previewMedia(attachmentId);
+  }
+
+  @Throttle(readLimit())
+  @Get('reports')
+  reports(@Query(new ZodValidationPipe(AdminAuditQuerySchema)) q: AdminAuditQuery): Promise<AdminReportList> {
+    return this.activity.listReports(q.page, q.pageSize);
   }
 
   @Throttle(writeLimit())

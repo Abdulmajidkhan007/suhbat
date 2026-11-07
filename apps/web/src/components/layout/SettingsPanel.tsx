@@ -20,6 +20,7 @@ import { getInitials } from '../../utils/formatters';
 import { ThemeMode } from '../../types';
 import UsernameField from '../auth/UsernameField';
 import AdminLink from './AdminLink';
+import PrivacyLink from './PrivacyLink';
 import SecuritySection from './SecuritySection';
 import { usernameAcceptable, useUsernameCheck } from '../../hooks/useUsernameCheck';
 
@@ -153,6 +154,8 @@ const SettingsPanel: React.FC = () => {
         <Divider />
 
         <SecuritySection />
+
+        <PrivacyLink />
 
         <AdminLink />
 
