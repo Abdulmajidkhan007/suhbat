@@ -25,6 +25,10 @@ export type PublicUser = z.infer<typeof PublicUserSchema>;
 /** Faqat o'zi uchun (`/auth/me`, login/register/refresh): email bilan. */
 export const UserSchema = PublicUserSchema.extend({
   email: z.email(),
+  /** Email `ADMIN_EMAILS` ro'yxatida (faqat server hisoblaydi). Eski server javobida yo'q — `false` deb o'qiladi. */
+  isAdmin: z.boolean().optional(),
+  /** Admin vaqtinchalik parol bergan: keyingi qadam — yangi parol (`/auth/change-password`). */
+  mustChangePassword: z.boolean().optional(),
 });
 export type User = z.infer<typeof UserSchema>;
 

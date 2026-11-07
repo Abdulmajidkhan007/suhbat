@@ -15,6 +15,10 @@ export interface AppUser {
   createdAt:   number;
   lastSeen:    number;
   isOnline:    boolean;
+  /** Faqat joriy foydalanuvchida: email serverdagi `ADMIN_EMAILS` da. */
+  isAdmin?:    boolean;
+  /** Admin vaqtinchalik parol bergan — yangi parol o'rnatilguncha ilova ochilmaydi. */
+  mustChangePassword?: boolean;
 }
 
 export type MessageType   = 'text' | 'image' | 'file' | 'voice' | 'system';

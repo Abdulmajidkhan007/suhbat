@@ -95,3 +95,13 @@ describe('apiMappers', () => {
     expect(withStatus({ ...mine, status: 'sending' }, chat, me).status).toBe('sending');
   });
 });
+
+describe('toAppUser: admin maydonlari', () => {
+  const base = { id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', displayName: 'Ali', username: null, photoUrl: null, bio: null, createdAt: '2026-10-11T10:00:00.000Z', email: 'a@test.uz' };
+
+  it('isAdmin / mustChangePassword serverdan olinadi; boshqalarda (PublicUser) yo\'q', () => {
+    expect(toAppUser({ ...base, isAdmin: true, mustChangePassword: true })).toMatchObject({ isAdmin: true, mustChangePassword: true });
+    expect(toAppUser(base)).toMatchObject({ isAdmin: undefined, mustChangePassword: undefined });
+    expect(toAppUser({ id: base.id, displayName: 'Ali', username: null, photoUrl: null, bio: null, createdAt: base.createdAt }).isAdmin).toBeUndefined();
+  });
+});

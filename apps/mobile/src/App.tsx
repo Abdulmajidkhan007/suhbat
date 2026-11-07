@@ -15,6 +15,7 @@ import { AuthScreen } from './screens/AuthScreen';
 import { ChatInfoScreen } from './screens/ChatInfoScreen';
 import { ChatListScreen } from './screens/ChatListScreen';
 import { ChatScreen } from './screens/ChatScreen';
+import { ForcePasswordScreen } from './screens/ForcePasswordScreen';
 import { NewChatScreen } from './screens/NewChatScreen';
 import { NewGroupScreen } from './screens/NewGroupScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
@@ -69,6 +70,7 @@ const Root = () => {
   const { session, recoveryCodes } = useSession();
   if (session.status === 'loading') return <LoadingState />;
   if (session.status === 'signedOut') return <AuthScreen expired={session.expired} />;
+  if (session.user.mustChangePassword) return <ForcePasswordScreen />;
   if (recoveryCodes) return <RecoveryCodesScreen codes={recoveryCodes} />;
   return (
     // Foydalanuvchi almashsa holat noldan boshlanadi.

@@ -11,7 +11,8 @@ import { setSessionExpiredHandler, socket } from '../services/api';
 export const useAuth = () => {
   const dispatch = useAppDispatch();
   const auth     = useAppSelector((s) => s.auth);
-  const uid      = auth.user?.uid;
+  // Vaqtinchalik parol almashtirilguncha server socket'ni qabul qilmaydi — ulanishga urinmaymiz.
+  const uid      = auth.user && !auth.user.mustChangePassword ? auth.user.uid : undefined;
 
   useEffect(() => {
     setSessionExpiredHandler(() => dispatch(setUser(null)));

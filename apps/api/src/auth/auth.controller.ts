@@ -10,7 +10,7 @@ import type {
 import { AuthThrottle } from '../common/throttle';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { AllowPendingPassword, JwtAuthGuard } from './jwt-auth.guard';
 import type { AuthedRequest } from './jwt-auth.guard';
 import { PasswordResetService } from './password-reset.service';
 import { RecoveryCodesService } from './recovery-codes.service';
@@ -107,6 +107,7 @@ export class AuthController {
   @AuthThrottle()
   @Post('change-password')
   @HttpCode(200)
+  @AllowPendingPassword()
   @UseGuards(JwtAuthGuard)
   changePassword(
     @Req() req: AuthedRequest,
@@ -122,6 +123,7 @@ export class AuthController {
   }
 
   @Get('me')
+  @AllowPendingPassword()
   @UseGuards(JwtAuthGuard)
   me(@Req() req: AuthedRequest) {
     return this.auth.me(req.user.sub);

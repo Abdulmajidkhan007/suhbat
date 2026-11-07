@@ -29,6 +29,7 @@ describe('foydalanuvchi ko\'rinishlari', () => {
   const row = {
     id: '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f', email: 'ali@test.uz', username: 'ali_v', passwordHash: 'x', displayName: 'Ali',
     photoUrl: null, bio: null, createdAt: new Date('2026-10-11T10:00:00Z'), updatedAt: new Date(), lastSeenAt: null, notificationPreview: true,
+    blockedAt: null, mustChangePassword: false,
   };
 
   it('chat a\'zosida email va passwordHash yo\'q; o\'zi uchun email bor', () => {
@@ -38,6 +39,20 @@ describe('foydalanuvchi ko\'rinishlari', () => {
     expect(member.user).not.toHaveProperty('passwordHash');
     expect(toSelfUser(row).email).toBe('ali@test.uz');
     expect(toSelfUser(row)).not.toHaveProperty('passwordHash');
+  });
+
+  it('isAdmin — faqat ADMIN_EMAILS dagi email uchun (katta-kichik harf va bo\'shliq farqsiz)', () => {
+    const saved = process.env.ADMIN_EMAILS;
+    try {
+      delete process.env.ADMIN_EMAILS;
+      expect(toSelfUser(row).isAdmin).toBe(false);
+      process.env.ADMIN_EMAILS = 'boss@test.uz, ALI@test.uz ';
+      expect(toSelfUser(row).isAdmin).toBe(true);
+      expect(toSelfUser({ ...row, email: 'other@test.uz' }).isAdmin).toBe(false);
+    } finally {
+      if (saved === undefined) delete process.env.ADMIN_EMAILS;
+      else process.env.ADMIN_EMAILS = saved;
+    }
   });
 });
 

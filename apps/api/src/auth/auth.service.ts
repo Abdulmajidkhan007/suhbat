@@ -1,10 +1,11 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { parseLoginIdentifier } from '@suhbat/core';
 import type { AuthResponse, ChangePasswordInput, LoginInput, PublicUser, RegisterInput, TokenPair, User } from '@suhbat/core';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { isAdminEmail } from '../common/admin-emails';
 import { Prisma } from '../generated/prisma/client';
 import type { User as UserRow } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -26,7 +27,12 @@ export const toPublicUser = (u: UserRow): PublicUser => ({
 });
 
 /** Faqat foydalanuvchining o'zi uchun (email bilan). */
-export const toSelfUser = (u: UserRow): User => ({ ...toPublicUser(u), email: u.email });
+export const toSelfUser = (u: UserRow): User => ({
+  ...toPublicUser(u),
+  email:              u.email,
+  isAdmin:            isAdminEmail(u.email),
+  mustChangePassword: u.mustChangePassword,
+});
 
 export const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -34,6 +40,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const REFRESH_GRACE_MS = 30_000;
 
 export const LOGIN_FAILED_MESSAGE = 'Login yoki parol noto\'g\'ri';
+export const BLOCKED_MESSAGE = 'Hisobingiz bloklangan. Administrator bilan bog\'laning.';
 export const USERNAME_TAKEN_MESSAGE = 'Bu username band';
 
 export const isUniqueViolation = (e: unknown): boolean =>
@@ -80,6 +87,8 @@ export class AuthService {
     if (!user || !(await argon2.verify(user.passwordHash, input.password))) {
       throw new UnauthorizedException(LOGIN_FAILED_MESSAGE);
     }
+    // To'g'ri parol bo'lgandan keyingina: bloklanganlik begonaga oshkor bo'lmasin.
+    if (user.blockedAt) throw new ForbiddenException(BLOCKED_MESSAGE);
     return this.issue(user);
   }
 
@@ -98,7 +107,7 @@ export class AuthService {
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
       await tx.passwordResetToken.updateMany({ where: { userId, usedAt: null }, data: { usedAt: now } });
-      return tx.user.update({ where: { id: userId }, data: { passwordHash } });
+      return tx.user.update({ where: { id: userId }, data: { passwordHash, mustChangePassword: false } });
     });
     return this.issue(updated);
   }
@@ -132,6 +141,7 @@ export class AuthService {
     let row = await this.prisma.refreshToken.findUnique({ where: { tokenHash }, include: { user: true } });
     if (!row) throw new UnauthorizedException();
     if (row.expiresAt <= now) throw new UnauthorizedException();
+    if (row.user.blockedAt) throw new UnauthorizedException();
 
     if (!row.revokedAt) {
       // Shartli yangilash: parallel so'rovlardan faqat bittasi tokenni "oladi".

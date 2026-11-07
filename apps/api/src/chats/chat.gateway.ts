@@ -33,6 +33,7 @@ import type { ZodType } from 'zod';
 import type { JwtPayload } from '../auth/auth.service';
 import { RateLimiter } from '../common/rate-limiter';
 import { runWithAck } from '../common/ws-ack';
+import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 import { ChatsService } from './chats.service';
 import type { MemberChange } from './chats.service';
@@ -79,6 +80,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     private readonly presence: PresenceService,
     private readonly push: PushService,
     private readonly holds: ConnectionHoldService,
+    private readonly prisma: PrismaService,
     config: ConfigService,
   ) {
     const positive = (key: string, fallback: number) => {
@@ -94,7 +96,13 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       if (typeof token !== 'string' || !token) return next(new Error(WS_UNAUTHORIZED));
       this.jwt
         .verifyAsync<JwtPayload>(token)
-        .then((payload) => {
+        .then(async (payload) => {
+          // Bloklangan/o'chirilgan hisob yoki parol almashtirilmagan (vaqtinchalik parol) — ulanmaydi.
+          const user = await this.prisma.user.findUnique({
+            where:  { id: payload.sub },
+            select: { blockedAt: true, mustChangePassword: true },
+          });
+          if (!user || user.blockedAt || user.mustChangePassword) throw new Error(WS_UNAUTHORIZED);
           socket.data.userId = payload.sub;
           socket.data.exp = payload.exp;
           next();
@@ -120,6 +128,11 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     } catch (e) {
       this.logger.error('presence (connect)', e as Error);
     }
+  }
+
+  /** Admin bloklagan/o'chirgan foydalanuvchining barcha ulanishlarini uzadi. */
+  disconnectUser(userId: string): void {
+    this.server.in(userRoom(userId)).disconnectSockets(true);
   }
 
   onModuleDestroy() {
