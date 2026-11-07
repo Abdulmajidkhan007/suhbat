@@ -945,6 +945,33 @@ packages/
   - Haqiqiy brauzer/telefon va Electron'da qo'lda sinalmagan (jsdom/RNTL); `/admin` Electron'da `app://` protokolida BrowserRouter orqali ochiladi — sinalmagan.
   - Migratsiya production'da API konteyneri ishga tushganda `prisma migrate deploy` bilan qo'llanadi (`apps/api/docker/entrypoint.sh`); yangi ustunlar `DEFAULT` bilan — eski qatorlar buzilmaydi.
 
+**6b. Faoliyat jurnali (egasi talabi, 2026-11-07) — ✅ kodda, PR `claude/6b-activity-log` (merge qilinmagan), haqiqiy qurilma/brauzerda sinalmagan**
+- **Talab:** «kim nima qilyapti, qanday media yuklayapti — ko'rib turishim kerak; ichki (shaxsiy) ishlarga qaramayman».
+- **DB** (migratsiya `20261107150000_activity_log`): `activity_log` (type, userId, chatId, chatKind private|group|channel, chatPublic, ip, device ≤120, `meta` JSON,
+  mediaKind/mime/size/fileName/attachmentId, createdAt; FK yo'q) va `message_reports`.
+- **Nima yoziladi** (`ActivityService`, `apps/api/src/activity`): register, login, login_failed (kiritilgan parol/login YOZILMAYDI; faqat hisob bor bo'lsa userId va sabab),
+  logout, password_change, chat_create (faqat haqiqatan yaratilganda), channel_create, group_join/leave (kanalga obuna ham shu tur), message_send (**faqat uzunlik va
+  biriktirma bor-yo'qligi**), media_upload (xabarga biriktirilganda: tur image/video/voice/file, MIME, hajm, fayl nomi), message_delete, call_start/call_end (sabab, davomiylik, audio/video),
+  report. Har yozuvda IP va qisqa user-agent. `meta` — zod oq ro'yxat (`ActivityMetaSchema`): matn uchun maydon yo'q. Yozuv fonda (`record`), xato asosiy amalni buzmaydi, log'ga yoziladi.
+- **Maxfiylik chegarasi (kodda, `AdminActivityService` + testlar):** xabar MATNI jurnalda ham, hech bir admin javobida ham yo'q. Media mazmuni (prevyu URL) faqat (a) ochiq kanal
+  biriktirmasi, (b) shikoyat qilingan xabar biriktirmasi uchun; 1:1 va guruh — 403. Faqat `GET /admin/reports` shikoyat qilingan xabarning matnini beradi.
+  `previewable` hozirgi holat bo'yicha hisoblanadi (kanal keyin yopiq bo'lsa — yopiladi). Panelda izoh (`PrivacyNote`) shu qoidani aytadi.
+- **Shikoyat (report):** avval yo'q edi — `POST /chats/:id/messages/:mid/report`, `message_reports` (bir foydalanuvchi — bir xabarga bitta). **Veb/mobil mijozlarda shikoyat tugmasi YO'Q**
+  (faqat API va `api.reportMessage`) — foydalanuvchi shikoyat qila olishi uchun UI keyingi ish.
+- **Panel:** bosh sahifa statistikasi (foydalanuvchilar, bugun faol, bugun yangi, media 24 soat/jami), «Faoliyat» (filtr: foydalanuvchi, tur, chat turi, sana; sahifalash),
+  «Media» (ro'yxat + jami va tur bo'yicha hajm; ruxsat bo'lsa «Ko'rish»), «Shikoyatlar», «Admin jurnali» (eski «Jurnal»), foydalanuvchi qatori menyusida «Faoliyat tarixi».
+- **Saqlash:** `ACTIVITY_RETENTION_DAYS` (standart 90), kunlik tozalash (`ACTIVITY_CLEANUP_INTERVAL_MS`, 0 — o'chirish). Admin amallari jurnali (`admin_audit_log`) bunga kirmaydi.
+- **Maxfiylik sahifasi:** veb `/privacy` (Sozlamalarda tugma, tokensiz ochiladi), mobil Sozlamalar → Maxfiylik; matn `@suhbat/core` `privacySections()` — ikkalasi bir xil; muddat `GET /privacy` dan.
+- **Testlar:** API e2e (haqiqiy Postgres, local media) `activity.e2e-spec` 7: hodisalar yoziladi (IP/qurilma, parol yozilmaydi), matn jadvalning hech bir ustunida yo'q va admin javoblarida yo'q,
+  1:1 media mazmuni qaytmaydi (403), ochiq kanal/shikoyat — ochiladi, filtrlar/sahifalash/statistika, retention tozalash (90 va 30 kun), jurnal xatosi asosiy amalni buzmaydi, admin bo'lmaganga 404.
+  Core 3, veb: panel 5 + sahifa 2, mobil 2.
+- **Cheklovlar / ochiq:**
+  - `call_start/call_end` qo'ng'iroq e2e'sida alohida tekshirilmagan (kod yo'li gateway'da; boshqa hodisalar kabi), `call_end` IP/qurilmasiz yoziladi.
+  - Xabar tahriri jurnalga yozilmaydi (talabda yo'q). Guruhga a'zo qo'shish (`addMembers`) `group_join` yozmaydi — faqat o'zi qo'shilish (kanal obunasi).
+  - `fileName` matnga o'xshash shaxsiy ma'lumot bo'lishi mumkin — talab bo'yicha yoziladi va 1:1 fayllar uchun ham ko'rinadi (mazmuni emas).
+  - IP: proksi ortida `TRUST_PROXY` to'g'ri o'rnatilmasa proksining IP'si yoziladi. Jurnal xotira-keshli chat turi (60 s) — kanal ochiq/yopiq o'zgarsa yozuvda eski holat bo'lishi mumkin.
+  - Katta yuklanishda har xabar = 1–2 qator yozuv; indekslar bor, lekin yuk sinalmagan.
+
 ## Keyingi sessiya uchun
 4b (qo'ng'iroqlar) PR #11 da. Merge'dan keyin taklif etiladigan navbat:
 1. **Egasi:** TURN sozlash — o'z coturn'imiz (`QADAMLAR.md` "Ixtiyoriy", `infra/turn/`) — busiz mobil internet/NAT ortida qo'ng'iroq

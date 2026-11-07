@@ -26,6 +26,8 @@ import { ChatGateway } from '../chats/chat.gateway';
 import { ChatsService } from '../chats/chats.service';
 import { ConnectionHoldService } from '../chats/connection-hold.service';
 import { PresenceService } from '../chats/presence.service';
+import { ActivityService } from '../activity/activity.service';
+import { socketContext } from '../activity/request-context';
 import { RateLimiter } from '../common/rate-limiter';
 import { runWithAck } from '../common/ws-ack';
 import { PushService } from '../push/push.service';
@@ -69,6 +71,7 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     private readonly presence: PresenceService,
     private readonly holds: ConnectionHoldService,
     private readonly push: PushService,
+    private readonly activity: ActivityService,
     config: ConfigService,
   ) {
     this.ringTimeoutMs = positive(config.get<string>('CALL_RING_TIMEOUT_MS'), CALL_RING_TIMEOUT_MS);
@@ -156,6 +159,9 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         caller,
       });
       this.holds.hold(socket.id);
+      this.activity.record({
+        type: 'call_start', userId: me, chatId: p.chatId, meta: { callMedia: p.media }, ...socketContext(socket),
+      });
       this.server.to(userRoom(calleeId)).emit(WsEvent.CallInvite, this.incoming(call));
       if (!this.presence.isOnline(calleeId)) {
         void this.push.notifyIncomingCall({
@@ -308,6 +314,11 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     this.server
       .to([userRoom(call.callerId), userRoom(call.calleeId)])
       .emit(WsEvent.CallEnd, { callId, reason, durationMs });
+    // Jiringlab javobsiz qolgan/rad etilgan ham yoziladi (reason), davomiylik faqat gaplashgan bo'lsa > 0.
+    this.activity.record({
+      type: 'call_end', userId: call.callerId, chatId: call.chatId,
+      meta: { reason, durationMs: durationMs ?? 0, callMedia: call.media },
+    });
     void this.writeSummary(call.chatId, call.callerId, callSummaryText(call.media, reason, durationMs));
   }
 

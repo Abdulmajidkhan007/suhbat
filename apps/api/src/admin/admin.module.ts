@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { ChatsModule } from '../chats/chats.module';
 import { MediaModule } from '../media/media.module';
+import { AdminActivityService } from './admin-activity.service';
 import { AdminController } from './admin.controller';
 import { AdminGuard } from './admin.guard';
 import { AdminService } from './admin.service';
@@ -10,6 +11,6 @@ import { AdminService } from './admin.service';
 @Module({
   imports:     [AuthModule, ChatsModule, MediaModule],
   controllers: [AdminController],
-  providers:   [AdminService, AdminGuard],
+  providers:   [AdminService, AdminActivityService, AdminGuard],
 })
 export class AdminModule {}

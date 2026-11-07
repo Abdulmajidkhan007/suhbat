@@ -6,6 +6,7 @@ import { ME, renderWithStore } from '../test/render';
 const mocks = vi.hoisted(() => ({
   listUsers: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
   audit: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 20 })),
+  overview: vi.fn(async () => ({ usersTotal: 5, activeToday: 3, newUsersToday: 1, mediaBytes24h: 2048, mediaBytesTotal: 1048576 })),
 }));
 vi.mock('../services/api', () => ({ api: { admin: mocks } }));
 
@@ -27,6 +28,9 @@ describe('AdminPage', () => {
     renderWithStore(<MemoryRouter><AdminPage /></MemoryRouter>, auth(true));
     expect(screen.getByText('Admin panel')).toBeInTheDocument();
     expect(await screen.findByText('Foydalanuvchilar yo\'q')).toBeInTheDocument();
+    // Bosh sahifa statistikasi
+    expect(await screen.findByText('1.0 MB')).toBeInTheDocument();
+    expect(screen.getByText('Bugun faol')).toBeInTheDocument();
   });
 });
 

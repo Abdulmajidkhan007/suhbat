@@ -82,7 +82,7 @@ export class ChatsService {
   // --- Chat yaratish ---
 
   /** 1:1 chat: bor bo'lsa o'shani, yo'q bo'lsa yangisini qaytaradi. */
-  async createDirect(me: string, otherId: string): Promise<ChatSummary> {
+  async createDirect(me: string, otherId: string, onCreated?: (chatId: string) => void): Promise<ChatSummary> {
     if (me === otherId) throw new BadRequestException('O\'zingiz bilan chat ochib bo\'lmaydi');
     const other = await this.prisma.user.findUnique({ where: { id: otherId }, select: { id: true } });
     if (!other) throw new NotFoundException('Foydalanuvchi topilmadi');
@@ -99,6 +99,7 @@ export class ChatsService {
           },
           select: { id: true },
         });
+        onCreated?.(chat.id);
       } catch (e) {
         // Ikkala tomon bir vaqtda ochsa — unique(direct_key) ikkinchisini to'xtatadi.
         if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002')) throw e;
@@ -490,6 +491,23 @@ export class ChatsService {
     await this.prisma.message.update({ where: { id: messageId }, data: { deletedAt, content: '' } });
     if (found.attachment) await this.media.removeObjects([found.attachment.key]);
     return { deletedAt: deletedAt.toISOString(), memberIds: access.memberIds };
+  }
+
+  /**
+   * Xabarga shikoyat (report): chat a'zosi, tirik va tizim bo'lmagan xabar. Bir foydalanuvchi — bir xabarga bitta
+   * (qayta yuborish izohni yangilaydi). Shikoyat qilingan xabarning mazmuni adminga ko'rinadi (faoliyat jurnali qoidasi).
+   */
+  async reportMessage(chatId: string, me: string, messageId: string, reason?: string): Promise<void> {
+    await this.access(chatId, me);
+    const found = await this.findLiveMessage(chatId, messageId);
+    if (found.type === 'system') throw new BadRequestException('Tizim xabariga shikoyat qilib bo\'lmaydi');
+    if (found.senderId === me) throw new BadRequestException('O\'zingizning xabaringizga shikoyat qilib bo\'lmaydi');
+    const note = reason?.trim() || null;
+    await this.prisma.messageReport.upsert({
+      where:  { messageId_reporterId: { messageId, reporterId: me } },
+      create: { messageId, reporterId: me, reason: note },
+      update: { reason: note },
+    });
   }
 
   /**

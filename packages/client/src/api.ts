@@ -1,5 +1,11 @@
 import {
+  AdminActivityListSchema,
   AdminAuditListSchema,
+  AdminMediaListSchema,
+  AdminMediaPreviewSchema,
+  AdminOverviewSchema,
+  AdminReportListSchema,
+  PrivacyInfoSchema,
   AdminBulkDeleteResultSchema,
   AdminRecoveryCodesResponseSchema,
   AdminTempPasswordResponseSchema,
@@ -23,6 +29,14 @@ import {
   UserSchema,
 } from '@suhbat/core';
 import type {
+  AdminActivityList,
+  AdminActivityQuery,
+  AdminMediaList,
+  AdminMediaPreview,
+  AdminMediaQuery,
+  AdminOverview,
+  AdminReportList,
+  PrivacyInfo,
   AdminAuditList,
   AdminBulkDeleteResult,
   AdminUserList,
@@ -401,7 +415,25 @@ export const createApiClient = (opts: ApiClientOptions) => {
         authed('POST', '/admin/users/bulk-delete', AdminBulkDeleteResultSchema, { body: { ids } }),
       audit: (query: { page?: number; pageSize?: number } = {}): Promise<AdminAuditList> =>
         authed('GET', '/admin/audit', AdminAuditListSchema, { query }),
+      overview: (): Promise<AdminOverview> => authed('GET', '/admin/overview', AdminOverviewSchema),
+      /** Faoliyat jurnali (faqat metadata). Filtrlar: userId, type, chatKind, from, to. */
+      activity: (query: Partial<Omit<AdminActivityQuery, 'page' | 'pageSize'>> & { page?: number; pageSize?: number } = {}): Promise<AdminActivityList> =>
+        authed('GET', '/admin/activity', AdminActivityListSchema, { query }),
+      media: (query: Partial<Omit<AdminMediaQuery, 'page' | 'pageSize'>> & { page?: number; pageSize?: number } = {}): Promise<AdminMediaList> =>
+        authed('GET', '/admin/media', AdminMediaListSchema, { query }),
+      /** Faqat ochiq kanal media'si yoki shikoyat qilingan xabar biriktirmasi; boshqasi — 403. */
+      mediaPreview: (attachmentId: string): Promise<AdminMediaPreview> =>
+        authed('GET', `/admin/media/${attachmentId}/preview`, AdminMediaPreviewSchema),
+      reports: (query: { page?: number; pageSize?: number } = {}): Promise<AdminReportList> =>
+        authed('GET', '/admin/reports', AdminReportListSchema, { query }),
     },
+
+    /** Xabarga shikoyat: shu xabarning mazmuni adminga ko'rinadi. */
+    reportMessage: (chatId: string, messageId: string, reason?: string): Promise<void> =>
+      authed('POST', `/chats/${chatId}/messages/${messageId}/report`, null, { body: reason ? { reason } : {} }),
+
+    /** Maxfiylik sahifasi uchun (tokensiz): faoliyat jurnali necha kun saqlanadi. */
+    getPrivacyInfo: (): Promise<PrivacyInfo> => request('GET', '/privacy', PrivacyInfoSchema),
 
     getAccessToken: async (): Promise<string | null> => (await storage.get())?.accessToken ?? null,
 

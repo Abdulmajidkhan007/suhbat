@@ -103,6 +103,14 @@ export const SettingsScreen = () => {
             chevron
           />
           <ListRow
+            title={t('settings.privacy')}
+            subtitle={t('settings.privacyHint')}
+            icon="shield-checkmark-outline"
+            iconColor="#4CAF7D"
+            onPress={() => push({ name: 'privacy' })}
+            chevron
+          />
+          <ListRow
             title={t('settings.appearance')}
             value={`${MODE_LABEL[mode]} · ${ACCENTS[accent].label}`}
             icon="color-palette-outline"
