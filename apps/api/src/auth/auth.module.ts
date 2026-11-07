@@ -20,6 +20,6 @@ import { RecoveryCodesService } from './recovery-codes.service';
   ],
   controllers: [AuthController],
   providers: [AuthService, PasswordResetService, RecoveryCodesService, JwtAuthGuard],
-  exports:   [JwtModule, JwtAuthGuard, AuthService],
+  exports:   [JwtModule, JwtAuthGuard, AuthService, RecoveryCodesService],
 })
 export class AuthModule {}

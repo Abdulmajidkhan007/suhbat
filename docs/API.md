@@ -12,7 +12,7 @@ standart 15m); refresh token — body'da, bir martalik (rotatsiya).
 |-------|------------------------|---------------------------------------------------------|
 | GET   | `/health`              | API va DB holati                                        |
 | POST  | `/auth/register`       | `{ email, password, displayName, username? }` → `{ accessToken, refreshToken, user, recoveryCodes }` (10 ta tiklash kodi — faqat shu javobda); 409 — email yoki username band |
-| POST  | `/auth/login`          | `{ login, password }` (`login` — email yoki username, `@` bilan ham; eski `{ email }` ham qabul qilinadi) → `{ accessToken, refreshToken, user }` |
+| POST  | `/auth/login`          | `{ login, password }` (`login` — email yoki username, `@` bilan ham; eski `{ email }` ham qabul qilinadi) → `{ accessToken, refreshToken, user }`; 403 — hisob admin tomonidan bloklangan (to'g'ri parolda). `user.isAdmin`, `user.mustChangePassword` |
 | POST  | `/auth/forgot-password` | `{ emailOrUsername }` → 200 doim bir xil `{ message }` (hisob borligi oshkor qilinmaydi); 503 — email sozlanmagan; 429 — IP limiti yoki shu identifikatorga oxirgi so'rovdan beri 45 s o'tmagan (`CODE_REQUEST_COOLDOWN_MS`; hisob bor-yo'qligiga bog'liq emas) |
 | POST  | `/auth/reset-password` | `{ token, newPassword }` → 204; token bir martalik, 30 daqiqa; **barcha sessiyalar** (refresh token oilalari) bekor; 400 — yaroqsiz/muddati o'tgan |
 | POST  | `/auth/recover` | Emailsiz tiklash: `{ login, code, newPassword }` → 204; kod bir martalik (shartli `updateMany`); **barcha sessiyalar** bekor. Har qanday xato — bir xil 400 `Login yoki tiklash kodi noto'g'ri` (hisob borligi oshkor qilinmaydi); 429 — IP limiti (`RECOVER_IP_LIMIT`, 10/15 daq) yoki login bloki: **5 ta noto'g'ri kod → 15 daqiqa blok** (`CODE_MAX_FAILURES`, `CODE_BLOCK_MS`; blokda to'g'ri kod ham o'tmaydi; mavjud bo'lmagan login ham sanaladi; to'g'ri kod hisobni nolga tushiradi) |
@@ -50,6 +50,14 @@ standart 15m); refresh token — body'da, bir martalik (rotatsiya).
 | POST  | `/chats/:id/members`   | `{ userIds }` — owner/admin; guruhda ≤ 200 a'zo         |
 | DELETE| `/chats/:id/members/:uid` | a'zoni chiqarish (admin faqat oddiy a'zoni)          |
 | PATCH | `/chats/:id/members/:uid` | `{ role: 'admin' \| 'member' }` — faqat owner          |
+| GET   | `/admin/users?q=&page=&pageSize=` | **Admin** (`ADMIN_EMAILS`; boshqalarga, tokensiz ham, **404**). username/email/ism bo'yicha qism qidiruv; `pageSize` ≤ 100 (20) → `{ items: [{ id, username, displayName, email, createdAt, lastSeenAt, hasRecoveryCodes, activeSessions, blocked, mustChangePassword, isAdmin }], total, page, pageSize }`. Parol/hash/kod qaytmaydi |
+| POST  | `/admin/users/:id/block` · `/unblock` | 204. Bloklash: kirish 403 (to'g'ri parolda), refresh va hali amaldagi access token 401, sessiyalar bekor, socket uziladi. O'zini bloklab bo'lmaydi (400) |
+| POST  | `/admin/users/:id/revoke-sessions` | 204. Barcha refresh tokenlar bekor, socket uziladi |
+| POST  | `/admin/users/:id/temp-password` | → `{ temporaryPassword }` (bir marta; 16 belgi, `xxxx-xxxx-xxxx-xxxx`). Eski parol, sessiyalar va email havolalari bekor; `User.mustChangePassword = true` — shu paroldan kirgach `/auth/me` va `/auth/change-password` dan boshqa hamma endpoint **403**, WebSocket ulanmaydi. O'ziga bo'lmaydi (400) |
+| POST  | `/admin/users/:id/recovery-codes` | → `{ codes: string[10] }` (bir marta); eskilari bekor |
+| DELETE| `/admin/users/:id` | 204; o'zini o'chirib bo'lmaydi (400), yo'q id — 404 |
+| POST  | `/admin/users/bulk-delete` | `{ ids: uuid[1..100] }` → `{ deleted, notFound }`. Ro'yxatda o'zi bo'lsa 400 va hech kim o'chmaydi. Har foydalanuvchi alohida tranzaksiyada |
+| GET   | `/admin/audit?page=&pageSize=` | `{ items: [{ id, adminId, adminEmail, action, targetUserId, targetLabel, createdAt }], total, ... }` — yangidan eskiga; foydalanuvchi o'chsa ham yozuv qoladi |
 | GET   | `/calls/ice-servers`   | qo'ng'iroq uchun `{ iceServers, ttlSeconds }` — STUN + (sozlangan bo'lsa) TURN |
 | POST  | `/media/upload-url`    | `{ chatId, kind, name, mime, size, durationMs? }` → `{ attachmentId, uploadUrl, headers }` |
 

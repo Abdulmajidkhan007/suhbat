@@ -1,7 +1,7 @@
 # suhbat — reja
 
 > Hujjat tekshiruvi: 2026-10-21 (4a/4b PR holati tuzatildi).
-> Oxirgi yangilanish: 2026-10-20 (emailsiz parol tiklash — pastdagi "Emailsiz parol tiklash — tiklash kodlari")
+> Oxirgi yangilanish: 2026-11-07 (6-faza — admin panel); oldingisi 2026-10-20 (emailsiz parol tiklash — pastdagi "Emailsiz parol tiklash — tiklash kodlari")
 
 ## Hozirgi holat (koddan)
 - **Monorepo** (npm workspaces + Turborepo): `apps/web`, `apps/api`, `apps/desktop`,
@@ -906,6 +906,44 @@ packages/
     MIME ro'yxatida bo'lmagan turlar (masalan HEIC, CAF) avvalgidek `upload-url` bosqichida rad etiladi.
 - Manba g'oyalar: `Abdullohkhan/realtime-chat` (egasining eski ishi, Apache-2.0 fork) — kod ko'chirilmaydi,
   suhbat arxitekturasida qaytadan yoziladi.
+
+**6. Admin panel (egasi talabi, 2026-11-07) — ✅ kodda, PR `claude/6-admin-panel` (merge qilinmagan), haqiqiy qurilma/brauzerda sinalmagan**
+- **Sabab:** test uchun ko'p odamga berilgan, parolini bilmaydi; email/SMS tiklash sozlanmagan. Egasi foydalanuvchilarni ko'rishi,
+  o'chirishi va kirishga yordam berishi kerak.
+- **Ruxsat:** `ADMIN_EMAILS` (vergul bilan, katta-kichik harf farqsiz; `QADAMLAR.md`, `.env.example`). `AdminGuard`: tokensiz, yaroqsiz token,
+  oddiy yoki bloklangan foydalanuvchi — hammasiga bir xil **404** (panel borligi bilinmasin). `/auth/me` va login javobida `isAdmin`
+  (`User.isAdmin`, `@suhbat/core`). Ro'yxat har chaqiriqda `process.env` dan o'qiladi (Railway'da o'zgaruvchi o'zgarsa API qayta ishga tushadi).
+- **DB** (migratsiya `20261107120000_admin_panel`): `users.blocked_at`, `users.must_change_password`, `admin_audit_log`
+  (adminId/adminEmail/action/targetUserId/targetLabel/createdAt — qasddan FK yo'q, admin yoki foydalanuvchi o'chsa ham yozuv qoladi).
+- **API** (`apps/api/src/admin`, jadval — `docs/API.md`): `GET /admin/users` (qidiruv, sahifalash; `select` bilan — parol hash'i bazadan o'qilmaydi
+  ham; tiklash kodi/hash qaytmaydi), `block|unblock`, `revoke-sessions`, `temp-password`, `recovery-codes`, `DELETE /admin/users/:id`,
+  `POST /admin/users/bulk-delete`, `GET /admin/audit`. Rate limit: o'qish `ADMIN_READ_LIMIT` (60/daq), o'zgartirish `ADMIN_WRITE_LIMIT` (20/daq),
+  IP va endpoint bo'yicha (umumiy 300/daq ustiga).
+  - **Bloklash:** login to'g'ri parolda 403 (noto'g'ri parolda avvalgidek 401 — bloklanganlik begonaga oshkor bo'lmaydi), refresh 401, refresh tokenlar bekor,
+    socket uziladi. `JwtAuthGuard` endi har so'rovda foydalanuvchini bazadan o'qiydi (bitta PK so'rov): bloklangan/o'chirilgan hisobning hali amaldagi
+    access tokeni ham darhol 401 (15 daqiqa kutilmaydi); WebSocket handshake'da ham shu tekshiruv.
+  - **Vaqtinchalik parol:** 16 belgi (~80 bit, chalkash belgisiz), javobda bir marta, argon2 hash. Eski parol/sessiyalar/email havolalari bekor.
+    `mustChangePassword`: server tomonida ham majburiy — shu paroldan kirgach faqat `/auth/me` va `/auth/change-password` (`@AllowPendingPassword`),
+    qolgani **403**, socket ulanmaydi. Almashtirilgach bayroq tushadi.
+  - **O'chirish:** avval hisob o'chirish mantig'i yo'q edi — yozildi: 1:1 chatlar va a'zosi qolmagan guruh/kanallar o'chadi (fayllari saqlashdan ham,
+    best-effort); egasi ketayotgan guruhga yangi ega (eng eski admin, bo'lmasa eng eski a'zo); foydalanuvchining xabarlari (guruhdagilar ham) o'chadi
+    (`Message.sender` CASCADE). Har foydalanuvchi alohida tranzaksiya. O'zini o'chirish/bloklash/vaqtinchalik parol — 400; bulk ro'yxatda o'zi bo'lsa hech kim o'chmaydi.
+- **Veb/desktop** (`apps/web`): `/admin` — jadval (MUI; telefonda ustunlar kamayadi, gorizontal aylantirish), qidiruv (300 ms debounce), sahifalash, checkbox
+  bilan ko'plab o'chirish («N ta foydalanuvchi o'chiriladi» tasdiqlash dialogi), qator menyusi (har amal tasdiq bilan), vaqtinchalik parol/kodlar
+  `SecretDialog`'da nusxa tugmasi bilan (faqat «Yopish» bilan yopiladi), «Jurnal» yorlig'i. Sozlamalarda «Admin panel» — faqat `isAdmin`.
+  `mustChangePassword` — `ProtectedRoute` yangi parol ekranini (`ForcePasswordChange`) ko'rsatadi; shu paytda socket ulanmaydi.
+- **Mobil:** panel yo'q (shart emas); `ForcePasswordScreen` (`mustChangePassword`), shu paytda socket/fon ulanishi yo'q.
+- **Testlar:** API e2e (haqiqiy Postgres 16) `admin.e2e-spec` 11: 404'lar, `isAdmin`, ro'yxatda hash/kod yo'qligi, qidiruv/sahifalash, block → login 403 +
+  refresh/access 401 + socket uzilishi, unblock, revoke, temp-password → login → 403 → majburiy almashtirish → yangi parol, recovery-codes (eskisi 400, yangisi ishlaydi),
+  bulk-delete (chatlar, yangi ega, o'zi bor → 400, yo'q id), DELETE (o'zi 400, yo'q 404), audit, bloklangan admin 404, rate limit 429. Unit: `login` bloklangan,
+  `isAdmin`. Core 2, client 2, veb: `AdminUsersPanel` 7, `AdminPage`/`AdminLink` 3, `ForcePasswordChange` 2, mapper 1; mobil `ForcePassword` 2.
+- **Cheklovlar / ochiq:**
+  - Rate limit va `ADMIN_EMAILS` xotirada/`process.env` (bitta API nusxasi, boshqa limitlar kabi).
+  - O'chirilganda boshqa a'zolar real vaqtda xabar olmaydi (`chat:deleted` / `chat:member` yuborilmaydi) — ular chatlar ro'yxatini yangilaganda ko'radi;
+    foydalanuvchining guruhdagi xabarlari ham yo'qoladi.
+  - Admin o'zining email'i `ADMIN_EMAILS` dan chiqarilsa panel yopiladi; admin bo'lgan boshqa foydalanuvchini panelda bloklash/o'chirish mumkin (faqat o'ziga taqiq).
+  - Haqiqiy brauzer/telefon va Electron'da qo'lda sinalmagan (jsdom/RNTL); `/admin` Electron'da `app://` protokolida BrowserRouter orqali ochiladi — sinalmagan.
+  - Migratsiya production'da API konteyneri ishga tushganda `prisma migrate deploy` bilan qo'llanadi (`apps/api/docker/entrypoint.sh`); yangi ustunlar `DEFAULT` bilan — eski qatorlar buzilmaydi.
 
 ## Keyingi sessiya uchun
 4b (qo'ng'iroqlar) PR #11 da. Merge'dan keyin taklif etiladigan navbat:

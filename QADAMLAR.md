@@ -68,6 +68,13 @@ Resend'da domen tasdiqlang), `WEB_URL=<veb manzili>`. Pro'da — **Gmail SMTP**:
 (https://myaccount.google.com/apppasswords) → `SMTP_URL=smtps://email%40gmail.com:APPPAROL@smtp.gmail.com:465`,
 `MAIL_FROM=Suhbat <email@gmail.com>`, `WEB_URL`. Logda `SMTP serverga ulanib bo'lmadi` — port yopiq, Resend'ga o'ting.
 
+**Admin panel** (foydalanuvchilarni ko'rish, o'chirish, kirishga yordam berish). Railway → API → Variables:
+`ADMIN_EMAILS=siz@gmail.com` (bir nechta bo'lsa vergul bilan: `a@x.uz,b@y.uz`) — shu email bilan ro'yxatdan o'tgan
+hisob admin bo'ladi (o'zgaruvchi o'zgargach API qayta ishga tushadi). Keyin ilovada **Sozlamalar → Admin panel**
+(veb/desktop; yoki to'g'ridan-to'g'ri `<veb manzili>/admin`). Boshqa hisoblarga `/admin` API **404** qaytaradi.
+Foydalanuvchi parolini unutsa: panelda uning qatori → **Vaqtinchalik parol** (bir marta ko'rinadi — unga yetkazing;
+kirgach u darhol yangi parol o'rnatadi) yoki **Yangi tiklash kodlari**. Hamma amallar **Jurnal** yorlig'ida yoziladi.
+
 **Android doimiy imzo kaliti** (busiz har release'da eski APK'ni o'chirib qayta o'rnatish kerak):
 [tafsilot 1 — Termux bilan telefonda](docs/QADAMLAR-TAFSILOT.md#1-android-imzosi--telefonda-termux-bilan).
 

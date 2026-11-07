@@ -19,6 +19,7 @@ import { getAvatarColor } from '../../utils/colors';
 import { getInitials } from '../../utils/formatters';
 import { ThemeMode } from '../../types';
 import UsernameField from '../auth/UsernameField';
+import AdminLink from './AdminLink';
 import SecuritySection from './SecuritySection';
 import { usernameAcceptable, useUsernameCheck } from '../../hooks/useUsernameCheck';
 
@@ -152,6 +153,8 @@ const SettingsPanel: React.FC = () => {
         <Divider />
 
         <SecuritySection />
+
+        <AdminLink />
 
         <Divider />
 

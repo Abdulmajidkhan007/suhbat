@@ -1,4 +1,4 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,6 +16,8 @@ const row = (overrides = {}) => ({
   bio:          null,
   createdAt:    new Date('2026-10-11T10:00:00.000Z'),
   updatedAt:    new Date('2026-10-11T10:00:00.000Z'),
+  blockedAt:    null,
+  mustChangePassword: false,
   ...overrides,
 });
 
@@ -41,7 +43,7 @@ describe('AuthService', () => {
     expect(await argon2.verify(data.passwordHash, '12345678')).toBe(true);
     expect(res.user).toEqual({
       id: row().id, email: 'ali@test.uz', displayName: 'Ali', username: null, photoUrl: null, bio: null,
-      createdAt: '2026-10-11T10:00:00.000Z',
+      createdAt: '2026-10-11T10:00:00.000Z', isAdmin: false, mustChangePassword: false,
     });
     expect(res.user).not.toHaveProperty('passwordHash');
     expect((await jwt.verifyAsync(res.accessToken)).sub).toBe(row().id);
@@ -70,6 +72,14 @@ describe('AuthService', () => {
       service.register({ email: 'ali@test.uz', password: '12345678', displayName: 'Ali', username: 'ali_valiyev' }),
     ).rejects.toThrow('Bu username band');
     expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it('login: bloklangan hisob — to\'g\'ri parolda 403 (token berilmaydi), noto\'g\'ri parolda baribir 401', async () => {
+    const passwordHash = await argon2.hash('12345678');
+    prisma.user.findUnique.mockResolvedValue(row({ passwordHash, blockedAt: new Date() }));
+    await expect(service.login({ login: 'ali@test.uz', password: '12345678' })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.login({ login: 'ali@test.uz', password: 'noto-gri-parol' })).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(prisma.refreshToken.create).not.toHaveBeenCalled();
   });
 
   it('login: to\'g\'ri parol → token, noto\'g\'ri → 401', async () => {

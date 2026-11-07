@@ -1,4 +1,9 @@
 import {
+  AdminAuditListSchema,
+  AdminBulkDeleteResultSchema,
+  AdminRecoveryCodesResponseSchema,
+  AdminTempPasswordResponseSchema,
+  AdminUserListSchema,
   AuthResponseSchema,
   ChatMemberSchema,
   ChatSummarySchema,
@@ -18,6 +23,9 @@ import {
   UserSchema,
 } from '@suhbat/core';
 import type {
+  AdminAuditList,
+  AdminBulkDeleteResult,
+  AdminUserList,
   RecoveryCodesStatus,
   ChatMember,
   ChatSummary,
@@ -372,6 +380,27 @@ export const createApiClient = (opts: ApiClientOptions) => {
       }
       if (!res.ok) throw new ApiError(res.status, `Faylni yuklab bo'lmadi (HTTP ${res.status})`);
       return { attachmentId: upload.attachmentId };
+    },
+
+    /**
+     * Admin panel (`/admin/*`). Admin bo'lmagan hisobda hammasi 404 qaytadi.
+     * `tempPassword` va `recoveryCodes` natijasi faqat shu javobda keladi — darhol ko'rsatish kerak.
+     */
+    admin: {
+      listUsers: (query: { q?: string; page?: number; pageSize?: number } = {}): Promise<AdminUserList> =>
+        authed('GET', '/admin/users', AdminUserListSchema, { query }),
+      block:          (id: string): Promise<void> => authed('POST', `/admin/users/${id}/block`, null),
+      unblock:        (id: string): Promise<void> => authed('POST', `/admin/users/${id}/unblock`, null),
+      revokeSessions: (id: string): Promise<void> => authed('POST', `/admin/users/${id}/revoke-sessions`, null),
+      tempPassword:   async (id: string): Promise<string> =>
+        (await authed('POST', `/admin/users/${id}/temp-password`, AdminTempPasswordResponseSchema)).temporaryPassword,
+      recoveryCodes:  async (id: string): Promise<string[]> =>
+        (await authed('POST', `/admin/users/${id}/recovery-codes`, AdminRecoveryCodesResponseSchema)).codes,
+      deleteUser:     (id: string): Promise<void> => authed('DELETE', `/admin/users/${id}`, null),
+      bulkDelete:     (ids: string[]): Promise<AdminBulkDeleteResult> =>
+        authed('POST', '/admin/users/bulk-delete', AdminBulkDeleteResultSchema, { body: { ids } }),
+      audit: (query: { page?: number; pageSize?: number } = {}): Promise<AdminAuditList> =>
+        authed('GET', '/admin/audit', AdminAuditListSchema, { query }),
     },
 
     getAccessToken: async (): Promise<string | null> => (await storage.get())?.accessToken ?? null,

@@ -18,6 +18,47 @@ const setup = (handler: (url: string, init: RequestInit) => Response | Promise<R
 };
 const auth = (init: RequestInit) => (init.headers as Record<string, string>).Authorization;
 
+describe('createApiClient: admin', () => {
+  const ID = '6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f';
+  const row = {
+    id: ID, username: null, displayName: 'Ali', email: 'ali@test.uz', createdAt: '2026-10-11T10:00:00.000Z', lastSeenAt: null,
+    hasRecoveryCodes: false, activeSessions: 1, blocked: false, mustChangePassword: false, isAdmin: false,
+  };
+
+  it('listUsers so\'rov parametrlari bilan; vaqtinchalik parol va kodlar javobdan olinadi; bulkDelete body', async () => {
+    const { api, fetch } = setup((url, init) => {
+      if (url.startsWith('http://api/admin/users?')) return json(200, { items: [row], total: 1, page: 2, pageSize: 5 });
+      if (url.endsWith('/temp-password')) return json(200, { temporaryPassword: 'abcd-efgh-jkmn-pqrs' });
+      if (url.endsWith('/recovery-codes')) return json(200, { codes: ['AAAA-BBBB-CCCC'] });
+      if (url.endsWith('/bulk-delete')) return json(200, { deleted: [ID], notFound: [] });
+      return init.method === 'DELETE' || init.method === 'POST' ? new Response(null, { status: 204 }) : json(404);
+    });
+    await expect(api.admin.listUsers({ q: 'ali', page: 2, pageSize: 5 })).resolves.toMatchObject({ total: 1, items: [{ id: ID }] });
+    await expect(api.admin.tempPassword(ID)).resolves.toBe('abcd-efgh-jkmn-pqrs');
+    await expect(api.admin.recoveryCodes(ID)).resolves.toEqual(['AAAA-BBBB-CCCC']);
+    await expect(api.admin.bulkDelete([ID])).resolves.toEqual({ deleted: [ID], notFound: [] });
+    await api.admin.block(ID);
+    await api.admin.deleteUser(ID);
+
+    const calls = fetch.mock.calls.map(([u, i]) => `${i?.method} ${String(u)}`);
+    expect(calls).toEqual([
+      'GET http://api/admin/users?q=ali&page=2&pageSize=5',
+      `POST http://api/admin/users/${ID}/temp-password`,
+      `POST http://api/admin/users/${ID}/recovery-codes`,
+      'POST http://api/admin/users/bulk-delete',
+      `POST http://api/admin/users/${ID}/block`,
+      `DELETE http://api/admin/users/${ID}`,
+    ]);
+    expect(JSON.parse(fetch.mock.calls[3][1]!.body as string)).toEqual({ ids: [ID] });
+    for (const [, init] of fetch.mock.calls) expect(auth(init!)).toBe('Bearer a1');
+  });
+
+  it('admin bo\'lmagan hisobda 404 — ApiError', async () => {
+    const { api } = setup(() => json(404, { message: 'Not Found' }));
+    await expect(api.admin.listUsers()).rejects.toMatchObject({ status: 404 });
+  });
+});
+
 describe('createApiClient', () => {
   it('login tokenlarni saqlaydi va userni qaytaradi', async () => {
     const { api, storage, fetch } = setup(() => json(200, { accessToken: 'A', refreshToken: 'R', user }), null as never);

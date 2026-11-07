@@ -17,6 +17,8 @@ export const toAppUser = (u: PublicUser | User): AppUser => ({
   createdAt:   ms(u.createdAt),
   lastSeen:    ms(u.createdAt),
   isOnline:    false,
+  isAdmin:            'isAdmin' in u ? u.isAdmin === true : undefined,
+  mustChangePassword: 'mustChangePassword' in u ? u.mustChangePassword === true : undefined,
 });
 
 export const toMessage = (m: ApiMessage, chat?: Pick<Chat, 'participantDetails'> | null): Message => {

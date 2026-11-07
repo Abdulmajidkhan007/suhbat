@@ -62,7 +62,8 @@ export const SessionProvider = ({ children, services: injected }: Props) => {
     };
   }, [api]);
 
-  const signedIn = session.status === 'signedIn';
+  // Vaqtinchalik parol almashtirilguncha server socket'ni rad etadi — ulanishga urinmaymiz.
+  const signedIn = session.status === 'signedIn' && !session.user.mustChangePassword;
   // Ochiq UI ulanishni talab qiladi; fon ulanishi (yoqilgan bo'lsa) — o'z talabi bilan.
   useEffect(() => (signedIn ? connection.hold() : undefined), [signedIn, connection]);
   useEffect(() => {
