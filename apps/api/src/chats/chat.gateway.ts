@@ -33,6 +33,8 @@ import type { ZodType } from 'zod';
 import type { JwtPayload } from '../auth/auth.service';
 import { RateLimiter } from '../common/rate-limiter';
 import { runWithAck } from '../common/ws-ack';
+import { ActivityService } from '../activity/activity.service';
+import { socketContext } from '../activity/request-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 import { ChatsService } from './chats.service';
@@ -81,6 +83,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     private readonly push: PushService,
     private readonly holds: ConnectionHoldService,
     private readonly prisma: PrismaService,
+    private readonly activity: ActivityService,
     config: ConfigService,
   ) {
     const positive = (key: string, fallback: number) => {
@@ -170,6 +173,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         p.replyToId,
       );
       this.emitMessageNew(message, memberIds, p.clientId);
+      this.activity.messageSent(socketContext(socket), socket.data.userId, message);
       return message;
     });
   }
@@ -191,6 +195,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     return this.handle(WsDeleteMessageSchema, body, async (p) => {
       const { deletedAt, memberIds } = await this.chats.deleteMessage(p.chatId, socket.data.userId, p.messageId);
       this.emitMessageDeleted(p.chatId, p.messageId, deletedAt, memberIds);
+      this.activity.record({ type: 'message_delete', userId: socket.data.userId, chatId: p.chatId, ...socketContext(socket) });
       return { deletedAt };
     });
   }

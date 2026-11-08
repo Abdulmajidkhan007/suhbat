@@ -58,6 +58,7 @@ export const createFakeServices = (api: Partial<ApiClient> = {}, push: PushPlatf
     createGroup:      jest.fn(async () => { throw new Error('createGroup mock kerak'); }),
     createChannel:    jest.fn(async () => { throw new Error('createChannel mock kerak'); }),
     updateChat:       jest.fn(async () => { throw new Error('updateChat mock kerak'); }),
+    getPrivacyInfo:   jest.fn(async () => ({ retentionDays: 90 })),
     ...api,
   };
 

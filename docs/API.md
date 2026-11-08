@@ -58,6 +58,13 @@ standart 15m); refresh token — body'da, bir martalik (rotatsiya).
 | DELETE| `/admin/users/:id` | 204; o'zini o'chirib bo'lmaydi (400), yo'q id — 404 |
 | POST  | `/admin/users/bulk-delete` | `{ ids: uuid[1..100] }` → `{ deleted, notFound }`. Ro'yxatda o'zi bo'lsa 400 va hech kim o'chmaydi. Har foydalanuvchi alohida tranzaksiyada |
 | GET   | `/admin/audit?page=&pageSize=` | `{ items: [{ id, adminId, adminEmail, action, targetUserId, targetLabel, createdAt }], total, ... }` — yangidan eskiga; foydalanuvchi o'chsa ham yozuv qoladi |
+| GET   | `/privacy` | **Tokensiz.** `{ retentionDays }` — faoliyat jurnali saqlash muddati (Maxfiylik sahifasi uchun) |
+| POST  | `/chats/:id/messages/:mid/report` | `{ reason? ≤200 }` → 204. Chat a'zosi, tirik xabar; o'ziga/tizim xabariga 400. Shu xabar mazmuni adminga ko'rinadi |
+| GET   | `/admin/overview` | **Admin.** `{ usersTotal, activeToday, newUsersToday, mediaBytes24h, mediaBytesTotal }` |
+| GET   | `/admin/activity?userId=&type=&chatKind=&from=&to=&page=&pageSize=` | **Admin.** Faoliyat jurnali — faqat metadata (`meta`: uzunlik/sabab/davomiylik; `media`: tur, MIME, hajm, nom, `previewable`). Xabar matni hech qachon yo'q |
+| GET   | `/admin/media?userId=&kind=&chatKind=&page=` | **Admin.** Yuklanganlar (`media_upload`) + `stats` (jami soni/hajmi, turlar bo'yicha) |
+| GET   | `/admin/media/:attachmentId/preview` | **Admin.** `{ url, name, mime, kind }` — FAQAT ochiq kanal biriktirmasi yoki shikoyat qilingan xabar biriktirmasi; 1:1 va yopiq guruh — **403** |
+| GET   | `/admin/reports?page=&pageSize=` | **Admin.** Shikoyat qilingan xabarlar — adminga xabar MATNI ko'rinadigan yagona joy |
 | GET   | `/calls/ice-servers`   | qo'ng'iroq uchun `{ iceServers, ttlSeconds }` — STUN + (sozlangan bo'lsa) TURN |
 | POST  | `/media/upload-url`    | `{ chatId, kind, name, mime, size, durationMs? }` → `{ attachmentId, uploadUrl, headers }` |
 

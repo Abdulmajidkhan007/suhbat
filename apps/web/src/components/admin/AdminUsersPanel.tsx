@@ -17,6 +17,7 @@ import SearchInput from '../common/SearchInput';
 import { ACTIONS, runAction, who } from './adminActions';
 import type { AdminActionKind } from './adminActions';
 import SecretDialog from './SecretDialog';
+import UserActivityDialog from './UserActivityDialog';
 
 const PAGE_SIZE = 20;
 const MENU_ORDER: AdminActionKind[] = ['tempPassword', 'recoveryCodes', 'revoke', 'block', 'unblock', 'delete'];
@@ -51,6 +52,7 @@ const AdminUsersPanel: React.FC = () => {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [secret, setSecret] = useState<Secret | null>(null);
+  const [history, setHistory] = useState<AdminUser | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -226,6 +228,11 @@ const AdminUsersPanel: React.FC = () => {
       </TableContainer>
 
       <Menu anchorEl={menu?.anchor} open={Boolean(menu)} onClose={() => setMenu(null)}>
+        {menu && (
+          <MenuItem onClick={() => { setHistory(menu.user); setMenu(null); }}>
+            <ListItemText>Faoliyat tarixi</ListItemText>
+          </MenuItem>
+        )}
         {menu && menuFor(menu.user).map((kind) => {
           const spec = ACTIONS[kind];
           const disabled = spec.notSelf && menu.user.id === meId;
@@ -261,6 +268,7 @@ const AdminUsersPanel: React.FC = () => {
         onConfirm={() => void confirmBulk()}
         onClose={() => setBulkOpen(false)}
       />
+      <UserActivityDialog user={history} onClose={() => setHistory(null)} />
       <SecretDialog
         open={secret !== null} title={secret?.title ?? ''} description={secret?.note ?? ''} values={secret?.values ?? []}
         onClose={() => setSecret(null)}

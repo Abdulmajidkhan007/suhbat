@@ -8,6 +8,7 @@ import ResetPasswordPage  from '../pages/ResetPasswordPage';
 import RecoverWithCodePage from '../pages/RecoverWithCodePage';
 import AdminPage    from '../pages/AdminPage';
 import ChatPage     from '../pages/ChatPage';
+import PrivacyPage  from '../pages/PrivacyPage';
 import NotFoundPage from '../pages/NotFoundPage';
 
 const AppRouter: React.FC = () => (
@@ -18,6 +19,7 @@ const AppRouter: React.FC = () => (
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password"  element={<ResetPasswordPage />} />
         <Route path="/recover"         element={<RecoverWithCodePage />} />
+        <Route path="/privacy"  element={<PrivacyPage />} />
         <Route path="/admin"    element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
         <Route path="/"         element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
         <Route path="/:chatId"  element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />

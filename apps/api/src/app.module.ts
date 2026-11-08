@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ActivityModule } from './activity/activity.module';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { CallsModule } from './calls/calls.module';
@@ -17,6 +18,7 @@ import { UsersModule } from './users/users.module';
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRootAsync({ inject: [ConfigService], useFactory: throttleOptions }),
     PrismaModule,
+    ActivityModule,
     MailModule,
     HealthModule,
     AuthModule,

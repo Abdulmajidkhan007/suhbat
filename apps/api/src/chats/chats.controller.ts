@@ -18,6 +18,7 @@ import {
   CreateChannelInputSchema,
   CreateDirectChatInputSchema,
   CreateGroupInputSchema,
+  ReportMessageInputSchema,
   EditMessageInputSchema,
   MessagesQuerySchema,
   PublicChannelsQuerySchema,
@@ -35,11 +36,14 @@ import type {
   MessagesQuery,
   PublicChannelsQuery,
   ReactionState,
+  ReportMessageInput,
   SendMessageInput,
   SetReactionInput,
   UpdateChatInput,
   UpdateMemberRoleInput,
 } from '@suhbat/core';
+import { ActivityService } from '../activity/activity.service';
+import { httpContext } from '../activity/request-context';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthedRequest } from '../auth/jwt-auth.guard';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
@@ -52,6 +56,7 @@ export class ChatsController {
   constructor(
     private readonly chats: ChatsService,
     private readonly gateway: ChatGateway,
+    private readonly activity: ActivityService,
   ) {}
 
   @Get()
@@ -75,7 +80,9 @@ export class ChatsController {
     @Req() req: AuthedRequest,
     @Body(new ZodValidationPipe(CreateDirectChatInputSchema)) body: CreateDirectChatInput,
   ) {
-    const chat = await this.chats.createDirect(req.user.sub, body.userId);
+    // Idempotent: bor chat qayta so'ralsa "yaratildi" deb yozilmaydi.
+    const chat = await this.chats.createDirect(req.user.sub, body.userId, (chatId) =>
+      this.activity.record({ type: 'chat_create', userId: req.user.sub, chatId, ...httpContext(req) }));
     await this.gateway.syncPresence(chat.members.map((m) => m.user.id));
     return chat;
   }
@@ -86,6 +93,7 @@ export class ChatsController {
     @Body(new ZodValidationPipe(CreateGroupInputSchema)) body: CreateGroupInput,
   ) {
     const { chat, added } = await this.chats.createGroup(req.user.sub, body);
+    this.activity.record({ type: 'chat_create', userId: req.user.sub, chatId: chat.id, ...httpContext(req) });
     // Qo'shilganlar chatdan xabar topishi uchun (faqat o'ziga: ular chatni yuklab oladi).
     for (const userId of added) {
       this.gateway.emitMemberChange({
@@ -104,11 +112,13 @@ export class ChatsController {
   }
 
   @Post('channel')
-  createChannel(
+  async createChannel(
     @Req() req: AuthedRequest,
     @Body(new ZodValidationPipe(CreateChannelInputSchema)) body: CreateChannelInput,
   ) {
-    return this.chats.createChannel(req.user.sub, body);
+    const chat = await this.chats.createChannel(req.user.sub, body);
+    this.activity.record({ type: 'channel_create', userId: req.user.sub, chatId: chat.id, ...httpContext(req) });
+    return chat;
   }
 
   @Get(':id')
@@ -139,7 +149,10 @@ export class ChatsController {
   @HttpCode(200)
   async join(@Req() req: AuthedRequest, @Param('id', ParseUUIDPipe) id: string) {
     const { chat, change } = await this.chats.join(id, req.user.sub);
-    if (change) this.gateway.emitMemberChange(change);
+    if (change) {
+      this.gateway.emitMemberChange(change);
+      this.activity.record({ type: 'group_join', userId: req.user.sub, chatId: id, ...httpContext(req) });
+    }
     return chat;
   }
 
@@ -147,6 +160,7 @@ export class ChatsController {
   @HttpCode(204)
   async leave(@Req() req: AuthedRequest, @Param('id', ParseUUIDPipe) id: string) {
     this.gateway.emitMemberChange(await this.chats.leave(id, req.user.sub));
+    this.activity.record({ type: 'group_leave', userId: req.user.sub, chatId: id, ...httpContext(req) });
   }
 
   @Post(':id/members')
@@ -207,6 +221,7 @@ export class ChatsController {
   ) {
     const { message, memberIds } = await this.chats.sendMessage(id, req.user.sub, body.content, body.attachmentId, body.replyToId);
     this.gateway.emitMessageNew(message, memberIds, body.clientId);
+    this.activity.messageSent(httpContext(req), req.user.sub, message);
     return message;
   }
 
@@ -230,7 +245,21 @@ export class ChatsController {
   ) {
     const { deletedAt, memberIds } = await this.chats.deleteMessage(id, req.user.sub, messageId);
     this.gateway.emitMessageDeleted(id, messageId, deletedAt, memberIds);
+    this.activity.record({ type: 'message_delete', userId: req.user.sub, chatId: id, ...httpContext(req) });
     return { deletedAt };
+  }
+
+  /** Shikoyat: shu xabarning mazmuni (va biriktirmasi) adminga ko'rinadi; boshqa xabarlar — yo'q. */
+  @Post(':id/messages/:messageId/report')
+  @HttpCode(204)
+  async reportMessage(
+    @Req() req: AuthedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('messageId', ParseUUIDPipe) messageId: string,
+    @Body(new ZodValidationPipe(ReportMessageInputSchema)) body: ReportMessageInput,
+  ) {
+    await this.chats.reportMessage(id, req.user.sub, messageId, body.reason);
+    this.activity.record({ type: 'report', userId: req.user.sub, chatId: id, ...httpContext(req) });
   }
 
   /** Reaksiya qo'yish/almashtirish; `{ emoji: null }` — olib tashlash. Idempotent. */
