@@ -10,6 +10,9 @@ export const setSessionExpiredHandler = (fn: () => void) => {
   sessionExpired = fn;
 };
 
+// Eski versiyada refresh token shu yerda edi — XSS xavfi; qolib ketmasin.
+try { window.localStorage.removeItem('suhbat.tokens'); } catch { /* maxfiy rejim */ }
+
 export const api = createApiClient({
   baseUrl:          API_URL,
   // Electron'da — OS xavfsiz saqlash (preload ko'prigi). Brauzerda — access token faqat xotirada,
