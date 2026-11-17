@@ -146,7 +146,8 @@ jobs:
           docker run -d --name api --network host \
             -e PORT=4100 \
             -e DATABASE_URL=postgresql://suhbat:suhbat@127.0.0.1:5432/suhbat \
-            -e JWT_SECRET=ci-only-not-a-secret \
+            -e JWT_SECRET=ci-only-not-a-secret-ci-only-not-a-secret \
+            -e CORS_ORIGIN=http://localhost:3000 \
             suhbat-api:ci
           for i in $(seq 1 60); do
             if curl -sf http://127.0.0.1:4100/health | grep -q '"db":"up"'; then
@@ -167,7 +168,8 @@ jobs:
             -e PORT=4101 \
             -e RAILWAY_VOLUME_MOUNT_PATH=/data \
             -e DATABASE_URL=postgresql://suhbat:suhbat@127.0.0.1:5432/suhbat \
-            -e JWT_SECRET=ci-only-not-a-secret \
+            -e JWT_SECRET=ci-only-not-a-secret-ci-only-not-a-secret \
+            -e CORS_ORIGIN=http://localhost:3000 \
             suhbat-api:ci
           for i in $(seq 1 60); do
             if curl -sf http://127.0.0.1:4101/health | grep -q '"db":"up"'; then break; fi
