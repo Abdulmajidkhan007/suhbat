@@ -303,3 +303,41 @@ describe('webRefreshLock', () => {
     }
   });
 });
+
+describe('createApiClient: cookieSession (veb)', () => {
+  const pair = { accessToken: 'a2', refreshToken: '' };
+  const mk = (handler: (url: string, init: RequestInit) => Response) => {
+    const storage = memoryTokenStorage();
+    const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => handler(String(url), init ?? {}));
+    const onSessionExpired = vi.fn();
+    const api = createApiClient({
+      baseUrl: 'http://api', storage, fetch: fetch as typeof globalThis.fetch, onSessionExpired, cookieSession: true,
+    });
+    return { api, storage, fetch, onSessionExpired };
+  };
+
+  it('credentials: include + X-Suhbat-Cookie; refresh tanasi bo\'sh (token cookie\'da)', async () => {
+    const { api, fetch, storage } = mk(() => json(200, pair));
+    expect(await api.hasSession()).toBe(true); // xotira bo'sh → cookie orqali jim refresh
+    const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('http://api/auth/refresh');
+    expect(init.credentials).toBe('include');
+    expect((init.headers as Record<string, string>)['X-Suhbat-Cookie']).toBe('1');
+    expect(init.body).toBe('{}');
+    expect((await storage.get())?.accessToken).toBe('a2');
+  });
+
+  it('cookie yo\'q (401) → hasSession false, onSessionExpired chaqirilmaydi', async () => {
+    const { api, onSessionExpired } = mk(() => json(401, { message: 'x' }));
+    expect(await api.hasSession()).toBe(false);
+    expect(onSessionExpired).not.toHaveBeenCalled();
+  });
+
+  it('logout tanasida refreshToken yo\'q', async () => {
+    const { api, fetch, storage } = mk(() => new Response(null, { status: 204 }));
+    await storage.set(pair);
+    await api.logout();
+    expect((fetch.mock.calls[0] as [string, RequestInit])[1].body).toBe('{}');
+    expect(await storage.get()).toBeNull();
+  });
+});
