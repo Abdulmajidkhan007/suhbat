@@ -1,0 +1,40 @@
+{
+  "firebase zanjiri: mobil @react-native-firebase/app -> firebase -> @firebase/firestore -> @grpc/grpc-js ~1.9.0; tuzatish yoq (--force 20.1.0 ga tushiradi, overrides firestore talabini buzadi)": [
+    "@firebase/firestore",
+    "@firebase/firestore-compat",
+    "@grpc/grpc-js",
+    "@react-native-firebase/app",
+    "@react-native-firebase/messaging",
+    "firebase"
+  ],
+  "react-native asboblar zanjiri (picomatch ReDoS, 2026-11-17 e`lon; metro/CLI faqat build vaqtida, serverga/vebga kirmaydi); tuzatish — react-native major yangilash": [
+    "@react-native-community/cli",
+    "@react-native-community/cli-clean",
+    "@react-native-community/cli-config",
+    "@react-native-community/cli-config-android",
+    "@react-native-community/cli-config-apple",
+    "@react-native-community/cli-doctor",
+    "@react-native-community/cli-platform-android",
+    "@react-native-community/cli-platform-apple",
+    "@react-native-community/cli-platform-ios",
+    "@react-native/babel-plugin-codegen",
+    "@react-native/babel-preset",
+    "@react-native/codegen",
+    "@react-native/community-cli-plugin",
+    "@react-native/metro-babel-transformer",
+    "@react-native/metro-config",
+    "@react-native/virtualized-lists",
+    "fast-glob",
+    "fdir",
+    "jest-util",
+    "jest-worker",
+    "metro",
+    "metro-config",
+    "metro-file-map",
+    "metro-transform-worker",
+    "micromatch",
+    "picomatch",
+    "react-native",
+    "tinyglobby"
+  ]
+}

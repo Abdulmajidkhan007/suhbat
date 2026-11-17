@@ -40,19 +40,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Qolgan high'lar — faqat quyidagi firebase zanjiri (mobil @react-native-firebase/app → firebase →
-      # @firebase/firestore → @grpc/grpc-js ~1.9.0, tuzatish yo'q: --force eski 20.1.0 ga tushiradi).
-      # Boshqa har qanday high CI'ni yiqitadi. Ro'yxatni docs/REJA.md (S-3) da yuritamiz.
+      # Istisnolar va sabablari: scripts/audit-allowlist.json. Ro'yxatdan tashqari high/critical CI'ni yiqitadi.
       - name: npm audit (production, high)
-        run: |
-          allowed='@firebase/firestore @firebase/firestore-compat @grpc/grpc-js @react-native-firebase/app @react-native-firebase/messaging firebase'
-          npm audit --omit=dev --json | node -e '
-            const ok = new Set(process.argv[1].split(" "));
-            const a = JSON.parse(require("fs").readFileSync(0));
-            const bad = Object.entries(a.vulnerabilities).filter(([n, v]) => ["high", "critical"].includes(v.severity) && !ok.has(n)).map(([n]) => n);
-            if (bad.length) { console.error("::error::Istisnosiz high/critical: " + bad.join(", ")); process.exit(1); }
-            console.log("audit: istisnodan tashqari high yo'q");
-          ' "$allowed"
+        run: npm audit --omit=dev --json | node scripts/audit-check.mjs
       - run: npx turbo run lint typecheck test build
       # release.yml dagi SUHBAT_API_URL tekshiruvi: to'g'ri qiymat o'tadi, sxemasizi yiqiladi.
       - name: API URL tekshiruv skripti
