@@ -10,7 +10,8 @@ async function bootstrap() {
   // Caddy/nginx ortida haqiqiy mijoz IP'si (rate limit uchun): TRUST_PROXY=<proksi soni>.
   const hops = Number(process.env.TRUST_PROXY);
   if (Number.isInteger(hops) && hops > 0) app.set('trust proxy', hops);
-  app.enableCors({ origin: origins });
+  // credentials: veb refresh cookie'si uchun; faqat aniq ro'yxat bilan (dev'da `true` — cookie ishlamaydi).
+  app.enableCors({ origin: origins, credentials: origins !== true });
   app.useWebSocketAdapter(new SocketIoAdapter(app, origins));
   app.enableShutdownHooks();
   const port = Number(process.env.PORT ?? 4000);

@@ -1,5 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpException, Ip, Logger, Post, Req, UseGuards } from '@nestjs/common';
-import type { Request } from 'express';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpException, Ip, Logger, Post, Req, Res, UseGuards } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import {
   ChangePasswordInputSchema, ForgotPasswordInputSchema, LoginInputSchema, LogoutInputSchema, RecoverInputSchema, RefreshInputSchema,
   RegenerateRecoveryCodesInputSchema, RegisterInputSchema, ResetPasswordInputSchema,
@@ -15,6 +15,7 @@ import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AuthService } from './auth.service';
 import { AllowPendingPassword, JwtAuthGuard } from './jwt-auth.guard';
 import type { AuthedRequest } from './jwt-auth.guard';
+import { bindRefreshCookie, clearRefreshCookie, isCookieMode, readRefreshCookie } from './refresh-cookie';
 import { PasswordResetService } from './password-reset.service';
 import { RecoveryCodesService } from './recovery-codes.service';
 
@@ -40,25 +41,33 @@ export class AuthController {
    */
   @AuthThrottle()
   @Post('register')
-  async register(@Body(new ZodValidationPipe(RegisterInputSchema)) body: RegisterInput, @Req() req: Request): Promise<AuthResponse> {
-    const res = await this.auth.register(body);
-    this.activity.record({ type: 'register', userId: res.user.id, ...httpContext(req) });
-    const recoveryCodes = await this.recovery.generate(res.user.id).catch((e: unknown) => {
-      this.logger.error(`tiklash kodlari yaratilmadi (${res.user.id}): ${e instanceof Error ? e.message : String(e)}`);
+  async register(
+    @Body(new ZodValidationPipe(RegisterInputSchema)) body: RegisterInput,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponse> {
+    const created = await this.auth.register(body);
+    this.activity.record({ type: 'register', userId: created.user.id, ...httpContext(req) });
+    const recoveryCodes = await this.recovery.generate(created.user.id).catch((e: unknown) => {
+      this.logger.error(`tiklash kodlari yaratilmadi (${created.user.id}): ${e instanceof Error ? e.message : String(e)}`);
       return [];
     });
-    return { ...res, recoveryCodes };
+    return bindRefreshCookie(req, res, { ...created, recoveryCodes });
   }
 
   @AuthThrottle()
   @Post('login')
   @HttpCode(200)
-  async login(@Body(new ZodValidationPipe(LoginInputSchema)) body: LoginInput, @Req() req: Request) {
+  async login(
+    @Body(new ZodValidationPipe(LoginInputSchema)) body: LoginInput,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const ctx = httpContext(req);
     try {
-      const res = await this.auth.login(body);
-      this.activity.record({ type: 'login', userId: res.user.id, ...ctx });
-      return res;
+      const out = await this.auth.login(body);
+      this.activity.record({ type: 'login', userId: out.user.id, ...ctx });
+      return bindRefreshCookie(req, res, out);
     } catch (e) {
       const status = e instanceof HttpException ? e.getStatus() : 0;
       if (status === 401 || status === 403) {
@@ -74,8 +83,20 @@ export class AuthController {
   @AuthThrottle()
   @Post('refresh')
   @HttpCode(200)
-  refresh(@Body(new ZodValidationPipe(RefreshInputSchema)) body: RefreshInput) {
-    return this.auth.refresh(body.refreshToken);
+  async refresh(
+    @Body(new ZodValidationPipe(RefreshInputSchema.partial())) body: Partial<RefreshInput>,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    // Cookie rejimida token faqat cookie'dan olinadi (tanadagisi e'tiborsiz).
+    const token = isCookieMode(req) ? readRefreshCookie(req) : body.refreshToken;
+    if (!token) throw new BadRequestException('refreshToken kerak');
+    try {
+      return bindRefreshCookie(req, res, await this.auth.refresh(token));
+    } catch (e) {
+      if (isCookieMode(req)) clearRefreshCookie(res);
+      throw e;
+    }
   }
 
   @AuthThrottle()
@@ -131,16 +152,25 @@ export class AuthController {
   async changePassword(
     @Req() req: AuthedRequest,
     @Body(new ZodValidationPipe(ChangePasswordInputSchema)) body: ChangePasswordInput,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponse> {
-    const res = await this.auth.changePassword(req.user.sub, body);
+    const out = await this.auth.changePassword(req.user.sub, body);
     this.activity.record({ type: 'password_change', userId: req.user.sub, ...httpContext(req) });
-    return res;
+    return bindRefreshCookie(req, res, out);
   }
 
   @Post('logout')
   @HttpCode(204)
-  async logout(@Body(new ZodValidationPipe(LogoutInputSchema)) body: LogoutInput, @Req() req: Request) {
-    const userId = await this.auth.logout(body.refreshToken, body.deviceToken);
+  async logout(
+    @Body(new ZodValidationPipe(LogoutInputSchema.partial({ refreshToken: true }))) body: Partial<LogoutInput>,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const cookieMode = isCookieMode(req);
+    const token = cookieMode ? readRefreshCookie(req) : body.refreshToken;
+    if (cookieMode) clearRefreshCookie(res);
+    if (!token) return;
+    const userId = await this.auth.logout(token, body.deviceToken);
     if (userId) this.activity.record({ type: 'logout', userId, ...httpContext(req) });
   }
 

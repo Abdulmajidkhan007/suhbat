@@ -96,6 +96,11 @@ export interface ApiClientOptions {
    * qilinmaydi. Bitta JS kontekstli muhitda (mobil) shart emas.
    */
   lock?: <T>(fn: () => Promise<T>) => Promise<T>;
+  /**
+   * Veb: refresh token `httpOnly` cookie'da, JS uni ko'rmaydi; `storage` faqat xotirada
+   * (`memoryTokenStorage`) bo'lishi kerak. Electron/mobil — o'chiq (token tanada, avvalgidek).
+   */
+  cookieSession?: boolean;
 }
 
 type Query = Record<string, string | number | undefined>;
@@ -131,12 +136,14 @@ export type ApiClient = ReturnType<typeof createApiClient>;
 export const createApiClient = (opts: ApiClientOptions) => {
   const doFetch = opts.fetch ?? globalThis.fetch.bind(globalThis);
   const { storage } = opts;
+  const cookieSession = opts.cookieSession === true;
   let refreshing: Promise<TokenPair | null> | null = null;
 
   async function request<T>(method: string, path: string, schema: ZodType<T> | null, init: RequestInit_ = {}): Promise<T> {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (init.body !== undefined) headers['Content-Type'] = 'application/json';
     if (init.token) headers.Authorization = `Bearer ${init.token}`;
+    if (opts.cookieSession) headers['X-Suhbat-Cookie'] = '1';
 
     let res: Response;
     try {
@@ -144,6 +151,7 @@ export const createApiClient = (opts: ApiClientOptions) => {
         method,
         headers,
         body: init.body === undefined ? undefined : JSON.stringify(init.body),
+        ...(opts.cookieSession ? { credentials: 'include' as const } : {}),
       });
     } catch (e) {
       throw new ApiError(0, 'Tarmoq xatosi. Internetni tekshiring.', e);
@@ -167,21 +175,22 @@ export const createApiClient = (opts: ApiClientOptions) => {
    * qayta refresh qilinmaydi (aks holda server token qayta ishlatildi deb
    * butun sessiyani yopadi).
    */
-  function refreshTokens(usedAccessToken?: string): Promise<TokenPair | null> {
+  function refreshTokens(usedAccessToken?: string, silent = false): Promise<TokenPair | null> {
     const run = async (): Promise<TokenPair | null> => {
       const current = await storage.get();
-      if (!current) return null;
-      if (usedAccessToken && current.accessToken !== usedAccessToken) return current;
+      // Cookie rejimida xotira bo'sh bo'lishi mumkin (sahifa qayta yuklangan) — cookie baribir bor.
+      if (!current && !opts.cookieSession) return null;
+      if (current && usedAccessToken && current.accessToken !== usedAccessToken) return current;
       try {
         const pair = await request('POST', '/auth/refresh', TokenPairSchema, {
-          body: { refreshToken: current.refreshToken },
+          body: opts.cookieSession ? {} : { refreshToken: current?.refreshToken },
         });
         await storage.set(pair);
         return pair;
       } catch (e) {
         if (e instanceof ApiError && (e.status === 401 || e.status === 400)) {
           await storage.clear();
-          opts.onSessionExpired?.();
+          if (!silent) opts.onSessionExpired?.();
           return null;
         }
         throw e;
@@ -265,8 +274,11 @@ export const createApiClient = (opts: ApiClientOptions) => {
     async logout(opts: { deviceToken?: string } = {}): Promise<void> {
       const tokens = await storage.get();
       await storage.clear();
-      if (!tokens) return;
-      const body = { refreshToken: tokens.refreshToken, ...(opts.deviceToken ? { deviceToken: opts.deviceToken } : {}) };
+      if (!tokens && !cookieSession) return;
+      const body = {
+        ...(cookieSession ? {} : { refreshToken: tokens?.refreshToken }),
+        ...(opts.deviceToken ? { deviceToken: opts.deviceToken } : {}),
+      };
       await request('POST', '/auth/logout', null, { body }).catch(() => undefined);
     },
 
@@ -440,6 +452,10 @@ export const createApiClient = (opts: ApiClientOptions) => {
     /** WebSocket uchun: access tokenni yangilaydi; sessiya tugagan bo'lsa null. */
     refreshAccessToken: async (): Promise<string | null> => (await refreshTokens())?.accessToken ?? null,
 
-    hasSession: async (): Promise<boolean> => (await storage.get()) !== null,
+    hasSession: async (): Promise<boolean> => {
+      if ((await storage.get()) !== null) return true;
+      // Cookie rejimi: sahifa yangilangandan keyin sessiyani cookie orqali tiklaymiz (jim).
+      return opts.cookieSession ? (await refreshTokens(undefined, true)) !== null : false;
+    },
   };
 };

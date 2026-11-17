@@ -992,3 +992,11 @@ packages/
 6. **Profil avatari** (S3 sozlangach), veb code-splitting.
 
 Boshqa ixtiyoriy: egalikni o'tkazish, kanal ban ro'yxati.
+
+### Xavfsizlik auditi tuzatishlari (2026-11-10 audit, 2026-11-17)
+- **S-1** ✅ PR #35 — production'da `CORS_ORIGIN` majburiy, `helmet`, `JWT_SECRET` ≥ 32 (zod).
+- **S-3** ✅ PR #36 — `npm audit fix`; qolgan 6 high — firebase zanjiri (`@grpc/grpc-js ~1.9`), CI'da istisno ro'yxati.
+- **S-4** ⏳ PR'da — veb refresh token `httpOnly; SameSite=Strict` cookie (`/auth`), access token xotirada.
+  `X-Suhbat-Cookie: 1` sarlavhasi cookie rejimini yoqadi; Electron/mobil tanada (o'zgarmagan).
+  Veb va API bir saytda bo'lishi shart (cross-site deploy'da Strict cookie ketmaydi).
+- **S-2** ❌ boshlanmagan — Redis (presence, call-registry, limiter, socket.io adapter).
